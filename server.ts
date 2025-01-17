@@ -5,6 +5,7 @@ require('dotenv').config(); // For environment variables
 
 //Routers
 import userRouter from './routes/User.router';
+import teacherRouter from './routes/Teacher.router';
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.get('/', (req: Request, res: Response) => {
 
 //Routes
 app.use('/user', userRouter);
+app.use('/teacher', teacherRouter);
 
 
 app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -42,7 +44,7 @@ app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction)
     if (err?.original?.message) {
         message = err?.original?.message
     }
-    if(err?.errors?.[0]?.message){
+    if (err?.errors?.[0]?.message) {
         message = err?.errors?.[0]?.message;
         statusCode = 400;
     }

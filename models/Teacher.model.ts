@@ -24,6 +24,11 @@ const Teacher = sequelize.define('Teacher', {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    phone:{
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+    }
 }, { timestamps: true });
 
 export default Teacher;
