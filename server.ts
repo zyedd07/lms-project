@@ -4,7 +4,7 @@ import { sequelize } from './models';
 require('dotenv').config(); // For environment variables
 
 //Routers
-
+import userRouter from './routes/User.router';
 
 const app = express();
 
@@ -30,11 +30,22 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 //Routes
+app.use('/user', userRouter);
 
 
 app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const statusCode = err.statusCode || 500;
-    const message = err.message || 'Internal Server Error';
+    let statusCode = err.statusCode || 500;
+    let message = err.message || 'Internal Server Error';
+    if (err?.name === "SequelizeDatabaseError") {
+        statusCode = 400;
+    }
+    if (err?.original?.message) {
+        message = err?.original?.message
+    }
+    if(err?.errors?.[0]?.message){
+        message = err?.errors?.[0]?.message;
+        statusCode = 400;
+    }
 
     res.status(statusCode).json({
         success: false,
