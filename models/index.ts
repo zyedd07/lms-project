@@ -8,12 +8,18 @@ const { db } = config[env];
 export const sequelize = new Sequelize(db.database as string, db.username as string, db.password, {
     host: db.host,
     dialect: 'postgres',
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false, // Allow self-signed certs (if any)
+        },
+    },
     port: db.port ?? 5432,
     pool: {
-        max: 10, // Maximum number of connections in the pool
-        min: 0, // Minimum number of connections in the pool
-        acquire: 50000, // Maximum time (ms) Sequelize will try to get a connection before throwing an error
-        idle: 10000, // Maximum time (ms) a connection can be idle before being released
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
     },
     logging: process.env.logging == "true" || false, // Disable logging in production
     retry: {
