@@ -6,6 +6,9 @@ require('dotenv').config(); // For environment variables
 //Routers
 import userRouter from './routes/User.router';
 import teacherRouter from './routes/Teacher.router';
+import categoryRouter from './routes/Category.router';
+import adminRouter from './routes/Admin.router';
+import courseRouter from './routes/Course.router';
 
 const app = express();
 
@@ -33,6 +36,9 @@ app.get('/', (req: Request, res: Response) => {
 //Routes
 app.use('/user', userRouter);
 app.use('/teacher', teacherRouter);
+app.use('/categories', categoryRouter);
+app.use('/admin', adminRouter);
+app.use('/course', courseRouter);
 
 
 app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction) => {

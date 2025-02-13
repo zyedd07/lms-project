@@ -17,12 +17,42 @@ const Course = sequelize.define('Course', {
     },
     price: {
         type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+    },
+    demoVideoUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    imageUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    categoryId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: 'Categories',
+            key: 'id',
+        },
+    },
+    courseType: {
+        type: DataTypes.ENUM('live', 'recorded'),
         allowNull: false,
     },
-    duration: {
-        type: DataTypes.INTEGER, // Duration in hours
-        allowNull: false,
-    },
-}, { timestamps: true });
+    active: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    }
+
+
+}, {
+    timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ["name", "categoryId"],
+        },
+    ],
+});
 
 export default Course;

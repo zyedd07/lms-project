@@ -1,11 +1,10 @@
-import Batch from "../Batch.model";
+import Categories from "../Categories.model";
 import Course from "../Course.model";
-import CourseDemoVideo from "../CourseDemoVideos.model";
 import CourseLiveLecture from "../CourseLiveLecture.model";
 import CourseTeacher from "../CourseTeacher.model";
 import CourseTestSeries from "../CourseTestSeries.model";
-import DemoVideo from "../DemoVideos.model";
 import Enrollment from "../Enrollment.model";
+import Lecture from "../Lecture.model";
 import LiveLecture from "../LiveLecture.model";
 import Payment from "../Payment.model";
 import Teacher from "../Teacher.model";
@@ -19,9 +18,6 @@ const initAssociation = () => {
 
     Course.hasMany(Enrollment, { foreignKey: 'courseId' });
     Enrollment.belongsTo(Course, { foreignKey: 'courseId' });
-
-    Course.hasMany(Batch, { foreignKey: 'courseId' });
-    Batch.belongsTo(Course, { foreignKey: 'courseId' });
 
     User.hasMany(Payment, { foreignKey: 'userId' });
     Payment.belongsTo(User, { foreignKey: 'userId' });
@@ -37,15 +33,15 @@ const initAssociation = () => {
     Course.belongsToMany(TestSeries, { through: CourseTestSeries, foreignKey: 'courseId' });
     TestSeries.belongsToMany(Course, { through: CourseTestSeries, foreignKey: 'testSeriesId' });
 
-    // Course and DemoVideo relationship
-    Course.belongsToMany(DemoVideo, { through: CourseDemoVideo, foreignKey: 'courseId' });
-    DemoVideo.belongsToMany(Course, { through: CourseDemoVideo, foreignKey: 'demoVideoId' });
-
     // Course and Teacher relationship
-    Course.belongsToMany(Teacher, { through: CourseTeacher, foreignKey: 'courseId' });
-    Teacher.belongsToMany(Course, { through: CourseTeacher, foreignKey: 'teacherId' });
+    Course.belongsToMany(Teacher, { through: CourseTeacher, foreignKey: 'courseId', as: 'teachers' });
+    Teacher.belongsToMany(Course, { through: CourseTeacher, foreignKey: 'teacherId', as: 'courses' });
 
+    Course.belongsTo(Categories, { foreignKey: 'categoryId', as: 'category' });
+    Categories.hasMany(Course, { foreignKey: 'categoryId', as: 'courses' });
 
+    Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+    Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
 
 }
 

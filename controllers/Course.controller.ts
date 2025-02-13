@@ -1,0 +1,97 @@
+import { NextFunction, Request, Response } from "express";
+import { AuthenticatedRequest } from "../middleware/auth";
+import HttpError from "../utils/httpError";
+import { courseTeacherService, createCourseService, deleteCourseService, getAllCoursesService, updateCourseService } from "../services/Course.service";
+import { Role } from "../utils/constants";
+import { isTeacherAssignedService } from "../services/Teacher.service";
+
+export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
+        }
+        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, } = req.body;
+        if (!name || !categoryId || !courseType) {
+            throw new HttpError('Please provide name, categoryId, and courseType', 400);
+        }
+        const newCourse = await createCourseService({ name, description, imageUrl, demoVideoUrl, categoryId, price, courseType });
+        res.status(201).json(newCourse);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const getCoursesController = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { categoryId, id } = req.query;
+        const courses = await getAllCoursesService({ categoryId: categoryId as string, id: id as string });
+        res.status(200).json({
+            success: true,
+            data: courses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, active } = req.body;
+        const { id } = req.params;
+        const role = req.user?.role;
+        if (role !== Role.ADMIN || await isTeacherAssignedService(req.user.id, id)) {
+            throw new HttpError('Unauthorized', 403);
+        }
+        if (!id) {
+            throw new HttpError('Course ID is required', 400);
+        }
+        const updatedCourse = await updateCourseService(id, { name, description, imageUrl, categoryId, price, courseType, demoVideoUrl, active });
+        res.status(200).json({
+            success: true,
+            ...updatedCourse
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const deleteCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
+        }
+        const { id } = req.params;
+        if (!id) {
+            throw new HttpError('Course ID is required', 400);
+        }
+        const response = await deleteCourseService(id);
+        res.status(200).json({
+            success: true,
+            ...response
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const courseTeacherController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
+        }
+        const { courseId, teacherId, operation } = req.body;
+        if (!courseId || !teacherId || !operation) {
+            throw new HttpError('Please provide courseId, teacherId, and operation', 400);
+        }
+        const response = await courseTeacherService(courseId, teacherId, operation);
+        res.status(200).json({
+            success: true,
+            ...response
+        });
+    } catch (error) {
+        next(error);
+    }
+}

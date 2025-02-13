@@ -1,13 +1,17 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
 
-const DemoVideo = sequelize.define('DemoVideo', {
+const Lecture = sequelize.define('Lecture', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    title: {
+    sequenceNumber: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -17,8 +21,17 @@ const DemoVideo = sequelize.define('DemoVideo', {
     },
     videoUrl: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
     },
+    courseId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: 'Courses',
+            key: 'id',
+        },
+    }
+
 }, { timestamps: true });
 
-export default DemoVideo;
+export default Lecture;

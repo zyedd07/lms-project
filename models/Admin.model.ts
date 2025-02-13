@@ -1,24 +1,25 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
 
-const Batch = sequelize.define('Batch', {
+const Admin = sequelize.define('Admin', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    courseId: {
-        type: DataTypes.UUID,
+    name: {
+        type: DataTypes.STRING,
         allowNull: false,
     },
-    startDate: {
-        type: DataTypes.DATE,
+    email: {
+        type: DataTypes.STRING,
         allowNull: false,
+        unique: true,
     },
-    endDate: {
-        type: DataTypes.DATE,
-        allowNull: true,
-    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    }
 }, { timestamps: true });
 
-export default Batch;
+export default Admin;

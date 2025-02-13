@@ -1,13 +1,14 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
 
-const TestSeries = sequelize.define('TestSeries', {
+const Categories = sequelize.define('Categories', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
+        unique: true
     },
-    title: {
+    name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -15,6 +16,10 @@ const TestSeries = sequelize.define('TestSeries', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
+    imageUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
 }, { timestamps: true });
 
-export default TestSeries;
+export default Categories;
