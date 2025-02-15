@@ -9,17 +9,20 @@ import teacherRouter from './routes/Teacher.router';
 import categoryRouter from './routes/Category.router';
 import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
+import testSeriesRouter from './routes/TestSeries.router'
+import  questionRouter from './routes/Question.router'
+import optionRouter from './routes/Option.router'
 
 const app = express();
 
-// Built-in body parser for JSON
+
 app.use(express.json());
 
-// Built-in body parser for URL-encoded data
+
 app.use(express.urlencoded({ extended: true }));
 const corsOptions = {
     origin: ['*'],
-    optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+    optionsSuccessStatus: 200 
 };
 
 app.use(cors(corsOptions));
@@ -39,6 +42,10 @@ app.use('/teacher', teacherRouter);
 app.use('/categories', categoryRouter);
 app.use('/admin', adminRouter);
 app.use('/course', courseRouter);
+app.use('/testseries', testSeriesRouter);
+app.use('/question' , questionRouter)
+app.use('/option' , optionRouter)
+
 
 
 app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -71,7 +78,7 @@ const PORT = process.env.PORT
 app.listen(PORT, async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        await sequelize.sync({ alter: false });
+        await sequelize.sync({ alter: true });
         return console.log(`Database Connected`);
     } catch (err) {
         console.log(err)

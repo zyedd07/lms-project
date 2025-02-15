@@ -7,7 +7,7 @@ const TestSeries = sequelize.define('TestSeries', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    title: {
+    name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -15,6 +15,19 @@ const TestSeries = sequelize.define('TestSeries', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
-}, { timestamps: true });
+    createdBy: {
+        type: DataTypes.UUID, 
+        allowNull: false,
+    },
+}, {
+    timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ["name", "createdBy"],
+        },
+    ],
+});
 
 export default TestSeries;
+

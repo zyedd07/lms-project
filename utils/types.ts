@@ -55,6 +55,36 @@ export type CreateCourseServiceParams = {
     courseType: string;
 }
 
+export interface CreateTestSeriesServiceParams {
+    name: string;
+    description?: string;
+    createdBy: string;
+}
+
+export interface UpdateTestSeriesServiceParams {
+    name?: string;
+    description?: string;
+}
+export interface CreateQuestionServiceParams {
+    testSeriesId: string;
+    text: string;
+  }
+  
+  export interface UpdateQuestionServiceParams {
+    text?: string;
+  }
+  
+  export interface CreateOptionServiceParams {
+    questionId: string;
+    text: string;
+    isCorrect: boolean;
+  }
+  
+  export interface UpdateOptionServiceParams {
+    text?: string;
+    isCorrect?: boolean;
+  }
+
 export type UpdateCourseServiceParams = {
     name?: string;
     description?: string;
