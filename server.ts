@@ -12,6 +12,7 @@ import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router'
 import  questionRouter from './routes/Question.router'
 import optionRouter from './routes/Option.router'
+import testRouter from "./routes/Test.router"
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/course', courseRouter);
 app.use('/testseries', testSeriesRouter);
 app.use('/question' , questionRouter)
 app.use('/option' , optionRouter)
+app.use('/test', testRouter)
 
 
 

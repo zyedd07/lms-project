@@ -8,13 +8,15 @@ const Question = sequelize.define('Question', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    testSeriesId: {
+    testId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true, 
         references: {
-            model: 'TestSeries', 
+            model: 'Tests',
             key: 'id',
         },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
     },
     text: {  
         type: DataTypes.TEXT,

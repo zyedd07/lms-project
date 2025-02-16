@@ -3,6 +3,10 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import HttpError from "../utils/httpError";
 import { createTestSeriesService, getAllTestSeriesService, updateTestSeriesService, deleteTestSeriesService } from "../services/TestSeries.service";
 import { Role } from "../utils/constants";
+import Question from "../models/Question.model";
+import Test from "../models/Test.model";
+import TestSeries from "../models/TestSeries.model";
+import TestOption from "../models/Option.model"
 
 
 export const createTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -26,6 +30,27 @@ export const createTestSeriesController = async (req: AuthenticatedRequest, res:
     }
 };
 
+export const getFullTestSeriesController = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const testSeriesData = await TestSeries.findAll({
+        include: [{
+          model: Test,
+          as: 'tests',
+          include: [{
+            model: Question,
+            as: 'questions',
+            include: [{
+              model: TestOption,
+              as: 'options'
+            }]
+          }]
+        }]
+      });
+      res.status(200).json({ success: true, data: testSeriesData });
+    } catch (error) {
+      next(new HttpError("Error fetching full test series data", 500));
+    }
+  };
 
 export const getTestSeriesController = async (req: Request, res: Response, next: NextFunction) => {
     try {

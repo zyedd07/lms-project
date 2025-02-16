@@ -10,6 +10,9 @@ import Payment from "../Payment.model";
 import Teacher from "../Teacher.model";
 import TestSeries from "../TestSeries.model";
 import User from "../User.model";
+import Test from "../Test.model";
+import Question from "../Question.model";
+import TestOption from "../Option.model"; 
 
 const initAssociation = () => {
     // Relationships
@@ -40,9 +43,20 @@ const initAssociation = () => {
     Course.belongsTo(Categories, { foreignKey: 'categoryId', as: 'category' });
     Categories.hasMany(Course, { foreignKey: 'categoryId', as: 'courses' });
 
+    // TestSeries and Test
+    TestSeries.hasMany(Test, { foreignKey: 'testSeriesId', as: 'tests' });
+    Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
+
+    // Test and Question
+    Test.hasMany(Question, { foreignKey: 'testId', as: 'questions' });
+    Question.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
+
+    // Question and Option (using TestOption model)
+    Question.hasMany(TestOption, { foreignKey: 'questionId', as: 'options' });
+    TestOption.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
+
     Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
     Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
-
-}
+};
 
 export default initAssociation;

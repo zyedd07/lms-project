@@ -66,13 +66,12 @@ export interface UpdateTestSeriesServiceParams {
     description?: string;
 }
 export interface CreateQuestionServiceParams {
-    testSeriesId: string;
-    text: string;
-  }
-  
-  export interface UpdateQuestionServiceParams {
-    text?: string;
-  }
+    testId: string;
+    questionText: string;
+}
+export interface UpdateQuestionServiceParams {
+    questionText?: string;
+}
   
   export interface CreateOptionServiceParams {
     questionId: string;
