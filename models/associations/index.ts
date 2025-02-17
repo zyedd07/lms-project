@@ -40,6 +40,12 @@ const initAssociation = () => {
     Course.belongsToMany(Teacher, { through: CourseTeacher, foreignKey: 'courseId', as: 'teachers' });
     Teacher.belongsToMany(Course, { through: CourseTeacher, foreignKey: 'teacherId', as: 'courses' });
 
+    Course.hasMany(CourseTeacher, { foreignKey: 'courseId', as: 'courses' });
+    CourseTeacher.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+
+    Teacher.hasMany(CourseTeacher, { foreignKey: 'teacherId', as: 'teacher' });
+    CourseTeacher.belongsTo(Teacher, { foreignKey: 'teacherId', as: 'teacher' });
+
     Course.belongsTo(Categories, { foreignKey: 'categoryId', as: 'category' });
     Categories.hasMany(Course, { foreignKey: 'categoryId', as: 'courses' });
 

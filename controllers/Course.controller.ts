@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import HttpError from "../utils/httpError";
-import { courseTeacherService, createCourseService, deleteCourseService, getAllCoursesService, updateCourseService } from "../services/Course.service";
+import { courseTeacherService, createCourseService, deleteCourseService, getAllCoursesService, getAssignedCourseService, updateCourseService } from "../services/Course.service";
 import { Role } from "../utils/constants";
 import { isTeacherAssignedService } from "../services/Teacher.service";
+import { GetCourseFilters } from "../utils/types";
 
 export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -22,10 +23,22 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
     }
 }
 
-export const getCoursesController = async (req: Request, res: Response, next: NextFunction) => {
+export const getCoursesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { categoryId, id } = req.query;
-        const courses = await getAllCoursesService({ categoryId: categoryId as string, id: id as string });
+        const role = req.user?.role;
+        let active;
+        if (role !== Role.ADMIN && role !== Role.TEACHER) {
+            active = true;
+        }
+        const { categoryId, id, assigned, limit, offset } = req.query;
+        let filters: GetCourseFilters = {};
+        if (limit) {
+            filters.limit = parseInt(limit as string);
+        }
+        if (offset) {
+            filters.offset = parseInt(offset as string);
+        }
+        const courses = await getAllCoursesService({ categoryId: categoryId as string, id: id as string, active: active }, filters);
         res.status(200).json({
             success: true,
             data: courses
@@ -35,12 +48,40 @@ export const getCoursesController = async (req: Request, res: Response, next: Ne
     }
 };
 
+export const getAssignedCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const role = req.user?.role;
+        let teacherId = req.user?.id;
+        if (role === Role.ADMIN) {
+            teacherId = req.query.teacherId;
+        }
+        else if (role !== Role.TEACHER) {
+            throw new HttpError('Unauthorized', 403);
+        }
+        const { limit, offset } = req.query;
+        let filters: GetCourseFilters = {};
+        if (limit) {
+            filters.limit = parseInt(limit as string);
+        }
+        if (offset) {
+            filters.offset = parseInt(offset as string);
+        }
+        const assignedCourses = await getAssignedCourseService(teacherId, filters);
+        res.status(200).json({
+            success: true,
+            data: assignedCourses
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export const updateCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, active } = req.body;
         const { id } = req.params;
         const role = req.user?.role;
-        if (role !== Role.ADMIN || await isTeacherAssignedService(req.user.id, id)) {
+        if (role !== Role.ADMIN || !(await isTeacherAssignedService(req.user.id, id))) {
             throw new HttpError('Unauthorized', 403);
         }
         if (!id) {

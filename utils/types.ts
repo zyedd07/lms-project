@@ -77,12 +77,12 @@ export interface UpdateQuestionServiceParams {
     questionId: string;
     text: string;
     isCorrect: boolean;
-  }
-  
-  export interface UpdateOptionServiceParams {
+}
+
+export interface UpdateOptionServiceParams {
     text?: string;
     isCorrect?: boolean;
-  }
+}
 
 export type UpdateCourseServiceParams = {
     name?: string;
@@ -103,4 +103,16 @@ export type GetTeacherFilterType = {
     expertise?: string;
     phone?: string;
     id?: string;
+}
+
+export type GetAllCourseServiceParams = {
+    categoryId?: string;
+    id?: string;
+    active?: boolean
+    teacherId?: string;
+}
+
+export type GetCourseFilters = {
+    limit?: number;
+    offset?: number;
 }

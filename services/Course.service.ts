@@ -4,7 +4,7 @@ import CourseTeacher from "../models/CourseTeacher.model";
 import Teacher from "../models/Teacher.model";
 import { CourseTeacherServiceOperation } from "../utils/constants";
 import HttpError from "../utils/httpError";
-import { CourseTeacherServiceOperationType, CreateCourseServiceParams, UpdateCourseServiceParams } from "../utils/types";
+import { CourseTeacherServiceOperationType, CreateCourseServiceParams, GetAllCourseServiceParams, GetCourseFilters, UpdateCourseServiceParams } from "../utils/types";
 
 export const createCourseService = async (params: CreateCourseServiceParams) => {
     try {
@@ -47,12 +47,16 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
     }
 }
 
-export const getAllCoursesService = async ({ categoryId, id }: { categoryId?: string, id?: string }) => {
+export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCourseServiceParams, filters?: GetCourseFilters) => {
     try {
         let whereClause: any = {};
         if (id) {
+            let whereClause: any = { id };
+            if (active === true || active === false) {
+                whereClause.active = active;
+            }
             const courseData = await Course.findOne({
-                where: { id },
+                where: whereClause,
                 include: [
                     {
                         model: Teacher,
@@ -67,7 +71,9 @@ export const getAllCoursesService = async ({ categoryId, id }: { categoryId?: st
                         required: false,
                         attributes: ['id', 'name']
                     }
-                ]
+                ],
+                limit: filters?.limit,
+                offset: filters?.offset
             })
             if (!courseData) {
                 throw new HttpError('Course not found', 404);
@@ -78,9 +84,54 @@ export const getAllCoursesService = async ({ categoryId, id }: { categoryId?: st
             if (categoryId) {
                 whereClause.categoryId = categoryId;
             }
-            const courses = await Course.findAll({ where: whereClause });
+            if (active === true || active === false) {
+                whereClause.active = active;
+            }
+            const courses = await Course.findAll({
+                where: whereClause,
+                limit: filters?.limit,
+                offset: filters?.offset
+            });
             return courses;
         }
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const getAssignedCourseService = async (teacherId: string, filters?: GetCourseFilters) => {
+    try {
+        const assignedCourses = await CourseTeacher.findAll({
+            where: {
+                teacherId
+            },
+            include: [
+                {
+                    model: Course,
+                    as: 'course',
+                    required: true,
+                },
+                {
+                    model: Teacher,
+                    as: 'teacher',
+                    required: true,
+                    attributes: ['id', 'name']
+                }
+            ],
+            limit: filters?.limit,
+            offset: filters?.offset,
+        });
+
+        const formattedData = assignedCourses.map((course) => {
+            const plainCourse = course.get('course', { plain: true }) as any;
+            const plainTeacher = course.get('teacher', { plain: true }) as any;
+            return {
+                ...plainCourse,
+                teacher: plainTeacher
+            };
+        });
+
+        return formattedData;
     } catch (error) {
         throw error;
     }
