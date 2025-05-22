@@ -3,6 +3,9 @@ import cors from 'cors';
 import { sequelize } from './models';
 require('dotenv').config(); // For environment variables
 
+// Add this line to log the DATABASE_URL
+console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL);
+
 //Routers
 import userRouter from './routes/User.router';
 import teacherRouter from './routes/Teacher.router';
@@ -10,15 +13,13 @@ import categoryRouter from './routes/Category.router';
 import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router'
-import  questionRouter from './routes/Question.router'
+import  questionRouter from './routes/Question.router'
 import optionRouter from './routes/Option.router'
 import testRouter from "./routes/Test.router"
 
 const app = express();
 
-
 app.use(express.json());
-
 
 app.use(express.urlencoded({ extended: true }));
 const corsOptions = {
@@ -47,7 +48,6 @@ app.use('/testseries', testSeriesRouter);
 app.use('/question' , questionRouter)
 app.use('/option' , optionRouter)
 app.use('/test', testRouter)
-
 
 
 app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction) => {
