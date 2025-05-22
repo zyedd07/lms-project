@@ -1,28 +1,27 @@
 {
   "name": "revolution",
   "version": "1.0.0",
-  "main": "dist/server.js",   
+  "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node dist/server.js", 
-    "dev": "nodemon server.ts",     
-    "build": "tsc",
-    "postinstall": "ls -la node_modules/@types && ls -la node_modules/@types/express && ls -la node_modules/@types/jsonwebtoken && ls -la node_modules/@types/bcryptjs && ls -la node_modules/@types/cors"
+    "start": "node dist/server.js",
+    "dev": "nodemon server.ts",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.18",
-    "@types/express": "^4.17.22",
-    "@types/jsonwebtoken": "^9.0.9",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.18",     
+    "@types/express": "^4.17.22", 
+    "@types/jsonwebtoken": "^9.0.9", 
     "@types/node": "^22.7.9",
     "@types/nodemailer": "^6.4.15",
     "@types/uuid": "^10.0.0",
