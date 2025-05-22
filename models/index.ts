@@ -29,6 +29,8 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL || '', {
         max: 3,
     },
 });
+console.log("Sequelize options at runtime:", JSON.stringify(sequelize.options, null, 2));
+
 
 // Import and initialize your models here if they are defined after sequelize
 // Example:
