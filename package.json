@@ -1,11 +1,11 @@
 {
   "name": "revolution",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/server.js",   <-- Make sure this points to the compiled server.js in dist
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx nodemon server.ts",
-     "dev": "nodemon server.ts",
+    "start": "node dist/server.js",  <-- This is for production on Render
+    "dev": "nodemon server.ts",      <-- This is for local development
     "build": "tsc"
   },
   "keywords": [],
