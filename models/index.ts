@@ -14,7 +14,8 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL || '', {
         ssl: {
             require: true,           // Supabase (and most hosted DBs) REQUIRES SSL
             rejectUnauthorized: false // Often needed for free/self-signed certs
-        }
+        },
+         family: 4
     },
     // You can keep other options like pool, logging, retry here if they are generic
     pool: {
