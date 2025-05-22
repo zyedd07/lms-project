@@ -5,6 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npx nodemon server.ts"
+     "dev": "nodemon server.ts",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
