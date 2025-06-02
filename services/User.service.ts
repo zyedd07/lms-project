@@ -13,6 +13,8 @@ export const createUserService = async ({ name, email, phone, password }: Create
             email,
             password: passwordHash,
             phone,
+         
+             role: 'student', 
         });
         return newUser;
     } catch (error) {
@@ -24,39 +26,44 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     try {
         const user = await User.findOne({
             where: { email },
-        })
+        });
         if (!user) {
-            throw new HttpError("User does not exist", 400)
+            throw new HttpError("User does not exist", 400);
         }
         const isPasswordMatch = await bcrypt.compare(password, user.get("password") as unknown as string);
         if (!isPasswordMatch) {
-            throw new HttpError("Invalid password", 400)
+            throw new HttpError("Invalid password", 400);
         }
         const SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
+        
+     
+        const userRole = user.get("role") as string; 
+        
         const userSessionData = {
             id: user.get("id"),
             name: user.get("name"),
             email: user.get("email"),
-            role: "STUDENT",
-        }
+            role: userRole, 
+        };
+
         const token = jwt.sign(userSessionData, SECRET_KEY, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
         return {
             user: userSessionData,
             token,
-        }
+        };
     } catch (error) {
         throw error;
     }
-}
+};
 
 export const getUsersService = async (email?: string) => {
     try {
         if (email) {
             const user = await User.findOne({
                 where: { email },
-            })
+            });
             if (!user) {
-                throw new HttpError("User does not exist", 400)
+                throw new HttpError("User does not exist", 400);
             }
             return user;
         } else {
