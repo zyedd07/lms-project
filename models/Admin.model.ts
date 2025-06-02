@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
+import { Role } from "../utils/constants";
 
 const Admin = sequelize.define('Admin', {
     id: {
@@ -19,7 +20,12 @@ const Admin = sequelize.define('Admin', {
     password: {
         type: DataTypes.STRING,
         allowNull: false,
-    }
+    },
+     role: {
+        type: DataTypes.ENUM(Role.ADMIN, Role.TEACHER, Role.STUDENT), 
+        allowNull: false,
+        defaultValue: Role.ADMIN, // Set a default role, perhaps 'admin' for new Admin records
+    },
 }, { timestamps: true });
 
 export default Admin;
