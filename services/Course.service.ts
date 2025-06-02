@@ -87,11 +87,18 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
             if (active === true || active === false) {
                 whereClause.active = active;
             }
+                        console.log("DEBUG: getAllCoursesService - Final whereClause for findAll:", whereClause);
+
             const courses = await Course.findAll({
                 where: whereClause,
                 limit: filters?.limit,
                 offset: filters?.offset
             });
+
+            
+            console.log("DEBUG: getAllCoursesService - Result from Course.findAll:", courses);
+
+            
             return courses;
         }
     } catch (error) {
