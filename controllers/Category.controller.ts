@@ -9,7 +9,7 @@ export const createCategoryController = async (req: AuthenticatedRequest, res: R
         // const role = req.user?.role;
         // if (role !== Role.ADMIN) {
         //     throw new HttpError('Unauthorized', 403);
-        }
+        // }
         const { name, description, imageUrl } = req.body;
         if (!name) {
             throw new HttpError('Name is required', 400);
