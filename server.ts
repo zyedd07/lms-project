@@ -13,21 +13,41 @@ import categoryRouter from './routes/Category.router';
 import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router'
-import  questionRouter from './routes/Question.router'
+import questionRouter from './routes/Question.router'
 import optionRouter from './routes/Option.router'
 import testRouter from "./routes/Test.router"
 
 const app = express();
 
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
+
+// --- CORRECTED CORS CONFIGURATION ---
+const allowedOrigins = [
+  'http://localhost:3000', // Your React Admin Panel's local development URL
+  // Add other local development origins if needed, e.g., for mobile device testing:
+  // 'http://192.168.x.x:3000',
+
+  // IMPORTANT: When your React Admin Panel is deployed to a live domain,
+  // add that domain here. E.g.: 'https://admin.yourlms.com'
+];
+
 const corsOptions = {
-    origin: ['*'],
-    optionsSuccessStatus: 200 
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like React Native app or Postman)
+      // OR if the origin is in our allowed list.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Allowed HTTP methods for your API
+    credentials: true, // <--- This MUST be true if your frontend sends cookies/auth headers
+    optionsSuccessStatus: 204 // For preflight requests
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptions)); // Apply the corrected CORS middleware
 
 app.get('/', (req: Request, res: Response) => {
     try {
@@ -71,12 +91,12 @@ app.use((err: any, req: AuthenticatedRequest, res: Response, next: NextFunction)
 });
 
 import './models/associations/index';
-import { AuthenticatedRequest } from './middleware/auth';
-import initAssociation from './models/associations/index';
+import { AuthenticatedRequest } from './middleware/auth'; // Ensure this path is correct
+import initAssociation from './models/associations/index'; // Ensure this path is correct
 
 initAssociation();
 
-const PORT = process.env.PORT
+const PORT = process.env.PORT || 5000; // Provide a default port
 app.listen(PORT, async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
