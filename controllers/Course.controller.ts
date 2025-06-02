@@ -8,10 +8,10 @@ import { GetCourseFilters } from "../utils/types";
 
 export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const role = req.user?.role;
-        if (role !== Role.ADMIN) {
-            throw new HttpError('Unauthorized', 403);
-        }
+        // const role = req.user?.role;
+        // if (role !== Role.ADMIN) {
+        //     throw new HttpError('Unauthorized', 403);
+        // }
         const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, } = req.body;
         if (!name || !categoryId || !courseType) {
             throw new HttpError('Please provide name, categoryId, and courseType', 400);
