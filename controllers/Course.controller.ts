@@ -11,7 +11,7 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
         // const role = req.user?.role;
         // if (role !== Role.ADMIN) {
         //     throw new HttpError('Unauthorized', 403);
-        // }
+        }
         const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, } = req.body;
         if (!name || !categoryId || !courseType) {
             throw new HttpError('Please provide name, categoryId, and courseType', 400);
@@ -29,7 +29,7 @@ export const getCoursesController = async (req: AuthenticatedRequest, res: Respo
         // let active;
         // if (role !== Role.ADMIN && role !== Role.TEACHER) {
         //     active = true;
-        // }
+        }
         const { categoryId, id, assigned, limit, offset } = req.query;
         let filters: GetCourseFilters = {};
         if (limit) {
@@ -54,7 +54,7 @@ export const getAssignedCourseController = async (req: AuthenticatedRequest, res
         // let teacherId = req.user?.id;
         // if (role === Role.ADMIN) {
         //     teacherId = req.query.teacherId;
-        // }
+        }
         else if (role !== Role.TEACHER) {
             throw new HttpError('Unauthorized', 403);
         }
@@ -102,7 +102,7 @@ export const deleteCourseController = async (req: AuthenticatedRequest, res: Res
         // const role = req.user?.role;
         // if (role !== Role.ADMIN) {
         //     throw new HttpError('Unauthorized', 403);
-        // }
+        }
         const { id } = req.params;
         if (!id) {
             throw new HttpError('Course ID is required', 400);
@@ -122,7 +122,7 @@ export const courseTeacherController = async (req: AuthenticatedRequest, res: Re
         // const role = req.user?.role;
         // if (role !== Role.ADMIN) {
         //     throw new HttpError('Unauthorized', 403);
-        // }
+        }
         const { courseId, teacherId, operation } = req.body;
         if (!courseId || !teacherId || !operation) {
             throw new HttpError('Please provide courseId, teacherId, and operation', 400);
