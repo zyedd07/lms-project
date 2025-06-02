@@ -8,9 +8,9 @@ import { GetCourseFilters } from "../utils/types";
 
 export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // if (role !== Role.ADMIN) {
-        //     throw new HttpError('Unauthorized', 403);
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
         }
         const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, } = req.body;
         if (!name || !categoryId || !courseType) {
@@ -25,10 +25,10 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
 
 export const getCoursesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // let active;
-        // if (role !== Role.ADMIN && role !== Role.TEACHER) {
-        //     active = true;
+        const role = req.user?.role;
+        let active;
+        if (role !== Role.ADMIN && role !== Role.TEACHER) {
+            active = true;
         }
         const { categoryId, id, assigned, limit, offset } = req.query;
         let filters: GetCourseFilters = {};
@@ -50,10 +50,10 @@ export const getCoursesController = async (req: AuthenticatedRequest, res: Respo
 
 export const getAssignedCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // let teacherId = req.user?.id;
-        // if (role === Role.ADMIN) {
-        //     teacherId = req.query.teacherId;
+        const role = req.user?.role;
+        let teacherId = req.user?.id;
+        if (role === Role.ADMIN) {
+            teacherId = req.query.teacherId;
         }
         else if (role !== Role.TEACHER) {
             throw new HttpError('Unauthorized', 403);
@@ -81,9 +81,9 @@ export const updateCourseController = async (req: AuthenticatedRequest, res: Res
         const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, active } = req.body;
         const { id } = req.params;
         const role = req.user?.role;
-        // if (role !== Role.ADMIN || !(await isTeacherAssignedService(req.user.id, id))) {
-        //     throw new HttpError('Unauthorized', 403);
-        // }
+        if (role !== Role.ADMIN || !(await isTeacherAssignedService(req.user.id, id))) {
+            throw new HttpError('Unauthorized', 403);
+        }
         if (!id) {
             throw new HttpError('Course ID is required', 400);
         }
@@ -99,9 +99,9 @@ export const updateCourseController = async (req: AuthenticatedRequest, res: Res
 
 export const deleteCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // if (role !== Role.ADMIN) {
-        //     throw new HttpError('Unauthorized', 403);
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
         }
         const { id } = req.params;
         if (!id) {
@@ -119,9 +119,9 @@ export const deleteCourseController = async (req: AuthenticatedRequest, res: Res
 
 export const courseTeacherController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // if (role !== Role.ADMIN) {
-        //     throw new HttpError('Unauthorized', 403);
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
         }
         const { courseId, teacherId, operation } = req.body;
         if (!courseId || !teacherId || !operation) {
