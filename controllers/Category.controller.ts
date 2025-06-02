@@ -39,9 +39,9 @@ export const getCategoriesController = async (req: Request, res: Response, next:
 
 export const updateCategoryController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // const role = req.user?.role;
-        // if (role !== Role.ADMIN) {
-        //     throw new HttpError('Unauthorized', 403);
+        const role = req.user?.role;
+        if (role !== Role.ADMIN) {
+            throw new HttpError('Unauthorized', 403);
         }
         const { name, description, imageUrl } = req.body;
         const { id } = req.params;
