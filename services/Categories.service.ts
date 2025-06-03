@@ -1,5 +1,5 @@
 import Categories from "../models/Categories.model";
-import Courses from "../models/Courses.model"; // Make sure this path is correct for your Courses model
+import Courses from "../models/Course.model"; // Make sure this path is correct for your Courses model
 import HttpError from "../utils/httpError";
 import { CreateCategoriesServiceParams, GetCategorySearchCriteria } from "../utils/types";
 
