@@ -102,7 +102,6 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                     },
                     {
                         model: Categories,
-                        model: Categories,
                         as: 'category',
                         required: false,
                         attributes: ['id', 'name']
