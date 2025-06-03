@@ -10,7 +10,7 @@ export const createCourseService = async (params: CreateCourseServiceParams) => 
     try {
         const existingCourse = await Course.findOne({
             where: { name: params.name, categoryId: params.categoryId },
-        })
+        });
         if (existingCourse) {
             throw new HttpError("Course already exists with the same name and category", 400);
         }
@@ -22,13 +22,13 @@ export const createCourseService = async (params: CreateCourseServiceParams) => 
             categoryId: params.categoryId,
             price: params.price,
             courseType: params.courseType,
-            demoVideoUrl: params.demoVideoUrl
+            demoVideoUrl: params.demoVideoUrl,
         });
         return newCourse;
     } catch (error) {
         throw error;
     }
-}
+};
 
 export const updateCourseService = async (id: string, params: UpdateCourseServiceParams) => {
     try {
@@ -45,7 +45,42 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
     } catch (error) {
         throw error;
     }
-}
+};
+
+// --- START: ADDED getCourseByIdService FUNCTION ---
+
+export const getCourseByIdService = async (id: string) => {
+    try {
+        const courseData = await Course.findOne({
+            where: { id: id },
+            include: [
+                {
+                    model: Teacher,
+                    through: { attributes: [] }, // Exclude CourseTeacher join table fields
+                    as: 'teachers', // Ensure this matches your association alias
+                    required: false, // Don't require a teacher to exist
+                    attributes: ['id', 'name']
+                },
+                {
+                    model: Categories,
+                    as: 'category', // Ensure this matches your association alias
+                    required: false, // Don't require a category to exist
+                    attributes: ['id', 'name']
+                }
+            ]
+        });
+
+        if (!courseData) {
+            return null; // Return null if not found, controller handles 404
+        }
+        return courseData;
+    } catch (error) {
+        console.error("Error in getCourseByIdService:", error);
+        throw error; // Re-throw for controller to handle
+    }
+};
+
+// --- END: ADDED getCourseByIdService FUNCTION ---
 
 export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCourseServiceParams, filters?: GetCourseFilters) => {
     try {
@@ -66,6 +101,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                         attributes: ['id', 'name']
                     },
                     {
+                        model: Categories,
                         model: Categories,
                         as: 'category',
                         required: false,
@@ -98,7 +134,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
     } catch (error) {
         throw error;
     }
-}
+};
 
 export const getAssignedCourseService = async (teacherId: string, filters?: GetCourseFilters) => {
     try {
@@ -136,7 +172,7 @@ export const getAssignedCourseService = async (teacherId: string, filters?: GetC
     } catch (error) {
         throw error;
     }
-}
+};
 
 export const deleteCourseService = async (id: string) => {
     try {
@@ -151,7 +187,7 @@ export const deleteCourseService = async (id: string) => {
     } catch (error) {
         throw error;
     }
-}
+};
 
 export const courseTeacherService = async (courseId: string, teacherId: string, operation: CourseTeacherServiceOperationType) => {
     try {
@@ -193,4 +229,4 @@ export const courseTeacherService = async (courseId: string, teacherId: string, 
     } catch (error) {
         throw error;
     }
-}
+};
