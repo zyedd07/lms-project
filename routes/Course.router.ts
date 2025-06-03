@@ -10,5 +10,6 @@ router.put('/:id', isAuth, CourseController.updateCourseController);
 router.delete('/:id', isAuth, CourseController.deleteCourseController);
 router.post('/teacher', isAuth, CourseController.courseTeacherController);
 router.get('/getAssignedCourses', isAuth, CourseController.getAssignedCourseController);
+router.get('/:id', isAuth, CourseController.getCourseByIdController); 
 
 export default router;
