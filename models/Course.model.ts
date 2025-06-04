@@ -42,8 +42,12 @@ const Course = sequelize.define('Course', {
     active: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+    },
+syllabus: {
+        type: DataTypes.JSON, 
+        allowNull: true, 
+        defaultValue: [], 
     }
-
 
 }, {
     timestamps: true,
