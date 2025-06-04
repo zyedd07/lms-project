@@ -1,3 +1,5 @@
+// src/controllers/Course.controller.ts
+
 import { NextFunction, Request, Response } from "express";
 
 import { AuthenticatedRequest } from "../middleware/auth";
@@ -9,12 +11,11 @@ import {
     getAllCoursesService,
     getAssignedCourseService,
     updateCourseService,
-    // Add the import for the new service function here
-    getCourseByIdService, // <--- ADD THIS LINE
-} from "../services/Course.service"; // Make sure this path is correct
+    getCourseByIdService,
+} from "../services/Course.service";
 import { Role } from "../utils/constants";
 import { isTeacherAssignedService } from "../services/Teacher.service";
-import { GetCourseFilters } from "../utils/types";
+import { GetCourseFilters } from "../utils/types"; // Ensure SyllabusSection is imported from types if you want to explicitly type req.body.syllabus
 
 export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -22,14 +23,18 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
         if (role !== Role.ADMIN) {
             throw new HttpError('Unauthorized', 403);
         }
-        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, } = req.body;
+        // --- MODIFIED LINE ---
+        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, syllabus } = req.body;
+        // --- END MODIFIED LINE ---
         if (!name || !categoryId || !courseType) {
             throw new HttpError('Please provide name, categoryId, and courseType', 400);
         }
-        const newCourse = await createCourseService({ name, description, imageUrl, demoVideoUrl, categoryId, price, courseType });
+        // --- MODIFIED LINE ---
+        const newCourse = await createCourseService({ name, description, imageUrl, demoVideoUrl, categoryId, price, courseType, syllabus });
+        // --- END MODIFIED LINE ---
         res.status(201).json({
-            success: true, // Added success: true for consistency with other responses
-            data: newCourse // Wrapped in data for consistency
+            success: true,
+            data: newCourse
         });
     } catch (error) {
         next(error);
@@ -43,7 +48,6 @@ export const getCoursesController = async (req: AuthenticatedRequest, res: Respo
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             active = true;
         }
-        // Note: The 'id' here is a query parameter, not a URL parameter
         const { categoryId, id, assigned, limit, offset } = req.query;
         let filters: GetCourseFilters = {};
         if (limit) {
@@ -62,42 +66,36 @@ export const getCoursesController = async (req: AuthenticatedRequest, res: Respo
     }
 };
 
-// ******* ADD THIS NEW CONTROLLER FUNCTION *******
 export const getCourseByIdController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { id } = req.params; // Get the ID from the URL parameters (e.g., /course/123)
-        // You might want to add role-based access here if only certain roles can view course details
-        // For now, assuming anyone authenticated can view details.
-        // If course `active` status matters for public access, handle it in the service.
+        const { id } = req.params;
 
         if (!id) {
             throw new HttpError('Course ID is required in URL parameters', 400);
         }
 
-        const course = await getCourseByIdService(id); // Call the new service function
+        const course = await getCourseByIdService(id);
 
         if (!course) {
-            throw new HttpError('Course not found', 404); // If service returns null/undefined
+            throw new HttpError('Course not found', 404);
         }
 
         res.status(200).json({
             success: true,
-            data: course // Send the single course object in 'data'
+            data: course
         });
     } catch (error) {
         next(error);
     }
 };
-// *************************************************
 
 export const getAssignedCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const role = req.user?.role;
         let teacherId = req.user?.id;
         if (role === Role.ADMIN) {
-            teacherId = req.query.teacherId;
-        }
-        else if (role !== Role.TEACHER) {
+            teacherId = req.query.teacherId as string; // Ensure type is string
+        } else if (role !== Role.TEACHER) {
             throw new HttpError('Unauthorized', 403);
         }
         const { limit, offset } = req.query;
@@ -109,7 +107,7 @@ export const getAssignedCourseController = async (req: AuthenticatedRequest, res
         if (offset) {
             filters.offset = parseInt(offset as string);
         }
-        const assignedCourses = await getAssignedCourseService(teacherId, filters);
+        const assignedCourses = await getAssignedCourseService(teacherId as string, filters); // Ensure teacherId is string
         res.status(200).json({
             success: true,
             data: assignedCourses
@@ -121,22 +119,24 @@ export const getAssignedCourseController = async (req: AuthenticatedRequest, res
 
 export const updateCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, active } = req.body;
+        // --- MODIFIED LINE ---
+        const { name, description, demoVideoUrl, imageUrl, categoryId, price, courseType, active, syllabus } = req.body;
+        // --- END MODIFIED LINE ---
         const { id } = req.params;
         const role = req.user?.role;
-        // The original logic here was if (role !== Role.ADMIN || !(await isTeacherAssignedService(req.user.id, id)))
-        // This means ONLY ADMIN or an assigned teacher could update.
-        // Assuming ADMIN can update regardless of assignment, and teacher must be assigned.
+
         if (role !== Role.ADMIN && !(role === Role.TEACHER && req.user?.id && await isTeacherAssignedService(req.user.id, id))) {
             throw new HttpError('Unauthorized', 403);
         }
         if (!id) {
             throw new HttpError('Course ID is required', 400);
         }
-        const updatedCourse = await updateCourseService(id, { name, description, imageUrl, categoryId, price, courseType, demoVideoUrl, active });
+        // --- MODIFIED LINE ---
+        const updatedCourse = await updateCourseService(id, { name, description, imageUrl, categoryId, price, courseType, demoVideoUrl, active, syllabus });
+        // --- END MODIFIED LINE ---
         res.status(200).json({
             success: true,
-            data: updatedCourse // Wrapped in data for consistency
+            data: updatedCourse
         });
     } catch (error) {
         next(error);
@@ -156,7 +156,7 @@ export const deleteCourseController = async (req: AuthenticatedRequest, res: Res
         const response = await deleteCourseService(id);
         res.status(200).json({
             success: true,
-            ...response // Assuming deleteCourseService returns { message: '...' }
+            ...response
         });
     } catch (error) {
         next(error);
