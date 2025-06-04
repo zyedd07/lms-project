@@ -45,6 +45,17 @@ export type LoginAdminServiceParams = {
     password: string;
 }
 
+// --- NEW TYPE: Syllabus Section ---
+export type SyllabusSection = {
+    title: string;
+    content: string; // Or a more complex type if you have rich content, like an array of sub-topics
+    // You could also add other fields here if your frontend supports them, e.g.,
+    // order?: number;
+    // videoUrl?: string;
+};
+// --- END NEW TYPE ---
+
+
 export type CreateCourseServiceParams = {
     name: string;
     description?: string;
@@ -53,6 +64,8 @@ export type CreateCourseServiceParams = {
     price?: number;
     demoVideoUrl?: string;
     courseType: string;
+    active?: boolean; // Added this as it's part of your Course model and can be set on creation
+    syllabus?: SyllabusSection[]; // <--- ADDED: Optional array of syllabus sections
 }
 
 export interface CreateTestSeriesServiceParams {
@@ -72,8 +85,8 @@ export interface CreateQuestionServiceParams {
 export interface UpdateQuestionServiceParams {
     questionText?: string;
 }
-  
-  export interface CreateOptionServiceParams {
+
+export interface CreateOptionServiceParams {
     questionId: string;
     text: string;
     isCorrect: boolean;
@@ -93,6 +106,7 @@ export type UpdateCourseServiceParams = {
     courseType?: string;
     demoVideoUrl?: string;
     active?: boolean;
+    syllabus?: SyllabusSection[]; // <--- ADDED: Optional array of syllabus sections
 }
 
 export type CourseTeacherServiceOperationType = 'assign' | 'unassign';
