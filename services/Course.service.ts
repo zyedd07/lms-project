@@ -1,3 +1,5 @@
+// src/services/Course.service.ts
+
 import Categories from "../models/Categories.model";
 import Course from "../models/Course.model";
 import CourseTeacher from "../models/CourseTeacher.model";
@@ -23,6 +25,8 @@ export const createCourseService = async (params: CreateCourseServiceParams) => 
             price: params.price,
             courseType: params.courseType,
             demoVideoUrl: params.demoVideoUrl,
+            active: params.active, // <--- ADDED active here, assuming it can be set on creation
+            syllabus: params.syllabus || [], // <--- ADDED this line. Default to empty array if not provided.
         });
         return newCourse;
     } catch (error) {
@@ -38,16 +42,20 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
         if (!course) {
             throw new HttpError('Course not found', 404);
         }
+
+        // --- MODIFIED LINE: Pass all params, including syllabus ---
         await Course.update(params, {
             where: { id: id }
         });
-        return { message: 'Course updated successfully' };
+        // --- END MODIFIED LINE ---
+
+        // Fetch the updated course to return it, as Sequelize's update returns [affectedRows]
+        const updatedCourse = await Course.findByPk(id);
+        return updatedCourse; // Return the actual updated course object
     } catch (error) {
         throw error;
     }
 };
-
-// --- START: ADDED getCourseByIdService FUNCTION ---
 
 export const getCourseByIdService = async (id: string) => {
     try {
@@ -56,37 +64,39 @@ export const getCourseByIdService = async (id: string) => {
             include: [
                 {
                     model: Teacher,
-                    through: { attributes: [] }, // Exclude CourseTeacher join table fields
-                    as: 'teachers', // Ensure this matches your association alias
-                    required: false, // Don't require a teacher to exist
+                    through: { attributes: [] },
+                    as: 'teachers',
+                    required: false,
                     attributes: ['id', 'name']
                 },
                 {
                     model: Categories,
-                    as: 'category', // Ensure this matches your association alias
-                    required: false, // Don't require a category to exist
+                    as: 'category',
+                    required: false,
                     attributes: ['id', 'name']
                 }
             ]
         });
 
         if (!courseData) {
-            return null; // Return null if not found, controller handles 404
+            return null;
         }
-        return courseData;
+        return courseData; // This will now include the syllabus field automatically
     } catch (error) {
         console.error("Error in getCourseByIdService:", error);
-        throw error; // Re-throw for controller to handle
+        throw error;
     }
 };
-
-// --- END: ADDED getCourseByIdService FUNCTION ---
 
 export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCourseServiceParams, filters?: GetCourseFilters) => {
     try {
         let whereClause: any = {};
         if (id) {
-            let whereClause: any = { id };
+            // If ID is provided, it's a specific course lookup, which should ideally use getCourseByIdService
+            // This block in getAllCoursesService seems redundant if getCourseByIdService exists
+            // However, if you intend for getAllCourses to fetch a single course by ID with additional filters, keep it.
+            // But usually, getCourseByIdService is for direct lookup.
+            let whereClause: any = { id }; // Re-declaring whereClause here is problematic. It should be outside this if or merged.
             if (active === true || active === false) {
                 whereClause.active = active;
             }
@@ -95,7 +105,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                 include: [
                     {
                         model: Teacher,
-                        through: { attributes: [] }, // Exclude CourseTeacher join table fields
+                        through: { attributes: [] },
                         as: 'teachers',
                         required: false,
                         attributes: ['id', 'name']
@@ -113,9 +123,9 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
             if (!courseData) {
                 throw new HttpError('Course not found', 404);
             }
-            return courseData;
-        }
-        else {
+            return courseData; // Returns a single object if ID is present
+        } else {
+            // This is the intended path for getting ALL courses with category/active filters
             if (categoryId) {
                 whereClause.categoryId = categoryId;
             }
@@ -125,10 +135,26 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
             const courses = await Course.findAll({
                 where: whereClause,
                 limit: filters?.limit,
-                offset: filters?.offset
+                offset: filters?.offset,
+                // Include syllabus in getAllCoursesService if you need it on the list view
+                // include: [
+                //     {
+                //         model: Teacher,
+                //         through: { attributes: [] },
+                //         as: 'teachers',
+                //         required: false,
+                //         attributes: ['id', 'name']
+                //     },
+                //     {
+                //         model: Categories,
+                //         as: 'category',
+                //         required: false,
+                //         attributes: ['id', 'name']
+                //     }
+                // ]
             });
-            
-            return courses;
+
+            return courses; // Returns an array of objects
         }
     } catch (error) {
         throw error;
