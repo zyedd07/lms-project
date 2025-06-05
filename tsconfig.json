@@ -1,34 +1,40 @@
 {
   "compilerOptions": {
     /* Language and Environment */
-    "target": "es2016",
-    "module": "commonjs",
+    "target": "es2016", // Sets the JavaScript language version for emitted JavaScript
+    "module": "commonjs", // Specifies what module code is generated (e.g., for Node.js)
+    "lib": ["es2016", "dom"], // Includes standard library definitions. "dom" is common for web APIs.
 
     /* Emit */
-    "outDir": "./dist",
-    "rootDir": "./src", // <-- CHANGE THIS LINE: Set rootDir to your source folder
-    
+    "outDir": "./dist", // Specifies an output folder for all emitted JavaScript files
+    // "rootDir": "./", // Optional: Can be explicitly set to '.', but often inferred correctly when 'outDir' is set and 'include' is broad.
+                      // If you uncomment this, it means the root of your source files is the project root.
+
     /* Interop Constraints */
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true, // Enables 'allowSyntheticDefaultImports' for type compatibility with CommonJS modules
+    "forceConsistentCasingInFileNames": true, // Ensures that casing is correct in imports
 
     /* Type Checking */
-    "strict": true,
+    "strict": true, // Enables all strict type-checking options (highly recommended)
 
     /* Completeness */
-    "skipLibCheck": true,
+    "skipLibCheck": true, // Skips type checking all .d.ts files, often helps with third-party library type conflicts
 
-    /* Type Roots (explicitly telling TypeScript where to find @types) */
-    // This line is now less critical but still correct if you want to be explicit
+    /* Type Roots (explicitly telling TypeScript where to find @types declaration files) */
+    // This is explicitly telling TypeScript to look in your node_modules/@types folder for type definitions.
     "typeRoots": ["./node_modules/@types"]
   },
-  // Ensure your include covers your source files relative to the project root
+  // --- IMPORTANT: Include all .ts files from the project root downwards ---
+  // This tells TypeScript to consider all .ts and .d.ts files in the current directory (where tsconfig.json is)
+  // and all its subdirectories as input files for compilation.
   "include": [
-    "src/**/*.ts", // This is correct for your source files
-    "src/**/*.d.ts" // This is correct for your custom declaration files
+    "./**/*.ts", // Matches all .ts files in the current directory and any nested subdirectories
+    "**/*.d.ts"  // Matches all .d.ts files in the current directory and any nested subdirectories
   ],
+  // --- Exclude paths ---
+  // These directories and files will be ignored by TypeScript during compilation.
   "exclude": [
-    "node_modules",
-    "dist"
+    "node_modules", // Standard exclusion for installed packages
+    "dist"          // Standard exclusion for the output directory
   ]
 }

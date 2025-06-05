@@ -1,34 +1,28 @@
+// routes/questionBank.router.ts
 import express from 'express';
-import multer, { FileFilterCallback, StorageEngine } from 'multer'; // Ensure all types are imported
-import * as QuestionBankController from '../controllers/questionBank.controller';
-import isAuth from '../middleware/auth'; // Your authentication middleware
-import * as fs from 'fs'; // Import the fs module
+import multer, { FileFilterCallback, StorageEngine } from 'multer';
+import * as QuestionBankController from '../controllers/questionBank.controller'; // Changed path
+import isAuth from '../middleware/auth'; // Changed path
+import * as fs from 'fs';
 
 const router = express.Router();
 
 // --- Multer Configuration for File Uploads ---
-
-// Explicitly define the StorageEngine type for clarity
 const storage: StorageEngine = multer.diskStorage({
     destination: function (req: express.Request, file: multer.File, cb: (error: Error | null, destination: string) => void) {
-        // Ensure the directory exists
         const uploadDir = 'uploads/question-banks/';
-        fs.mkdirSync(uploadDir, { recursive: true }); // Use fs.mkdirSync
-        cb(null, uploadDir); // Files will be stored in this directory
-    }, // Added comma here to separate properties
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
     filename: function (req: express.Request, file: multer.File, cb: (error: Error | null, filename: string) => void) {
-        // Define the filename for the uploaded file
-        // Appending timestamp to avoid name collisions
         cb(null, Date.now() + '-' + file.originalname);
     }
 });
 
-// Explicitly define the fileFilter function's type for robustness
 const fileFilter = (req: express.Request, file: multer.File, cb: FileFilterCallback) => {
     if (file.mimetype === 'application/pdf') {
-        cb(null, true); // Accept the file
+        cb(null, true);
     } else {
-        // Pass an Error object and false to reject the file
         cb(new Error('Only PDF files are allowed!'), false);
     }
 };
@@ -42,11 +36,10 @@ const upload = multer({
 });
 
 // --- Question Bank Routes ---
-
 router.post(
     '/create',
-    isAuth, // Authenticates the user
-    upload.single('pdfFile'), // Handles a single file upload with field name 'pdfFile'
+    isAuth,
+    upload.single('pdfFile'),
     QuestionBankController.createQuestionBankController
 );
 
@@ -62,14 +55,14 @@ router.get(
 
 router.put(
     '/:id',
-    isAuth, // Authenticates the user
-    upload.single('pdfFile'), // Allows updating the PDF file
+    isAuth,
+    upload.single('pdfFile'),
     QuestionBankController.updateQuestionBankController
 );
 
 router.delete(
-    '/:id', // Corrected from '/id' to '/:id' for dynamic ID
-    isAuth, // Authenticates the user
+    '/:id',
+    isAuth,
     QuestionBankController.deleteQuestionBankController
 );
 

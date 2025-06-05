@@ -1,16 +1,16 @@
+// middleware/auth.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { File } from 'multer'; // Corrected: Import File type directly from multer
+import { File } from 'multer';
 
 export interface AuthenticatedRequest extends Request {
-  user?: { // Refined type for user based on typical JWT payload
-    id: string; // Assuming 'id' is part of your JWT payload
-    email: string; // Assuming 'email' is part of your JWT payload
-    role: string; // Assuming 'role' is part of your JWT payload
-    // Add other properties that are in your JWT payload here
+  user?: {
+    id: string;
+    email: string;
+    role: string;
   };
-  file?: File; // Corrected: For single file uploads
-  files?: File[] | { [fieldname: string]: File[] }; // Corrected: For multiple file uploads (if you ever use them)
+  file?: File;
+  files?: File[] | { [fieldname: string]: File[] };
 }
 
 const isAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
