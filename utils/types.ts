@@ -150,29 +150,34 @@ export type GetCourseFilters = {
 }
 
 
-
+// --- UPDATED: Added 'price' field ---
 export interface CreateQuestionBankServiceParams {
     name: string;
     description?: string;
     filePath: string;
     fileName: string;
     uploadedBy?: string; // Optional, if you're tracking the uploader (UUID)
+    price: number; // Added price field: required for creation
 }
 
+// --- UPDATED: Added 'price' field ---
 export interface UpdateQuestionBankServiceParams {
     name?: string;
     description?: string;
     filePath?: string; // Only if you're replacing the file
     fileName?: string; // Only if you're replacing the file
     uploadedBy?: string;
+    price?: number; // Added price field: optional for update
 }
 
+// --- UPDATED: Added 'price' field ---
 export interface QuestionBankData {
     id: string;
     name: string;
     description: string | null; // Database might return null, so account for it
     filePath: string;
     fileName: string;
+    price: number; // Added price field
     uploadedBy: string | null; // Database might return null
     uploadDate: Date;
     createdAt: Date;
