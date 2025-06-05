@@ -43,7 +43,7 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
     }
 }
 
-export const getCoursesController = async (req: AuthentatedRequest, res: Response, next: NextFunction) => {
+export const getCoursesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const role = req.user?.role;
         let active;
