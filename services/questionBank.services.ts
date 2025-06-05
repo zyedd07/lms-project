@@ -4,7 +4,7 @@ import {
     CreateQuestionBankServiceParams,
     UpdateQuestionBankServiceParams,
     QuestionBankData
-} from "../utils/types";
+} from "../utils/types"; // Ensure these types are updated with 'price'
 
 // Helper function to safely narrow 'unknown' error type
 function isHttpError(error: unknown): error is HttpError {
@@ -15,13 +15,26 @@ function isSequelizeUniqueConstraintError(error: unknown): error is { name: stri
     return typeof error === 'object' && error !== null && 'name' in error && (error as any).name === 'SequelizeUniqueConstraintError';
 }
 
-// Create a new Question Bank
+/**
+ * Creates a new Question Bank record in the database.
+ * @param params - Contains all necessary data for creating a question bank, including the new price.
+ * @returns A Promise that resolves to the created QuestionBankData.
+ * @throws HttpError if required parameters are missing, if price is invalid, or if a unique constraint is violated.
+ * @throws HttpError with 500 status for other internal errors.
+ */
 export const createQuestionBankService = async (
     params: CreateQuestionBankServiceParams
 ): Promise<QuestionBankData> => {
     try {
+        // Basic validation for core required fields
         if (!params.name || !params.filePath || !params.fileName) {
             throw new HttpError("Name, file path, and file name are required to create a question bank.", 400);
+        }
+
+        // Validate price - ensure it's a number and non-negative
+        // params.price must be explicitly checked as it might be `undefined` or a non-numeric string from user input
+        if (typeof params.price !== 'number' || isNaN(params.price) || params.price < 0) {
+            throw new HttpError("Price is required and must be a non-negative number.", 400);
         }
 
         const newQuestionBank = await QuestionBank.create({
@@ -29,56 +42,87 @@ export const createQuestionBankService = async (
             description: params.description,
             filePath: params.filePath,
             fileName: params.fileName,
+            price: params.price, // Include the new price field
             uploadedBy: params.uploadedBy,
         });
 
+        // Return the created question bank as plain data
         return newQuestionBank.toJSON() as QuestionBankData;
-    } catch (error: unknown) { // Explicitly type as unknown
+    } catch (error: unknown) {
         console.error("Error creating question bank:", error);
         if (isHttpError(error)) {
-            throw error;
+            throw error; // Re-throw known HTTP errors
         }
         if (isSequelizeUniqueConstraintError(error)) {
-             throw new HttpError(`A question bank with the name '${params.name}' already exists.`, 409);
+            // Handle unique constraint violation specifically for the name
+            throw new HttpError(`A question bank with the name '${params.name}' already exists.`, 409);
         }
+        // Catch-all for unexpected errors
         throw new HttpError("Failed to create question bank.", 500);
     }
 };
 
-// Update an existing Question Bank
+/**
+ * Updates an existing Question Bank record in the database.
+ * @param id - The ID of the question bank to update.
+ * @param params - An object containing the fields to update, including price.
+ * @returns A Promise that resolves to the updated QuestionBankData.
+ * @throws HttpError if the question bank is not found, if price is invalid, or if a unique constraint is violated.
+ * @throws HttpError with 500 status for other internal errors.
+ */
 export const updateQuestionBankService = async (
     id: string,
     params: UpdateQuestionBankServiceParams
 ): Promise<QuestionBankData> => {
     try {
+        // Find the question bank by its ID
         const questionBank = await QuestionBank.findOne({ where: { id } });
 
         if (!questionBank) {
             throw new HttpError("Question Bank not found.", 404);
         }
 
+        // Validate price if it's provided in the update parameters
+        if (params.price !== undefined) {
+            if (typeof params.price !== 'number' || isNaN(params.price) || params.price < 0) {
+                throw new HttpError("Price must be a non-negative number.", 400);
+            }
+        }
+
+        // Update the question bank with the provided parameters
+        // Sequelize will only update fields present in the params object
         await questionBank.update(params);
 
+        // Fetch the updated question bank to ensure we return the latest state
         const updatedQuestionBank = await QuestionBank.findByPk(id);
 
         if (!updatedQuestionBank) {
+            // This case indicates a serious issue where the update succeeded but retrieval failed
             throw new HttpError("Failed to retrieve updated question bank.", 500);
         }
 
+        // Return the updated question bank as plain data
         return updatedQuestionBank.toJSON() as QuestionBankData;
-    } catch (error: unknown) { // Explicitly type as unknown
+    } catch (error: unknown) {
         console.error(`Error updating question bank with ID ${id}:`, error);
         if (isHttpError(error)) {
             throw error;
         }
         if (isSequelizeUniqueConstraintError(error) && params.name) {
-             throw new HttpError(`A question bank with the name '${params.name}' already exists.`, 409);
+            // Handle unique constraint violation specifically if the name was updated
+            throw new HttpError(`A question bank with the name '${params.name}' already exists.`, 409);
         }
         throw new HttpError("Failed to update question bank.", 500);
     }
 };
 
-// Delete a Question Bank
+/**
+ * Deletes a Question Bank record from the database.
+ * @param id - The ID of the question bank to delete.
+ * @returns A Promise that resolves with a success message.
+ * @throws HttpError if the question bank is not found.
+ * @throws HttpError with 500 status for other internal errors.
+ */
 export const deleteQuestionBankService = async (
     id: string
 ): Promise<{ message: string }> => {
@@ -91,7 +135,7 @@ export const deleteQuestionBankService = async (
 
         await questionBank.destroy();
         return { message: "Question Bank deleted successfully." };
-    } catch (error: unknown) { // Explicitly type as unknown
+    } catch (error: unknown) {
         console.error(`Error deleting question bank with ID ${id}:`, error);
         if (isHttpError(error)) {
             throw error;
@@ -100,18 +144,29 @@ export const deleteQuestionBankService = async (
     }
 };
 
-// Get all Question Banks
+/**
+ * Retrieves all Question Bank records from the database.
+ * @returns A Promise that resolves to an array of QuestionBankData.
+ * @throws HttpError with 500 status for internal errors during retrieval.
+ */
 export const getAllQuestionBanksService = async (): Promise<QuestionBankData[]> => {
     try {
         const questionBanks = await QuestionBank.findAll();
+        // Map Sequelize model instances to plain data objects
         return questionBanks.map(qb => qb.toJSON() as QuestionBankData);
-    } catch (error: unknown) { // Explicitly type as unknown
+    } catch (error: unknown) {
         console.error("Error fetching all question banks:", error);
         throw new HttpError("Failed to retrieve question banks.", 500);
     }
 };
 
-// Get a single Question Bank by ID
+/**
+ * Retrieves a single Question Bank record by its ID.
+ * @param id - The ID of the question bank to retrieve.
+ * @returns A Promise that resolves to the QuestionBankData.
+ * @throws HttpError if the question bank is not found.
+ * @throws HttpError with 500 status for other internal errors.
+ */
 export const getQuestionBankByIdService = async (
     id: string
 ): Promise<QuestionBankData> => {
@@ -122,8 +177,9 @@ export const getQuestionBankByIdService = async (
             throw new HttpError("Question Bank not found.", 404);
         }
 
+        // Return the found question bank as plain data
         return questionBank.toJSON() as QuestionBankData;
-    } catch (error: unknown) { // Explicitly type as unknown
+    } catch (error: unknown) {
         console.error(`Error fetching question bank with ID ${id}:`, error);
         if (isHttpError(error)) {
             throw error;
