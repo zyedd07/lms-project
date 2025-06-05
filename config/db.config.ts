@@ -1,27 +1,24 @@
 // src/config/db.config.ts
 
 import { Sequelize } from 'sequelize';
-import dotenv from 'dotenv';
-
-dotenv.config(); // Load environment variables from your .env file at the top
+require('dotenv').config();
 
 export const config = {
-    development: {
-        db: {
-            // Provide empty string fallbacks if environment variables are not set
-            username: process.env.DB_USER || '',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || '',
-            host: process.env.DB_HOST || 'localhost', // Provide a fallback for host too
-            port: Number(process.env.DB_PORT || '5432'), // Ensure port is a number, with fallback
-            dialect: 'postgres' as 'postgres',
-            dialectOptions: {},
-            logging: false
-        }
+  development: {
+    db: {
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      dialect: 'postgres',
+      dialectOptions: {}, 
+      logging: false 
     }
-    // Define other environments (test, production) if needed
-};
+  }
 
+  
+}
 const env = process.env.NODE_ENV || 'development';
 
 const dbConfig = config[env as keyof typeof config]?.db;
