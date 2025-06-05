@@ -1,24 +1,26 @@
 // src/config/db.config.ts
 
 import { Sequelize } from 'sequelize';
-require('dotenv').config();
+require('dotenv').config(); // Load environment variables at the top
 
 export const config = {
-  development: {
-    db: {
-      username: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT),
-      dialect: 'postgres',
-      dialectOptions: {}, 
-      logging: false 
+    development: {
+        db: {
+            // --- CRITICAL FIXES HERE ---
+            // Add '|| ""' (or other sensible defaults) to ensure these are always strings
+            username: process.env.DB_USER || '',
+            password: process.env.DB_PASSWORD || '',
+            database: process.env.DB_NAME || '',
+            host: process.env.DB_HOST || 'localhost', // Provide a default host
+            port: Number(process.env.DB_PORT || '5432'), // Ensure port is a number, with a default
+            // --- END CRITICAL FIXES ---
+            dialect: 'postgres' as 'postgres', // Explicitly cast for dialect type safety
+            dialectOptions: {},
+            logging: false
+        }
     }
-  }
+};
 
-  
-}
 const env = process.env.NODE_ENV || 'development';
 
 const dbConfig = config[env as keyof typeof config]?.db;
@@ -30,7 +32,7 @@ if (!dbConfig) {
 
 // Create a new Sequelize instance
 const sequelize = new Sequelize(
-    // Now these arguments are guaranteed to be 'string' due to the fallbacks above
+    // These arguments are now guaranteed to be 'string' due to the fallbacks in 'config'
     dbConfig.database,
     dbConfig.username,
     dbConfig.password,
