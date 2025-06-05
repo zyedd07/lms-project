@@ -3,11 +3,16 @@
     /* Language and Environment */
     "target": "es2016",
     "module": "commonjs",
-    "lib": ["es2016", "dom"], // Include "dom" as it's common for web-related projects
+    "lib": ["es2016", "dom"], // Include "dom" as it's often needed for web-related types
 
     /* Emit */
     "outDir": "./dist",
-    // "rootDir": "./", // Can be omitted as discussed.
+    // "rootDir": "./", // Can be omitted or set to "./" if all source is at root
+
+    /* --- IMPORTANT ADDITION/CHANGE FOR MODULE RESOLUTION --- */
+    "moduleResolution": "node", // Explicitly use Node.js module resolution strategy
+    "baseUrl": "./",           // Base directory to resolve non-relative module names from
+    /* --- END IMPORTANT ADDITION/CHANGE --- */
 
     /* Interop Constraints */
     "esModuleInterop": true,
@@ -20,13 +25,7 @@
     "skipLibCheck": true,
 
     /* Type Roots (explicitly telling TypeScript where to find @types declaration files) */
-    "typeRoots": ["./node_modules/@types"],
-
-    /* --- IMPORTANT ADDITION FOR TS7016 --- */
-    // Explicitly list the types to be included. This can sometimes force TypeScript to load them.
-    // If you add this, TypeScript will only load types for modules explicitly listed here.
-    "types": ["node", "express", "multer"]
-    /* --- END IMPORTANT ADDITION --- */
+    "typeRoots": ["./node_modules/@types"] // This is crucial and must be correct
   },
   "include": [
     "./**/*.ts",
