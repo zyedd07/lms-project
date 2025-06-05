@@ -6,15 +6,50 @@ require('dotenv').config(); // Load environment variables at the top
 export const config = {
     development: {
         db: {
-            // --- CRITICAL FIXES HERE ---
-            // Add '|| ""' (or other sensible defaults) to ensure these are always strings
             username: process.env.DB_USER || '',
             password: process.env.DB_PASSWORD || '',
             database: process.env.DB_NAME || '',
-            host: process.env.DB_HOST || 'localhost', // Provide a default host
-            port: Number(process.env.DB_PORT || '5432'), // Ensure port is a number, with a default
-            // --- END CRITICAL FIXES ---
-            dialect: 'postgres' as 'postgres', // Explicitly cast for dialect type safety
+            host: process.env.DB_HOST || 'localhost',
+            port: Number(process.env.DB_PORT || '5432'),
+            dialect: 'postgres' as 'postgres',
+            dialectOptions: {},
+            logging: false
+        }
+    },
+    // --- ADD THE PRODUCTION CONFIGURATION HERE ---
+    production: {
+        db: {
+            // Sequelize can directly use the DATABASE_URL connection string.
+            // When DATABASE_URL is provided to the Sequelize constructor directly,
+            // it parses all the host, port, user, password, database details from it.
+            // You typically don't need to specify individual fields if using DATABASE_URL.
+            url: process.env.DATABASE_URL || '', // Your DATABASE_URL from .env
+            dialect: 'postgres' as 'postgres',
+            logging: false, // Keep logging off in production
+            dialectOptions: {
+                ssl: { // Supabase usually requires SSL
+                    require: true,
+                    rejectUnauthorized: false // Often needed for cloud providers like Supabase
+                }
+            },
+            pool: { // Standard pool settings
+                max: 5,
+                min: 0,
+                acquire: 30000,
+                idle: 10000
+            }
+        }
+    },
+    // You can also add a 'test' environment if needed for automated testing
+    test: {
+        db: {
+            // Example for a test environment, often an in-memory SQLite or separate test DB
+            username: process.env.TEST_DB_USER || '',
+            password: process.env.TEST_DB_PASSWORD || '',
+            database: process.env.TEST_DB_NAME || 'lms_test_db',
+            host: process.env.TEST_DB_HOST || 'localhost',
+            port: Number(process.env.TEST_DB_PORT || '5433'),
+            dialect: 'postgres' as 'postgres',
             dialectOptions: {},
             logging: false
         }
@@ -30,26 +65,31 @@ if (!dbConfig) {
     process.exit(1);
 }
 
-// Create a new Sequelize instance
-const sequelize = new Sequelize(
-    // These arguments are now guaranteed to be 'string' due to the fallbacks in 'config'
-    dbConfig.database,
-    dbConfig.username,
-    dbConfig.password,
-    {
-        host: dbConfig.host,
-        port: dbConfig.port,
+// --- IMPORTANT: Adjust the Sequelize instantiation logic ---
+let sequelize: Sequelize;
+
+if (dbConfig.url) { // If a 'url' property is present (like in production config)
+    sequelize = new Sequelize(dbConfig.url, {
         dialect: dbConfig.dialect,
-        dialectOptions: dbConfig.dialectOptions,
         logging: dbConfig.logging,
-        pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000
+        dialectOptions: dbConfig.dialectOptions,
+        pool: dbConfig.pool,
+    });
+} else { // Otherwise, use individual fields (like in development/test configs)
+    sequelize = new Sequelize(
+        dbConfig.database,
+        dbConfig.username,
+        dbConfig.password,
+        {
+            host: dbConfig.host,
+            port: dbConfig.port,
+            dialect: dbConfig.dialect,
+            dialectOptions: dbConfig.dialectOptions,
+            logging: dbConfig.logging,
+            pool: dbConfig.pool,
         }
-    }
-);
+    );
+}
 
 async function connectToDatabase() {
     try {
