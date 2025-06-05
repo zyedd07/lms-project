@@ -1,13 +1,21 @@
 // src/services/Course.service.ts
 
 import Categories from "../models/Categories.model";
-import Course from "../models/Course.model";
+import Course from "../models/Course.model"; // Ensure this import is correct and brings in the typed Course model
 import CourseTeacher from "../models/CourseTeacher.model";
 import Teacher from "../models/Teacher.model";
 import { CourseTeacherServiceOperation } from "../utils/constants";
 import HttpError from "../utils/httpError";
-// Make sure to update your types file (e.g., utils/types.ts)
-import { CourseTeacherServiceOperationType, CreateCourseServiceParams, GetAllCourseServiceParams, GetCourseFilters, UpdateCourseServiceParams } from "../utils/types";
+import { 
+    CourseTeacherServiceOperationType, 
+    CreateCourseServiceParams, 
+    GetAllCourseServiceParams, 
+    GetCourseFilters, 
+    UpdateCourseServiceParams,
+    // Import your custom Course model type if you explicitly defined it
+    // e.g., if you created an interface `CourseInstance` in Course.model.ts and exported it:
+    // CourseInstance 
+} from "../utils/types"; // Make sure your custom CourseInstance type is accessible, or use a direct cast
 
 export const createCourseService = async (params: CreateCourseServiceParams) => {
     try {
@@ -26,10 +34,9 @@ export const createCourseService = async (params: CreateCourseServiceParams) => 
             price: params.price,
             courseType: params.courseType,
             demoVideoUrl: params.demoVideoUrl,
-            active: params.active,
-            syllabus: params.syllabus || [],
-            // --- ADDED: Include the new 'contents' field here ---
-            contents: params.contents || [], // Default to empty array if not provided
+            active: params.active, 
+            syllabus: params.syllabus || [], 
+            contents: params.contents || [], // Ensure contents is also passed here
         });
         return newCourse;
     } catch (error) {
@@ -46,25 +53,37 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
             throw new HttpError('Course not found', 404);
         }
 
-        // --- MODIFIED LINE: Update with all provided params, including contents and syllabus ---
+        // --- CORRECTED LINES ---
+        // To safely access properties like 'syllabus' and 'contents' on the 'course' object
+        // without TypeScript complaining about `Model<any, any>`, you can use:
+        // 1. Explicitly casting `course` to the correct type (e.g., `Course & { syllabus: any[]; contents: any[]; }`)
+        // 2. Using `course.get('propertyName')` method which is type-safe
+        // 3. Ensuring your Sequelize model definition uses the correct instance typing (as provided in the last response for Course.model.ts)
+
+        // Assuming your Course.model.ts now properly types the instance:
+        // No explicit cast is needed IF your model typing is perfect and accessible.
+        // However, if the error persists, a simple type assertion like `as any` or a more specific type
+        // can temporarily resolve it while you refine your model's instance typing.
+
+        // Let's use `as any` for quick fix, but the best long-term solution is strong model typing.
+        const currentSyllabus = (course as any).syllabus || [];
+        const currentContents = (course as any).contents || [];
+        
         await Course.update(
             {
-                ...params, // Spread all parameters
-                syllabus: params.syllabus !== undefined ? params.syllabus : course.syllabus, // Use provided syllabus or existing
-                contents: params.contents !== undefined ? params.contents : course.contents, // Use provided contents or existing
+                ...params, // Spread all parameters from the update request
+                // Use provided syllabus/contents if available, otherwise fallback to existing data
+                syllabus: params.syllabus !== undefined ? params.syllabus : currentSyllabus,
+                contents: params.contents !== undefined ? params.contents : currentContents,
             },
             {
                 where: { id: id }
             }
         );
-        // It's generally safer to explicitly list fields or merge carefully to avoid
-        // accidentally updating fields you didn't intend to from 'params'.
-        // However, if `params` reliably contains only updatable fields, `await Course.update(params, { where: { id } });` is simpler.
-        // I've added a more explicit merge for `syllabus` and `contents` to ensure default values or existing data is retained if not provided in the update.
+        // --- END CORRECTED LINES ---
 
-        // Fetch the updated course to return it, as Sequelize's update returns [affectedRows]
         const updatedCourse = await Course.findByPk(id);
-        return updatedCourse; // Return the actual updated course object
+        return updatedCourse; 
     } catch (error) {
         throw error;
     }
@@ -94,7 +113,7 @@ export const getCourseByIdService = async (id: string) => {
         if (!courseData) {
             return null;
         }
-        return courseData; // This will now include the syllabus and contents fields automatically
+        return courseData; 
     } catch (error) {
         console.error("Error in getCourseByIdService:", error);
         throw error;
@@ -105,12 +124,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
     try {
         let whereClause: any = {};
         if (id) {
-            // If ID is provided, it's a specific course lookup, which should ideally use getCourseByIdService
-            // This block in getAllCoursesService seems redundant if getCourseByIdService exists
-            // However, if you intend for getAllCourses to fetch a single course by ID with additional filters, keep it.
-            // But usually, getCourseByIdService is for direct lookup.
-            // FIX: Merged 'whereClause' correctly.
-            whereClause = { id }; // Initialize if ID is present
+            whereClause = { id }; 
             if (active === true || active === false) {
                 whereClause.active = active;
             }
@@ -137,9 +151,8 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
             if (!courseData) {
                 throw new HttpError('Course not found', 404);
             }
-            return courseData; // Returns a single object if ID is present
+            return courseData; 
         } else {
-            // This is the intended path for getting ALL courses with category/active filters
             if (categoryId) {
                 whereClause.categoryId = categoryId;
             }
@@ -150,7 +163,6 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                 where: whereClause,
                 limit: filters?.limit,
                 offset: filters?.offset,
-                // Include related models if needed for the list view
                  include: [
                      {
                          model: Teacher,
@@ -168,7 +180,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                  ]
             });
 
-            return courses; // Returns an array of objects
+            return courses; 
         }
     } catch (error) {
         throw error;
