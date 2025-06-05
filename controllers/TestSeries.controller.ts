@@ -11,7 +11,13 @@ import TestOption from "../models/Option.model"
 
 export const createTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const role = req.user?.role;
+        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
+        if (!req.user || !req.user.id) {
+            throw new HttpError("Authentication required: User ID is missing.", 401);
+        }
+        // --- END FIX ---
+
+        const role = req.user.role; // Now `req.user` is guaranteed to exist
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
@@ -22,7 +28,7 @@ export const createTestSeriesController = async (req: AuthenticatedRequest, res:
         const newTestSeries = await createTestSeriesService({
             name,
             description,
-            createdBy: req.user.id,
+            createdBy: req.user.id, // Now safely accessed
         });
         res.status(201).json(newTestSeries);
     } catch (error) {
@@ -69,7 +75,12 @@ export const updateTestSeriesController = async (req: AuthenticatedRequest, res:
     try {
         const { id } = req.params;
         const { name, description } = req.body;
-        const role = req.user?.role;
+        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
+        if (!req.user || !req.user.role) { // Assuming role is also needed for update authorization
+            throw new HttpError("Authentication required: User role is missing.", 401);
+        }
+        // --- END FIX ---
+        const role = req.user.role; // Now safely accessed
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
@@ -87,7 +98,12 @@ export const updateTestSeriesController = async (req: AuthenticatedRequest, res:
 export const deleteTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const role = req.user?.role;
+        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
+        if (!req.user || !req.user.role) { // Assuming role is also needed for delete authorization
+            throw new HttpError("Authentication required: User role is missing.", 401);
+        }
+        // --- END FIX ---
+        const role = req.user.role; // Now safely accessed
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }

@@ -1,26 +1,34 @@
 {
   "compilerOptions": {
     /* Language and Environment */
-    "target": "es2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-    "module": "commonjs",                                /* Specify what module code is generated. */
+    "target": "es2016",
+    "module": "commonjs",
 
     /* Emit */
-    "outDir": "./dist",                                  /* Specify an output folder for all emitted files. */
-    "rootDir": "./",                                   /* Specify the root folder within your source files. */
-
+    "outDir": "./dist",
+    "rootDir": "./src", // <-- CHANGE THIS LINE: Set rootDir to your source folder
+    
     /* Interop Constraints */
-    "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
-    "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
 
     /* Type Checking */
-    "strict": true,                                      /* Enable all strict type-checking options. */
+    "strict": true,
 
     /* Completeness */
-    "skipLibCheck": true,                                /* Skip type checking all .d.ts files. */
+    "skipLibCheck": true,
 
     /* Type Roots (explicitly telling TypeScript where to find @types) */
+    // This line is now less critical but still correct if you want to be explicit
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["./**/*.ts"],                               /* Include all .ts files in the current directory and subdirectories */
-  "exclude": ["node_modules", "dist"]                      /* Exclude node_modules and the output dist folder */
+  // Ensure your include covers your source files relative to the project root
+  "include": [
+    "src/**/*.ts", // This is correct for your source files
+    "src/**/*.d.ts" // This is correct for your custom declaration files
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

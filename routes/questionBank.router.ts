@@ -1,5 +1,4 @@
 import express from 'express';
-// Import Multer types directly for clarity and robustness
 import multer, { FileFilterCallback, StorageEngine } from 'multer'; // Ensure all types are imported
 import * as QuestionBankController from '../controllers/questionBank.controller';
 import isAuth from '../middleware/auth'; // Your authentication middleware
@@ -11,14 +10,12 @@ const router = express.Router();
 
 // Explicitly define the StorageEngine type for clarity
 const storage: StorageEngine = multer.diskStorage({
-    // REMOVED THE COMMENT THAT WAS PREVIOUSLY ON LINE 14
     destination: function (req: express.Request, file: multer.File, cb: (error: Error | null, destination: string) => void) {
         // Ensure the directory exists
         const uploadDir = 'uploads/question-banks/';
         fs.mkdirSync(uploadDir, { recursive: true }); // Use fs.mkdirSync
         cb(null, uploadDir); // Files will be stored in this directory
-    },
-    // ADDED A COMMA HERE TO SEPARATE destination AND filename PROPERTIES
+    }, // Added comma here to separate properties
     filename: function (req: express.Request, file: multer.File, cb: (error: Error | null, filename: string) => void) {
         // Define the filename for the uploaded file
         // Appending timestamp to avoid name collisions
@@ -71,7 +68,7 @@ router.put(
 );
 
 router.delete(
-    '/:id', // Make sure this is '/:id' if it's dynamic
+    '/:id', // Corrected from '/id' to '/:id' for dynamic ID
     isAuth, // Authenticates the user
     QuestionBankController.deleteQuestionBankController
 );
