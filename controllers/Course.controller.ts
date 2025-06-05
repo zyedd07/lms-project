@@ -248,11 +248,7 @@ export const courseTeacherController = async (req: AuthenticatedRequest, res: Re
     }
 };
 
----
-
-### New Course Content Controllers
-
-These controllers handle the operations on the `contents` JSONB array within a course.
+// --- New Course Content Controllers ---
 
 /**
  * @route POST /api/courses/:courseId/contents
