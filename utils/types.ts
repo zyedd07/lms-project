@@ -148,3 +148,35 @@ export type GetCourseFilters = {
     limit?: number;
     offset?: number;
 }
+
+---
+
+**// --- NEW TYPES FOR QUESTION BANK SERVICES ---**
+export interface CreateQuestionBankServiceParams {
+    name: string;
+    description?: string;
+    filePath: string;
+    fileName: string;
+    uploadedBy?: string; // Optional, if you're tracking the uploader (UUID)
+}
+
+export interface UpdateQuestionBankServiceParams {
+    name?: string;
+    description?: string;
+    filePath?: string; // Only if you're replacing the file
+    fileName?: string; // Only if you're replacing the file
+    uploadedBy?: string;
+}
+
+export interface QuestionBankData {
+    id: string;
+    name: string;
+    description: string | null; // Database might return null, so account for it
+    filePath: string;
+    fileName: string;
+    uploadedBy: string | null; // Database might return null
+    uploadDate: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+**// --- END NEW TYPES FOR QUESTION BANK SERVICES ---**
