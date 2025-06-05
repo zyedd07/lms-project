@@ -24,6 +24,11 @@ const QuestionBank = sequelize.define('QuestionBank', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    price: { // New price field
+        type: DataTypes.DECIMAL(10, 2), // Example: up to 10 total digits, 2 after decimal (e.g., 99999999.99)
+        allowNull: false, // Assuming price is always required
+        defaultValue: 0.00, // Default to 0.00 if not provided
+    },
     uploadedBy: {
         type: DataTypes.UUID,
         allowNull: true, // Can be null if not linked to a uploader
