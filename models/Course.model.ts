@@ -1,7 +1,7 @@
 // src/models/Course.model.ts
 
 import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/database'; // Assuming you have your Sequelize instance configured here
+import sequelize from '../config/db.config'; // Assuming you have your Sequelize instance configured here
 
 // --- Import the new types for JSONB fields ---
 import { SyllabusSection, CourseContentItem } from '../utils/types';
