@@ -149,9 +149,8 @@ export type GetCourseFilters = {
     offset?: number;
 }
 
----
 
-**// --- NEW TYPES FOR QUESTION BANK SERVICES ---**
+
 export interface CreateQuestionBankServiceParams {
     name: string;
     description?: string;
@@ -179,4 +178,3 @@ export interface QuestionBankData {
     createdAt: Date;
     updatedAt: Date;
 }
-**// --- END NEW TYPES FOR QUESTION BANK SERVICES ---**
