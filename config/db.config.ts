@@ -13,25 +13,29 @@ export const config = {
             port: Number(process.env.DB_PORT || '5432'),
             dialect: 'postgres' as 'postgres',
             dialectOptions: {},
-            logging: false
+            logging: false,
+            // --- ADDED POOL CONFIGURATION HERE ---
+            pool: {
+                max: 5,
+                min: 0,
+                acquire: 30000,
+                idle: 10000
+            }
+            // --- END ADDED POOL CONFIGURATION ---
         }
     }
-    // IMPORTANT: No 'production' or 'test' environment is defined here,
-    // as per your request to only have 'development'.
+    // No 'production' or 'test' environment defined here, as per your request.
 };
 
-// --- CRITICAL ADJUSTMENT FOR "DEVELOPMENT ONLY" IN DEPLOYMENT ---
 // Force the environment to 'development' regardless of what process.env.NODE_ENV is set to.
 // This ensures that the 'development' configuration block is always selected.
 const env = 'development';
-// --- END CRITICAL ADJUSTMENT ---
 
 const dbConfig = config[env as keyof typeof config]?.db;
 
-// This check should now always pass, as 'development' config is explicitly set above.
 if (!dbConfig) {
     console.error(`ERROR: The 'development' database configuration is missing in db.config.ts. This should not happen.`);
-    process.exit(1); // Exit if even the 'development' config is invalid.
+    process.exit(1);
 }
 
 let sequelize: Sequelize;
@@ -43,21 +47,18 @@ if (process.env.DATABASE_URL) {
     sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: dbConfig.dialect,
         logging: dbConfig.logging,
+        // Pass pool directly here, as it's now guaranteed to exist on dbConfig
         pool: dbConfig.pool,
-        // Merge dialectOptions from the config, and add SSL for cloud databases (like Supabase).
-        // The logs indicate Sequelize already applies SSL options when DATABASE_URL is used,
-        // but explicitly including it ensures it's always configured.
         dialectOptions: {
-            ...dbConfig.dialectOptions, // Merge any other dialectOptions you might have in config
-            ssl: { // This is crucial for connecting to cloud PostgreSQL (like Supabase)
+            ...dbConfig.dialectOptions,
+            ssl: {
                 require: true,
-                rejectUnauthorized: false // Often necessary for dev/staging, adjust for strict production
+                rejectUnauthorized: false
             }
         }
     });
 } else {
     console.log("DATABASE_URL not found. Connecting using individual credentials from 'development' config.");
-    // Fallback to individual credentials from the forced 'development' config if DATABASE_URL is not set
     sequelize = new Sequelize(
         dbConfig.database,
         dbConfig.username,
@@ -68,6 +69,7 @@ if (process.env.DATABASE_URL) {
             dialect: dbConfig.dialect,
             dialectOptions: dbConfig.dialectOptions,
             logging: dbConfig.logging,
+            // Pass pool directly here, as it's now guaranteed to exist on dbConfig
             pool: dbConfig.pool,
         }
     );
