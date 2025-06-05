@@ -1,58 +1,67 @@
 // types/multer-shim.d.ts
 
-// This declares the core 'multer' module and its exports.
 declare module 'multer' {
   import { Request } from 'express';
 
-  // Minimal definition for the File type from Multer
   interface File {
     fieldname: string;
     originalname: string;
     encoding: string;
     mimetype: string;
     size: number;
-    destination?: string; // Optional: exists with diskStorage
-    filename?: string;    // Optional: exists with diskStorage
-    path?: string;        // Optional: exists with diskStorage
-    buffer?: Buffer;      // Optional: exists with memoryStorage - crucial for Supabase upload!
+    destination?: string;
+    filename?: string;
+    path?: string;
+    buffer?: Buffer; // Crucial for memoryStorage
   }
 
-  // Basic types for StorageEngine and FileFilterCallback to resolve TS2709
-  // Using 'any' for now for simplicity in this shim, as their internal structure is complex.
   type StorageEngine = any;
+
+  // Corrected: Multer's fileFilter function itself expects this signature
+  type MulterFileFilterFunction = (
+    req: Request,
+    file: File,
+    callback: FileFilterCallback // This is the final callback function
+  ) => void;
+
+  // This is the callback function that you pass to MulterFileFilterFunction
   type FileFilterCallback = (error: Error | null, acceptFile: boolean) => void;
 
-  // Interface for the Multer function itself, and its common methods
   interface Multer {
     single(fieldName: string): (req: Request, res: any, next: any) => void;
     array(fieldName: string, maxCount?: number): (req: Request, res: any, next: any) => void;
     fields(fields: { name: string; maxCount?: number }[]): (req: Request, res: any, next: any) => void;
     any(): (req: Request, res: any, next: any) => void;
+  }
 
-    // Define the storage methods
-    memoryStorage(): StorageEngine;
-    diskStorage(options: {
+  // Define the multer function, and crucially, declare static methods directly on its namespace
+  function multer(options?: {
+    storage?: StorageEngine;
+    fileFilter?: MulterFileFilterFunction; // Use the specific function type here
+    limits?: {
+      fileSize?: number;
+      // Add other limits if needed
+    };
+  }): Multer;
+
+  // This namespace exports the types and static methods directly from 'multer'
+  namespace multer {
+    export { File, StorageEngine, FileFilterCallback }; // Exporting for direct import if needed
+
+    // Directly export the static storage methods to be accessed as multer.memoryStorage()
+    export function memoryStorage(): StorageEngine;
+    export function diskStorage(options: {
       destination?: (req: Request, file: File, callback: (error: Error | null, destination: string) => void) => void;
       filename?: (req: Request, file: File, callback: (error: Error | null, filename: string) => void) => void;
     }): StorageEngine;
   }
 
-  // The default export of the 'multer' module is a function that creates a Multer instance
-  function multer(options?: { storage?: StorageEngine; fileFilter?: FileFilterCallback; limits?: { fileSize?: number } }): Multer;
-
-  // This is crucial for allowing 'import multer, { File } from "multer";' syntax
-  // by extending the function with a namespace.
-  namespace multer {
-    export { File, StorageEngine, FileFilterCallback };
-  }
-
-  export = multer; // Export the function as the default module export
+  export = multer;
 }
 
-// This augments the Express Request type globally, so `req.file` has our custom File type
 declare namespace Express {
   interface Request {
-    file?: multer.File; // Using the File type we defined above in the multer module
+    file?: multer.File;
     files?: multer.File[] | { [fieldname: string]: multer.File[] };
   }
 }

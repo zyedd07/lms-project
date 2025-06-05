@@ -1,67 +1,60 @@
 import express from 'express';
-// Ensure all necessary Multer types are imported
-import multer, { FileFilterCallback, StorageEngine, File } from 'multer';
-import * as QuestionBankController from '../controllers/questionBank.controller'; // Adjusted path for flat structure
-import isAuth from '../middleware/auth'; // Adjusted path for flat structure
+// Ensure correct imports based on the shim
+import multer, { FileFilterCallback, StorageEngine, File, MulterFileFilterFunction } from 'multer';
+import * as QuestionBankController from '../controllers/questionBank.controller';
+import isAuth from '../middleware/auth';
 
 const router = express.Router();
 
 // --- Multer Configuration for File Uploads ---
-// IMPORTANT: Changed to memoryStorage() for Supabase Storage integration.
-// Files will be held in server memory as a Buffer before being uploaded to Supabase.
+// Corrected: Accessing memoryStorage directly from the multer object, which the shim now allows
 const storage: StorageEngine = multer.memoryStorage();
 
-const fileFilter = (req: express.Request, file: File, cb: FileFilterCallback) => {
-    // Only allow PDF files
+// Type the fileFilter function with MulterFileFilterFunction
+const fileFilter: MulterFileFilterFunction = (req: express.Request, file: File, cb: FileFilterCallback) => {
     if (file.mimetype === 'application/pdf') {
-        cb(null, true); // Accept the file
+        cb(null, true);
     } else {
-        cb(new Error('Only PDF files are allowed!'), false); // Reject other file types
+        cb(new Error('Only PDF files are allowed!'), false);
     }
 };
 
 const upload = multer({
-    storage: storage, // Now using memoryStorage
-    fileFilter: fileFilter,
+    storage: storage,
+    fileFilter: fileFilter, // This now correctly matches MulterFileFilterFunction
     limits: {
         fileSize: 1024 * 1024 * 10 // 10 MB file size limit
     }
 });
 
 // --- Question Bank Routes ---
-
-// Route for creating a new question bank (requires authentication and PDF file upload)
 router.post(
     '/create',
-    isAuth, // Authenticates the user
-    upload.single('pdfFile'), // Handles a single file upload with input field name 'pdfFile'
+    isAuth,
+    upload.single('pdfFile'),
     QuestionBankController.createQuestionBankController
 );
 
-// Route for fetching all question banks
 router.get(
     '/',
     QuestionBankController.getAllQuestionBanksController
 );
 
-// Route for fetching a single question bank by ID
 router.get(
     '/:id',
     QuestionBankController.getQuestionBankByIdController
 );
 
-// Route for updating an existing question bank (requires authentication and allows PDF file update)
 router.put(
     '/:id',
-    isAuth, // Authenticates the user
-    upload.single('pdfFile'), // Allows updating the PDF file
+    isAuth,
+    upload.single('pdfFile'),
     QuestionBankController.updateQuestionBankController
 );
 
-// Route for deleting a question bank (requires authentication)
 router.delete(
     '/:id',
-    isAuth, // Authenticates the user
+    isAuth,
     QuestionBankController.deleteQuestionBankController
 );
 
