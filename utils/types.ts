@@ -115,6 +115,8 @@ export interface UpdateCourseContentParams {
 
 // --- Course Management Types ---
 
+export type CourseType = 'live' | 'recorded'; // Define this reusable type
+
 export type CreateCourseServiceParams = {
     name: string;
     description?: string;
@@ -122,10 +124,10 @@ export type CreateCourseServiceParams = {
     categoryId: string;
     price?: number;
     demoVideoUrl?: string;
-    courseType: string; // This will map to 'live' | 'recorded'
+    courseType: CourseType; // <--- CHANGED: Use the specific literal union type
     active?: boolean;
-    syllabus?: SyllabusSection[]; // Optional array of syllabus sections
-    contents?: CourseContentItem[]; // Optional for initial course creation
+    syllabus?: SyllabusSection[];
+    contents?: CourseContentItem[];
 }
 
 export type UpdateCourseServiceParams = {
@@ -134,18 +136,18 @@ export type UpdateCourseServiceParams = {
     imageUrl?: string;
     categoryId?: string;
     price?: number;
-    courseType?: string; // This will map to 'live' | 'recorded'
+    courseType?: CourseType; // <--- CHANGED: Use the specific literal union type
     demoVideoUrl?: string;
     active?: boolean;
-    syllabus?: SyllabusSection[]; // Optional array of syllabus sections
-    contents?: CourseContentItem[]; // Optional: To update the entire contents array if needed (less common for individual item updates)
+    syllabus?: SyllabusSection[];
+    contents?: CourseContentItem[];
 }
 
 export type GetAllCourseServiceParams = {
     categoryId?: string;
     id?: string;
     active?: boolean;
-    teacherId?: string;
+    teacherId?: string; // This was here from before, keep it
 }
 
 export type GetCourseFilters = {
