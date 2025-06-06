@@ -5,9 +5,9 @@ import isAuth from '../middleware/auth';
 const router = express.Router();
 
 router.post('/create', isAuth, TestSeriesController.createTestSeriesController);
-router.get('/', TestSeriesController.getTestSeriesController);
+router.get('/', TestSeriesController.getTestSeriesController); // Get all TestSeries (categories)
+router.get('/:id', TestSeriesController.getTestSeriesByIdController); // Get a single TestSeries
 router.put('/:id', isAuth, TestSeriesController.updateTestSeriesController);
 router.delete('/:id', isAuth, TestSeriesController.deleteTestSeriesController);
-router.get('/full', isAuth, TestSeriesController.getFullTestSeriesController);
 
 export default router;
