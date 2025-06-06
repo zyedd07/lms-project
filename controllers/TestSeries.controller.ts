@@ -3,21 +3,18 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import HttpError from "../utils/httpError";
 import { createTestSeriesService, getAllTestSeriesService, updateTestSeriesService, deleteTestSeriesService } from "../services/TestSeries.service";
 import { Role } from "../utils/constants";
-import Question from "../models/Question.model";
-import Test from "../models/Test.model";
-import TestSeries from "../models/TestSeries.model";
-import TestOption from "../models/Option.model"
-
+import Question from "../models/Question.model"; // Correct: Question model
+import Test from "../models/Test.model";         // Correct: Test model
+import TestSeries from "../models/TestSeries.model"; // Correct: TestSeries model
+// REMOVED: import TestOption from "../models/Option.model"; // This model is no longer used for MCQ options
 
 export const createTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
         if (!req.user || !req.user.id) {
             throw new HttpError("Authentication required: User ID is missing.", 401);
         }
-        // --- END FIX ---
 
-        const role = req.user.role; // Now `req.user` is guaranteed to exist
+        const role = req.user.role;
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
@@ -28,7 +25,7 @@ export const createTestSeriesController = async (req: AuthenticatedRequest, res:
         const newTestSeries = await createTestSeriesService({
             name,
             description,
-            createdBy: req.user.id, // Now safely accessed
+            createdBy: req.user.id,
         });
         res.status(201).json(newTestSeries);
     } catch (error) {
@@ -36,27 +33,44 @@ export const createTestSeriesController = async (req: AuthenticatedRequest, res:
     }
 };
 
-export const getFullTestSeriesController = async (req: Request, res: Response, next: NextFunction) => {
+// Renamed from getFullTestSeriesController to getTestSeriesWithTestsController
+// to better reflect what it's fetching based on our new model hierarchy.
+// If you truly need ALL questions and options for ALL series, keep the deeper includes,
+// but be mindful of performance.
+export const getTestSeriesWithTestsController = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const testSeriesData = await TestSeries.findAll({
-        include: [{
-          model: Test,
-          as: 'tests',
-          include: [{
-            model: Question,
-            as: 'questions',
+        const testSeriesData = await TestSeries.findAll({
+            // Include associated Tests
             include: [{
-              model: TestOption,
-              as: 'options'
+                model: Test,
+                as: 'tests', // Ensure this alias matches the TestSeries.hasMany(Test, { as: 'tests' }) association
+                // If you need questions nested here, add another include:
+                // include: [{
+                //     model: Question,
+                //     as: 'questions' // Ensure this alias matches the Test.hasMany(Question, { as: 'questions' }) association
+                // }]
             }]
-          }]
-        }]
-      });
-      res.status(200).json({ success: true, data: testSeriesData });
+        });
+        res.status(200).json({ success: true, data: testSeriesData });
     } catch (error) {
-      next(new HttpError("Error fetching full test series data", 500));
+        next(new HttpError("Error fetching test series data with associated tests", 500));
     }
-  };
+};
+
+// Add a controller to get a single test series by ID, which can then be used to fetch its tests
+export const getTestSeriesByIdController = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const testSeries = await TestSeries.findByPk(id);
+        if (!testSeries) {
+            throw new HttpError("Test Series not found", 404);
+        }
+        res.status(200).json({ success: true, data: testSeries });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 export const getTestSeriesController = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -75,12 +89,10 @@ export const updateTestSeriesController = async (req: AuthenticatedRequest, res:
     try {
         const { id } = req.params;
         const { name, description } = req.body;
-        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
-        if (!req.user || !req.user.role) { // Assuming role is also needed for update authorization
+        if (!req.user || !req.user.role) {
             throw new HttpError("Authentication required: User role is missing.", 401);
         }
-        // --- END FIX ---
-        const role = req.user.role; // Now safely accessed
+        const role = req.user.role;
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
@@ -98,12 +110,10 @@ export const updateTestSeriesController = async (req: AuthenticatedRequest, res:
 export const deleteTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        // --- FIX FOR 'req.user' possibly 'undefined' (TS18048) ---
-        if (!req.user || !req.user.role) { // Assuming role is also needed for delete authorization
+        if (!req.user || !req.user.role) {
             throw new HttpError("Authentication required: User role is missing.", 401);
         }
-        // --- END FIX ---
-        const role = req.user.role; // Now safely accessed
+        const role = req.user.role;
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
