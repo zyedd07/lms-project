@@ -1,5 +1,5 @@
 import express from 'express';
-import * as TestController from '../controllers/Test.controller'; // Create this new controller
+import * as TestController from '../controllers/Test.controller';
 import isAuth from '../middleware/auth';
 
 const router = express.Router();
@@ -11,7 +11,8 @@ router.post('/create', isAuth, TestController.createTestController);
 router.get('/', isAuth, TestController.getTestsByTestSeriesController);
 
 // Get a single Test by ID (e.g., /api/tests/:id)
-router.get('/:id', isAuth, TestController.getTestByIdController);
+// Renamed from getTestByIdController to getTestController as per controller
+router.get('/:id', isAuth, TestController.getTestController);
 
 // Update a Test by ID
 router.put('/:id', isAuth, TestController.updateTestController);
