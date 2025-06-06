@@ -106,6 +106,7 @@ export type UpdateTestServiceParams = {
     durationMinutes?: number;
     numberOfQuestions?: number;
     passMarkPercentage?: number;
+    testSeriesId?: string; // <--- ADDED THIS LINE to resolve TS errors in Test.service.ts
 }
 // --- END NEW: TestServiceParams ---
 
