@@ -15,6 +15,9 @@ const Test = sequelize.define('Test', {
       model: 'TestSeries',  
       key: 'id',
     },
+      onDelete: 'CASCADE', // If a TestSeries is deleted, all its associated Tests are also deleted
+        onUpdate: 'CASCADE'
+    
   },
   name: {
     type: DataTypes.STRING,
