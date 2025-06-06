@@ -12,7 +12,7 @@ import TestSeries from "../TestSeries.model";
 import User from "../User.model";
 import Test from "../Test.model";
 import Question from "../Question.model";
-// import TestOption from "../Option.model"; 
+// import TestOption from "../Option.model"; // Correctly commented out
 
 const initAssociation = () => {
     // Relationships
@@ -54,12 +54,9 @@ const initAssociation = () => {
     Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
 
     // Test and Question
-    Test.hasMany(Question, { foreignKey: 'testId', as: 'questions' });
+    // CHANGING THE ALIAS HERE TO 'testQuestions' to ensure uniqueness
+    Test.hasMany(Question, { foreignKey: 'testId', as: 'testQuestions' });
     Question.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
-
-    // // Question and Option (using TestOption model)
-    // Question.hasMany(TestOption, { foreignKey: 'questionId', as: 'options' });
-    // TestOption.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
 
     Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
     Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
