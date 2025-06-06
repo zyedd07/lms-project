@@ -1,11 +1,11 @@
 import Test from "../models/Test.model"; // Import your Test model
 import HttpError from "../utils/httpError";
+import { Op } from 'sequelize'; // Import Op from sequelize for queries
 // Import the updated types from your types.ts file
 import { CreateTestServiceParams, UpdateTestServiceParams } from "../utils/types";
 
 export const createTestService = async (params: CreateTestServiceParams) => {
     try {
-        // Optional: Check if a test with the same name already exists within the same testSeriesId
         const existingTest = await Test.findOne({
             where: { name: params.name, testSeriesId: params.testSeriesId },
         });
@@ -17,12 +17,10 @@ export const createTestService = async (params: CreateTestServiceParams) => {
             testSeriesId: params.testSeriesId,
             name: params.name,
             description: params.description,
-            // --- ADDED NEW FIELDS ---
             durationMinutes: params.durationMinutes,
             numberOfQuestions: params.numberOfQuestions,
             passMarkPercentage: params.passMarkPercentage,
             createdBy: params.createdBy,
-            // --- END ADDED NEW FIELDS ---
         });
         return newTest;
     } catch (error) {
@@ -42,7 +40,7 @@ export const getTestByIdService = async (id: string) => {
     }
 };
 
-export const updateTestService = async (id: string, params: UpdateTestServiceParams) => { // Changed type to UpdateTestServiceParams
+export const updateTestService = async (id: string, params: UpdateTestServiceParams) => {
     try {
         const test = await Test.findByPk(id);
         if (!test) {
@@ -51,12 +49,17 @@ export const updateTestService = async (id: string, params: UpdateTestServicePar
 
         // Optional: If 'name' or 'testSeriesId' are updated,
         // you might want to check for uniqueness within the new testSeriesId
-        if (params.name && params.testSeriesId && (params.name !== test.name || params.testSeriesId !== test.testSeriesId)) {
-             const existingTestWithNewName = await Test.findOne({
+        // Ensure params.name and params.testSeriesId are explicitly checked for existence
+        // and that 'test' is correctly typed as a Test instance (which it is after findByPk)
+        if (
+            (params.name !== undefined && params.name !== test.name) ||
+            (params.testSeriesId !== undefined && params.testSeriesId !== test.testSeriesId)
+        ) {
+            const existingTestWithNewName = await Test.findOne({
                 where: {
-                    name: params.name,
-                    testSeriesId: params.testSeriesId,
-                    id: { [Test.sequelize.Op.ne]: id } // Exclude current test from check
+                    name: params.name !== undefined ? params.name : test.name, // Use new name if provided, else old
+                    testSeriesId: params.testSeriesId !== undefined ? params.testSeriesId : test.testSeriesId, // Use new testSeriesId if provided, else old
+                    id: { [Op.ne]: id } // Use Op.ne directly from imported Op
                 },
             });
             if (existingTestWithNewName) {
@@ -64,8 +67,7 @@ export const updateTestService = async (id: string, params: UpdateTestServicePar
             }
         }
 
-
-        await test.update(params); // Update all provided parameters
+        await test.update(params);
         return { message: "Test updated successfully" };
     } catch (error) {
         throw error;
