@@ -117,7 +117,8 @@ export type CreateQuestionServiceParams = {
     questionText: string;
     options: string[]; // Array of strings for MCQ options
     correctAnswerIndex: number; // 0-based index of the correct option
-    points: number; // Points for this question
+    points: number;
+    negativePoints: number;// Points for this question
 }
 
 export type UpdateQuestionServiceParams = {
@@ -125,7 +126,7 @@ export type UpdateQuestionServiceParams = {
     options?: string[];
     correctAnswerIndex?: number;
     points?: number;
-}
+negativePoints?: number;}
 // --- END UPDATED: QuestionServiceParams ---
 
 
