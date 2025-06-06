@@ -14,7 +14,7 @@ import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router';
 import questionRouter from './routes/Question.router';
-import optionRouter from './routes/Option.router';
+// import optionRouter from './routes/Option.router';
 import testRouter from "./routes/Test.router";
 // --- ADDED: Question Bank Router ---
 import questionBankRouter from './routes/questionBank.router'; // Import your new router
@@ -69,7 +69,7 @@ app.use('/admin', adminRouter);
 app.use('/course', courseRouter);
 app.use('/testseries', testSeriesRouter);
 app.use('/question' , questionRouter);
-app.use('/option' , optionRouter);
+// app.use('/option' , optionRouter);
 app.use('/test', testRouter);
 // --- ADDED: Question Bank Route ---
 app.use('/question-banks', questionBankRouter); // Mount your new router here

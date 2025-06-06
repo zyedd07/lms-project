@@ -1,8 +1,21 @@
-import Test from "../models/Test.model"; // Import your Test model
+import Test from "../models/Test.model";
 import HttpError from "../utils/httpError";
-import { Op } from 'sequelize'; // Import Op from sequelize for queries
-// Import the updated types from your types.ts file
-import { CreateTestServiceParams, UpdateTestServiceParams } from "../utils/types";
+import { Op } from 'sequelize'; // Ensure Op is imported from sequelize
+
+// Assume these types are correctly defined in ../utils/types.ts
+// For example:
+// export interface CreateTestServiceParams {
+//   testSeriesId: string;
+//   name: string;
+//   description?: string;
+//   durationMinutes: number;
+//   numberOfQuestions: number;
+//   passMarkPercentage: number;
+//   createdBy: string;
+// }
+//
+// export type UpdateTestServiceParams = Partial<Omit<CreateTestServiceParams, 'createdBy'>>;
+// (You might also want to exclude 'testSeriesId' if it's never meant to be updated, but currently it is in params)
 
 export const createTestService = async (params: CreateTestServiceParams) => {
     try {
@@ -47,19 +60,25 @@ export const updateTestService = async (id: string, params: UpdateTestServicePar
             throw new HttpError("Test not found", 404);
         }
 
-        // Optional: If 'name' or 'testSeriesId' are updated,
-        // you might want to check for uniqueness within the new testSeriesId
-        // Ensure params.name and params.testSeriesId are explicitly checked for existence
-        // and that 'test' is correctly typed as a Test instance (which it is after findByPk)
+        // To address TS2339: Property 'name' does not exist on type 'Model<any, any>'.
+        // Ensure test.name and test.testSeriesId are treated as strings.
+        // We can assert 'test' as a specific type if needed, or simply check existence of params properties.
+        const currentName = test.getDataValue('name'); // Safely get current name
+        const currentTestSeriesId = test.getDataValue('testSeriesId'); // Safely get current testSeriesId
+
+        // Check if 'name' or 'testSeriesId' are provided in params AND if they are different from current values
         if (
-            (params.name !== undefined && params.name !== test.name) ||
-            (params.testSeriesId !== undefined && params.testSeriesId !== test.testSeriesId)
+            (params.name !== undefined && params.name !== currentName) ||
+            (params.testSeriesId !== undefined && params.testSeriesId !== currentTestSeriesId)
         ) {
+            const targetName = params.name !== undefined ? params.name : currentName;
+            const targetTestSeriesId = params.testSeriesId !== undefined ? params.testSeriesId : currentTestSeriesId;
+
             const existingTestWithNewName = await Test.findOne({
                 where: {
-                    name: params.name !== undefined ? params.name : test.name, // Use new name if provided, else old
-                    testSeriesId: params.testSeriesId !== undefined ? params.testSeriesId : test.testSeriesId, // Use new testSeriesId if provided, else old
-                    id: { [Op.ne]: id } // Use Op.ne directly from imported Op
+                    name: targetName,
+                    testSeriesId: targetTestSeriesId,
+                    id: { [Op.ne]: id } // Exclude current test from check
                 },
             });
             if (existingTestWithNewName) {
