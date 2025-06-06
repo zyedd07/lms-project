@@ -1,6 +1,7 @@
 import Test from "../models/Test.model";
 import HttpError from "../utils/httpError";
 import { Op } from 'sequelize'; // Ensure Op is imported from sequelize
+import { CreateTestServiceParams, UpdateTestServiceParams } from "../utils/types";
 
 // Assume these types are correctly defined in ../utils/types.ts
 // For example:
