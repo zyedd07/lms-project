@@ -49,9 +49,6 @@ export type LoginAdminServiceParams = {
 export type SyllabusSection = {
     title: string;
     content: string; // Or a more complex type if you have rich content, like an array of sub-topics
-    // You could also add other fields here if your frontend supports them, e.g.,
-    // order?: number;
-    // videoUrl?: string;
 };
 // --- END NEW TYPE ---
 
@@ -62,10 +59,6 @@ export type CourseContentModule = {
     videoUrl?: string; // The URL to the video content
     description?: string; // A description for this specific content module
     order?: number; // To define the sequence of modules
-    // Add any other properties relevant to a content piece, e.g.:
-    //  duration?: number; // in seconds
-    //  type?: 'video' | 'article' | 'quiz' | 'download';
-    //  resources?: { name: string, url: string }[]; // For downloadable resources
 };
 // --- END NEW TYPE ---
 
@@ -80,38 +73,60 @@ export type CreateCourseServiceParams = {
     courseType: string;
     active?: boolean;
     syllabus?: SyllabusSection[];
-    // --- ADDED: Optional array of course content modules ---
     contents?: CourseContentModule[];
 }
 
-export interface CreateTestSeriesServiceParams {
+// --- UPDATED: TestSeriesServiceParams (Now 'type') ---
+export type CreateTestSeriesServiceParams = {
     name: string;
     description?: string;
-    createdBy: string;
+    createdBy: string; // The ID of the user/admin who created this series
 }
 
-export interface UpdateTestSeriesServiceParams {
+export type UpdateTestSeriesServiceParams = {
     name?: string;
     description?: string;
 }
-export interface CreateQuestionServiceParams {
-    testId: string;
+// --- END UPDATED: TestSeriesServiceParams ---
+
+// --- NEW: TestServiceParams (Now 'type') ---
+export type CreateTestServiceParams = {
+    testSeriesId: string; // Links to the parent TestSeries
+    name: string; // Name of this specific test (e.g., "Chapter 1 Quiz")
+    description?: string;
+    durationMinutes: number; // Duration of this specific test
+    numberOfQuestions: number; // Expected number of questions for this test
+    passMarkPercentage: number; // Pass mark for this specific test
+    createdBy: string; // The ID of the user/admin who created this test
+}
+
+export type UpdateTestServiceParams = {
+    name?: string;
+    description?: string;
+    durationMinutes?: number;
+    numberOfQuestions?: number;
+    passMarkPercentage?: number;
+}
+// --- END NEW: TestServiceParams ---
+
+
+// --- UPDATED: QuestionServiceParams (Now 'type') ---
+export type CreateQuestionServiceParams = {
+    testId: string; // Foreign key to the Test model
     questionText: string;
+    options: string[]; // Array of strings for MCQ options
+    correctAnswerIndex: number; // 0-based index of the correct option
+    points: number; // Points for this question
 }
-export interface UpdateQuestionServiceParams {
+
+export type UpdateQuestionServiceParams = {
     questionText?: string;
+    options?: string[];
+    correctAnswerIndex?: number;
+    points?: number;
 }
+// --- END UPDATED: QuestionServiceParams ---
 
-export interface CreateOptionServiceParams {
-    questionId: string;
-    text: string;
-    isCorrect: boolean;
-}
-
-export interface UpdateOptionServiceParams {
-    text?: string;
-    isCorrect?: boolean;
-}
 
 export type UpdateCourseServiceParams = {
     name?: string;
@@ -123,7 +138,6 @@ export type UpdateCourseServiceParams = {
     demoVideoUrl?: string;
     active?: boolean;
     syllabus?: SyllabusSection[];
-    // --- ADDED: Optional array of course content modules ---
     contents?: CourseContentModule[];
 }
 
@@ -151,7 +165,7 @@ export type GetCourseFilters = {
 
 
 // --- UPDATED: Added 'price' field ---
-export interface CreateQuestionBankServiceParams {
+export type CreateQuestionBankServiceParams = {
     name: string;
     description?: string;
     filePath: string;
@@ -161,7 +175,7 @@ export interface CreateQuestionBankServiceParams {
 }
 
 // --- UPDATED: Added 'price' field ---
-export interface UpdateQuestionBankServiceParams {
+export type UpdateQuestionBankServiceParams = {
     name?: string;
     description?: string;
     filePath?: string; // Only if you're replacing the file
@@ -171,7 +185,7 @@ export interface UpdateQuestionBankServiceParams {
 }
 
 // --- UPDATED: Added 'price' field ---
-export interface QuestionBankData {
+export type QuestionBankData = {
     id: string;
     name: string;
     description: string | null; // Database might return null, so account for it
