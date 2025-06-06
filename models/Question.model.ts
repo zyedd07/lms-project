@@ -1,22 +1,23 @@
-import { DataTypes } from "sequelize"; // Removed 'Model' import as it's no longer needed for direct type parameter
-import { sequelize } from ".";
-import Test from "./Test.model"; // Import the new Test model for association
+// models/Question.model.ts (Example - ensure it matches your current file)
 
-const Question = sequelize.define('Question', { // Removed Model<...> type parameter
+import { DataTypes } from "sequelize";
+import { sequelize } from ".";
+import Test from "./Test.model";
+
+const Question = sequelize.define('Question', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    // Direct link to the 'Test' model
     testId: {
         type: DataTypes.UUID,
-        allowNull: false, // A question must belong to a Test
+        allowNull: false,
         references: {
-            model: 'Tests', // References the 'Tests' table
+            model: 'Tests',
             key: 'id',
         },
-        onDelete: 'CASCADE', // If a Test is deleted, its questions are also deleted
+        onDelete: 'CASCADE',
         onUpdate: 'CASCADE'
     },
     questionText: {
@@ -24,10 +25,9 @@ const Question = sequelize.define('Question', { // Removed Model<...> type param
         allowNull: false,
     },
     options: {
-        type: DataTypes.JSONB, // Using JSONB for better performance in PostgreSQL
+        type: DataTypes.JSONB,
         allowNull: false,
         validate: {
-            // Explicitly type 'value' as string[]
             isArrayOfStrings(value: string[]) {
                 if (!Array.isArray(value) || value.length < 2 || value.some(opt => typeof opt !== 'string' || opt.trim() === '')) {
                     throw new Error('Options must be an array of at least two non-empty strings.');
@@ -40,9 +40,7 @@ const Question = sequelize.define('Question', { // Removed Model<...> type param
         allowNull: false,
         validate: {
             min: 0,
-            // Explicitly type 'value' as number. 'this' is cast to 'any' for options access.
             isValidIndex(value: number) {
-                // Ensure 'this.options' is treated as an array of strings by casting
                 const optionsArray = (this as any).options as string[];
                 if (optionsArray && (value < 0 || value >= optionsArray.length)) {
                     throw new Error('Correct answer index must be within the bounds of the options array.');
@@ -58,13 +56,22 @@ const Question = sequelize.define('Question', { // Removed Model<...> type param
             min: 1,
         }
     },
+    // --- ADD THIS NEW FIELD ---
+    negativePoints: {
+        type: DataTypes.INTEGER,
+        allowNull: false, // Or true if it can be null, but generally 0 is a good default
+        defaultValue: 0,
+        validate: {
+            min: 0 // Negative points should be 0 or a positive value to deduct
+        }
+    }
+    // --- END NEW FIELD ---
 }, {
     timestamps: true,
     tableName: 'Questions'
 });
 
-// Define associations
-Question.belongsTo(Test, { foreignKey: 'testId' }); // Question belongs to a Test
-Test.hasMany(Question, { foreignKey: 'testId', onDelete: 'CASCADE', as: 'questions' }); // A Test has many Questions
+Question.belongsTo(Test, { foreignKey: 'testId' });
+Test.hasMany(Question, { foreignKey: 'testId', onDelete: 'CASCADE', as: 'questions' });
 
 export default Question;
