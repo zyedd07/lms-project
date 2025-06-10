@@ -1,6 +1,6 @@
 import TestSeries from "../models/TestSeries.model";
 import HttpError from "../utils/httpError";
-import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams } from "../utils/types";
+import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams } => "../utils/types";
 
 
 export const createTestSeriesService = async (params: CreateTestSeriesServiceParams) => {
@@ -15,6 +15,7 @@ export const createTestSeriesService = async (params: CreateTestSeriesServicePar
         const newTestSeries = await TestSeries.create({
             name: params.name,
             description: params.description,
+            price: params.price, // Include the price field
             createdBy: params.createdBy,
         });
 
@@ -33,6 +34,7 @@ export const updateTestSeriesService = async (id: string, params: UpdateTestSeri
         if (!testSeries) {
             throw new HttpError("Test Series not found", 404);
         }
+        // Update all provided parameters, including price if it exists in params
         await TestSeries.update(params, { where: { id } });
         return { message: "Test Series updated successfully" };
     } catch (error) {
