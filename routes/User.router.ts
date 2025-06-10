@@ -5,7 +5,7 @@ import * as UserController from '../controllers/User.controller'; // Ensure this
 // Import your authentication middleware
 import isAuth from '../middleware/auth';
 
-import { authorizeAdmin } from '../middleware/authorizeAdmin';
+import { authorizeAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
