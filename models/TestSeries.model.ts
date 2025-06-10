@@ -15,8 +15,14 @@ const TestSeries = sequelize.define('TestSeries', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
+    // New price field
+    price: {
+        type: DataTypes.FLOAT, // Using FLOAT for number type, you could also use DataTypes.DECIMAL for higher precision
+        allowNull: false,      // As requested: "no nullable"
+        defaultValue: 0.0,     // Ensures a default value if not provided
+    },
     createdBy: {
-        type: DataTypes.UUID, 
+        type: DataTypes.UUID,
         allowNull: false,
     },
 }, {
@@ -30,4 +36,3 @@ const TestSeries = sequelize.define('TestSeries', {
 });
 
 export default TestSeries;
-
