@@ -80,12 +80,16 @@ export type CreateCourseServiceParams = {
 export type CreateTestSeriesServiceParams = {
     name: string;
     description?: string;
+        price: number; // Added price field, required for creation
+
     createdBy: string; // The ID of the user/admin who created this series
 }
 
 export type UpdateTestSeriesServiceParams = {
     name?: string;
     description?: string;
+        price: number; // Added price field, required for creation
+
 }
 // --- END UPDATED: TestSeriesServiceParams ---
 
