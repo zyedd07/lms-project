@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import HttpError from "../utils/httpError";
 import { createUserService, getUsersService, loginUserService, updateUserService, deleteUserService } from "../services/User.service"; // Added updateUserService, deleteUserService
+import { AuthenticatedRequest } from "../middleware/auth";
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
