@@ -27,7 +27,7 @@ export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response) 
                 id: req.user.id,
                 email: req.user.email,
                 role: req.user.role,
-                username: req.user.username, // Assuming username is also in your token payload
+                phone: req.user.phone, // Assuming username is also in your token payload
                 // Add any other user properties you want to send to the frontend
             }
         });
