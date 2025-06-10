@@ -14,6 +14,27 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         next(error);
     }
 }
+export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: 'User not authenticated.' });
+        }
+        // req.user is populated by the 'isAuth' middleware from the token payload
+        return res.status(200).json({
+            message: 'User profile fetched successfully',
+            user: {
+                id: req.user.id,
+                email: req.user.email,
+                role: req.user.role,
+                username: req.user.username, // Assuming username is also in your token payload
+                // Add any other user properties you want to send to the frontend
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching logged-in user profile:", error);
+        return res.status(500).json({ message: 'Internal server error.' });
+    }
+};
 
 export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
