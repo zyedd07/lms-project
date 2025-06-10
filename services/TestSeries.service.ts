@@ -1,6 +1,6 @@
 import TestSeries from "../models/TestSeries.model";
 import HttpError from "../utils/httpError";
-import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams } => "../utils/types";
+import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams } from "../utils/types";
 
 
 export const createTestSeriesService = async (params: CreateTestSeriesServiceParams) => {
