@@ -17,7 +17,7 @@ const TestSeries = sequelize.define('TestSeries', {
     },
     // New price field
     price: {
-        type: DataTypes.FLOAT, // Using FLOAT for number type, you could also use DataTypes.DECIMAL for higher precision
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,      // As requested: "no nullable"
         defaultValue: 0.0,     // Ensures a default value if not provided
     },
