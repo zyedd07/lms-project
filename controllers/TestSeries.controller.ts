@@ -4,7 +4,7 @@ import HttpError from "../utils/httpError";
 import { createTestSeriesService, getAllTestSeriesService, updateTestSeriesService, deleteTestSeriesService } from "../services/TestSeries.service";
 import { Role } from "../utils/constants";
 import Question from "../models/Question.model"; // Correct: Question model
-import Test from "../models/Test.model";         // Correct: Test model
+import Test from "../models/Test.model";        // Correct: Test model
 import TestSeries from "../models/TestSeries.model"; // Correct: TestSeries model
 // REMOVED: import TestOption from "../models/Option.model"; // This model is no longer used for MCQ options
 
@@ -18,13 +18,18 @@ export const createTestSeriesController = async (req: AuthenticatedRequest, res:
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
-        const { name, description } = req.body;
+        const { name, description, price } = req.body; // Added price
         if (!name) {
             throw new HttpError("Name is required", 400);
+        }
+        // Validate price presence if it's non-nullable in the schema
+        if (typeof price === 'undefined' || price === null) {
+            throw new HttpError("Price is required", 400);
         }
         const newTestSeries = await createTestSeriesService({
             name,
             description,
+            price, // Pass price to the service
             createdBy: req.user.id,
         });
         res.status(201).json(newTestSeries);
@@ -46,8 +51,8 @@ export const getTestSeriesWithTestsController = async (req: Request, res: Respon
                 as: 'tests', // Ensure this alias matches the TestSeries.hasMany(Test, { as: 'tests' }) association
                 // If you need questions nested here, add another include:
                 // include: [{
-                //     model: Question,
-                //     as: 'questions' // Ensure this alias matches the Test.hasMany(Question, { as: 'questions' }) association
+                //      model: Question,
+                //      as: 'questions' // Ensure this alias matches the Test.hasMany(Question, { as: 'questions' }) association
                 // }]
             }]
         });
@@ -88,7 +93,7 @@ export const getTestSeriesController = async (req: Request, res: Response, next:
 export const updateTestSeriesController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { name, description } = req.body;
+        const { name, description, price } = req.body; // Added price
         if (!req.user || !req.user.role) {
             throw new HttpError("Authentication required: User role is missing.", 401);
         }
@@ -96,7 +101,7 @@ export const updateTestSeriesController = async (req: AuthenticatedRequest, res:
         if (role !== Role.ADMIN && role !== Role.TEACHER) {
             throw new HttpError("Unauthorized", 403);
         }
-        const updatedTestSeries = await updateTestSeriesService(id, { name, description });
+        const updatedTestSeries = await updateTestSeriesService(id, { name, description, price }); // Pass price to the service
         res.status(200).json({
             success: true,
             data: updatedTestSeries,
