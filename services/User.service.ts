@@ -6,15 +6,8 @@ import jwt from 'jsonwebtoken';
 
 // Assuming you have a User model with Sequelize-like methods like .update(), .destroy()
 
-// It's good practice to define an interface for update parameters.
-// You might want to add this to your utils/types.ts or similar.
-export interface UpdateUserServiceParams {
-    name?: string;
-    email?: string;
-    phone?: string;
-    role?: string;
-    // password could also be here if you want to allow password changes via admin panel
-}
+// Removed UpdateUserServiceParams interface definition as per request.
+// Type assertion will handle property checks for 'user' object in updateUserService.
 
 export const createUserService = async ({ name, email, phone, password }: CreateUserServiceParams) => {
     try {
@@ -94,9 +87,11 @@ export const getUsersService = async (email?: string) => {
  * @returns The updated user object.
  * @throws HttpError if the user is not found or if there's a validation error.
  */
-export const updateUserService = async (id: string, updates: UpdateUserServiceParams) => {
+export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; }) => {
     try {
-        const user = await User.findByPk(id); // Find user by primary key (ID)
+        // Explicitly assert the type of the user to include its expected properties
+        const user = await User.findByPk(id) as User & { name: string; email: string; phone?: string; role: string; };
+        
         if (!user) {
             throw new HttpError("User not found", 404);
         }
