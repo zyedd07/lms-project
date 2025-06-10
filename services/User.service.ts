@@ -90,7 +90,8 @@ export const getUsersService = async (email?: string) => {
 export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; }) => {
     try {
         // Explicitly assert the type of the user to include its expected properties
-        const user = await User.findByPk(id) as User & { name: string; email: string; phone?: string; role: string; };
+        // Changed `User` to `InstanceType<typeof User>` to correctly refer to the instance type.
+        const user = await User.findByPk(id) as InstanceType<typeof User> & { name: string; email: string; phone?: string; role: string; };
         
         if (!user) {
             throw new HttpError("User not found", 404);
