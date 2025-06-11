@@ -6,7 +6,7 @@ import { File } from 'multer'; // Assuming you use Multer, otherwise this import
 // --- IMPORTANT: Import your Sequelize User model here ---
 // Adjust the path to where your Sequelize models are defined and exported.
 // This might look different depending on how you structure your models.
-import User from './models/User'; // Example: if User model is in src/models/User.ts
+import User from '../models/User.model'; // Example: if User model is in src/models/User.ts
 
 // Define the shape of the request object after authentication
 export interface AuthenticatedRequest extends Request {
