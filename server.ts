@@ -1,12 +1,12 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors, { CorsOptions } from 'cors';
-import { sequelize } from './models';
+import { sequelize } from './models'; // Assuming this imports your Sequelize instance
 require('dotenv').config();
 
 // Add this line to log the DATABASE_URL
 console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL);
 
-//Routers
+// Routers
 import userRouter from './routes/User.router';
 import teacherRouter from './routes/Teacher.router';
 import categoryRouter from './routes/Category.router';
@@ -14,10 +14,11 @@ import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router';
 import questionRouter from './routes/Question.router';
-// import optionRouter from './routes/Option.router';
 import testRouter from "./routes/Test.router";
-// --- ADDED: Question Bank Router ---
-import questionBankRouter from './routes/questionBank.router'; // Import your new router
+import questionBankRouter from './routes/questionBank.router';
+
+// --- ADDED: Webinar Router Import ---
+import webinarRouter from './routes/webinar.router';
 // --- END ADDED ---
 
 const app = express();
@@ -25,7 +26,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CORRECTED CORS CONFIGURATION ---
 const allowedOrigins = [
     'http://localhost:3000', // Your React Admin Panel's local development URL
     // Add other local development origins if needed, e.g., for mobile device testing:
@@ -61,7 +61,7 @@ app.get('/', (req: Request, res: Response) => {
     }
 });
 
-//Routes
+// Routes
 app.use('/user', userRouter);
 app.use('/teacher', teacherRouter);
 app.use('/categories', categoryRouter);
@@ -69,12 +69,12 @@ app.use('/admin', adminRouter);
 app.use('/course', courseRouter);
 app.use('/testseries', testSeriesRouter);
 app.use('/question' , questionRouter);
-// app.use('/option' , optionRouter);
 app.use('/test', testRouter);
-// --- ADDED: Question Bank Route ---
-app.use('/question-banks', questionBankRouter); // Mount your new router here
-// --- END ADDED ---
+app.use('/question-banks', questionBankRouter);
 
+// --- ADDED: Webinar Route Mounting ---
+app.use('/webinars', webinarRouter); // Mount your webinar router here
+// --- END ADDED ---
 
 // Error handling middleware (ensure AuthenticatedRequest is correctly defined if used)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -102,6 +102,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 import './models/associations/index'; // Example: Path to your association setup
 import { AuthenticatedRequest } from './middleware/auth'; // Example: Path to your AuthenticatedRequest type definition
 import initAssociation from './models/associations/index'; // Example: Path to your association initialization function
+import Webinar from './models/webinar.model'; // Ensure Webinar model is imported for Sequelize to recognize it
 
 initAssociation(); // Call the association initialization
 
@@ -109,11 +110,13 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        // IMPORTANT: Since you created the 'QuestionBanks' table directly in Supabase,
-        // ensure 'alter: false' or remove 'sequelize.sync' if you only manage schema via migrations.
-        // If you want Sequelize to manage all tables including any new ones,
-        // you might use `alter: true` cautiously in development, but usually migrations are preferred for prod.
-        await sequelize.sync({ alter: false }); // Syncs models with the database
+        // IMPORTANT: Since you created the 'Webinars' table manually in Supabase,
+        // we generally don't use `sequelize.sync({ alter: true })` in production.
+        // `alter: false` is safer if you manage schema manually or with migrations.
+        // If you are using `sequelize.define` without the `initialize` method,
+        // simply importing the model (`import Webinar from './models/webinar.model';`)
+        // is enough for Sequelize to register it.
+        await sequelize.sync({ alter: false }); // Syncs models with the database (no schema changes if alter: false)
         return console.log(`Database Connected`);
     } catch (err) {
         console.log(err);
