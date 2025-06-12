@@ -11,7 +11,7 @@ import {
     getWebinarByIdService,
     updateWebinarService,
     deleteWebinarService,
-} from "../services/webinar.service"; // Import your webinar services
+} from "../services/webinar.services"; // Import your webinar services
 
 import {
     WebinarInput, // For create and update request bodies
