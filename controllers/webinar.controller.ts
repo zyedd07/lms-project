@@ -166,8 +166,12 @@ export const updateWebinarController = async (req: AuthenticatedRequest, res: Re
             title, speaker, date, time, imageUrl, status, jitsiRoomName, price
         };
 
-        // Remove undefined values to ensure only provided fields are updated
-        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+        // Fix for TS7053: Assert key as a valid key of updateData
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key as keyof Partial<WebinarInput>] === undefined) { // Explicitly cast key
+                delete updateData[key as keyof Partial<WebinarInput>]; // Explicitly cast key
+            }
+        });
 
         // Ensure at least one field is provided for update
         if (Object.keys(updateData).length === 0) {
