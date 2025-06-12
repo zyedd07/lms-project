@@ -1,9 +1,9 @@
 import { DataTypes } from 'sequelize';
-// Assuming your sequelize instance is exported from a file like './config/database'
 // Adjust this import path to where your Sequelize instance (named `sequelize`) is initialized.
-import { sequelize } from '.'; // This line needs to be adjusted based on your project structure
+// For example: `import sequelize from '../config/database';`
+import { sequelize } from '.'; // Placeholder import path, adjust as per your setup
 
-const Webinar = sequelize.define('Webinar', {
+const Webinar = sequelize.define('Webinar', { // No generic type for Model instance
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4, // Automatically generate a UUID
@@ -46,3 +46,4 @@ const Webinar = sequelize.define('Webinar', {
 });
 
 export default Webinar;
+
