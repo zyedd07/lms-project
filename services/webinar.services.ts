@@ -39,7 +39,7 @@ export const createWebinarService = async (params: WebinarInput): Promise<any> =
  */
 export const getWebinarByIdService = async (id: string): Promise<any | null> => { // Use 'any' for the returned instance type
   try {
-    const webinar: any = await Webinar.findByPk(id);
+    const webinar: any = await Webinar.findByPk(id); // Explicitly cast to 'any'
     if (!webinar) {
       return null;
     }
@@ -87,7 +87,7 @@ export const getAllWebinarsService = async (params: GetAllWebinarServiceParams =
  */
 export const updateWebinarService = async (id: string, params: Partial<WebinarInput>): Promise<any | null> => { // Use 'any' for the returned instance type
   try {
-    const webinar: any = await Webinar.findByPk(id);
+    const webinar: any = await Webinar.findByPk(id); // Explicitly cast to 'any'
     if (!webinar) {
       throw new HttpError('Webinar not found', 404);
     }
@@ -97,7 +97,7 @@ export const updateWebinarService = async (id: string, params: Partial<WebinarIn
       const existingWebinarWithSameRoomName: any = await Webinar.findOne({
         where: { jitsiRoomName: params.jitsiRoomName }
       });
-      if (existingWebinarWithSameRoomName && existingWebinarWithSameRoomName.id !== id) {
+      if (existingWebinarWithSameRoomName && existingWebinarWithSameRoomName.id !== webinar.id) { // Access id directly from 'webinar'
         throw new HttpError('Jitsi room name already in use by another webinar.', 400);
       }
     }
