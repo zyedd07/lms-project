@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 // Adjust this import path to where your Sequelize instance (named `sequelize`) is initialized.
-import { sequelize } from './index'; // Placeholder import path, adjust as per your setup
+import { sequelize } from '.'; // Placeholder import path, adjust as per your setup
 
 const Webinar = sequelize.define('Webinar', { // No generic type for Model instance
   id: {
@@ -43,7 +43,7 @@ const Webinar = sequelize.define('Webinar', { // No generic type for Model insta
   },
   // --- NEW: Price Field ---
   price: {
-    type: DataTypes.FLOAT, // Use FLOAT for decimal numbers (e.g., currency)
+    type: DataTypes.DECIMAL(10, 2), // Use FLOAT for decimal numbers (e.g., currency)
     defaultValue: 0.0, // Default price
     allowNull: false,
   },
