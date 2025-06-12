@@ -16,8 +16,9 @@ import {
 import {
     WebinarInput, // For create and update request bodies
     GetAllWebinarServiceParams, // For query parameters for getting all webinars
-    GetWebinarFilters // For pagination filters
-} from "../utils/types"; // Import types from your utils/types file
+    GetWebinarFilters, // For pagination filters
+    WebinarStatus // New: Import WebinarStatus enum type
+} from "../utils/types";
 
 
 /**
@@ -37,13 +38,19 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
             date,
             time,
             imageUrl,
-            isLive,
-            jitsiRoomName
+            status, // NEW: Include status from request body
+            jitsiRoomName,
+            price // NEW: Include price from request body
         }: WebinarInput = req.body;
 
-        // Basic validation
-        if (!title || !speaker || !date || !time || !jitsiRoomName) {
-            throw new HttpError('Please provide title, speaker, date, time, and jitsiRoomName', 400);
+        // Basic validation for required fields
+        if (!title || !speaker || !date || !time || !jitsiRoomName || price === undefined || price === null) {
+            throw new HttpError('Please provide title, speaker, date, time, jitsiRoomName, and price.', 400);
+        }
+
+        // Optional validation for status if it's provided and needs to be one of the enum values
+        if (status && !['upcoming', 'live', 'recorded'].includes(status)) {
+            throw new HttpError('Invalid status value. Must be one of "upcoming", "live", or "recorded".', 400);
         }
 
         const newWebinar = await createWebinarService({
@@ -52,8 +59,9 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
             date,
             time,
             imageUrl,
-            isLive,
-            jitsiRoomName
+            status, // Pass status to service
+            jitsiRoomName,
+            price // Pass price to service
         });
 
         res.status(201).json({
@@ -68,16 +76,16 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
 
 /**
  * Controller to get all webinars.
- * Can apply filters and pagination.
+ * Can apply filters (e.g., by status) and pagination.
  */
 export const getAllWebinarsController = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { isLive, limit, offset } = req.query;
+        const { status, limit, offset } = req.query;
 
         // Prepare parameters for the service
         const params: GetAllWebinarServiceParams = {};
-        if (isLive !== undefined) {
-            params.isLive = String(isLive).toLowerCase() === 'true';
+        if (status && ['upcoming', 'live', 'recorded'].includes(status as string)) {
+            params.status = status as WebinarStatus; // Filter by status if provided and valid
         }
 
         // Prepare filters for pagination
@@ -142,11 +150,33 @@ export const updateWebinarController = async (req: AuthenticatedRequest, res: Re
             throw new HttpError('Webinar ID is required in URL parameters', 400);
         }
 
-        const updateData: Partial<WebinarInput> = req.body;
+        // Destructure all possible update fields including price and status
+        const {
+            title,
+            speaker,
+            date,
+            time,
+            imageUrl,
+            status, // NEW: Include status from request body
+            jitsiRoomName,
+            price // NEW: Include price from request body
+        }: Partial<WebinarInput> = req.body;
+
+        const updateData: Partial<WebinarInput> = {
+            title, speaker, date, time, imageUrl, status, jitsiRoomName, price
+        };
+
+        // Remove undefined values to ensure only provided fields are updated
+        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
         // Ensure at least one field is provided for update
         if (Object.keys(updateData).length === 0) {
             throw new HttpError('No update data provided', 400);
+        }
+
+        // Optional validation for status if it's provided and needs to be one of the enum values
+        if (updateData.status && !['upcoming', 'live', 'recorded'].includes(updateData.status)) {
+            throw new HttpError('Invalid status value. Must be one of "upcoming", "live", or "recorded".', 400);
         }
 
         const updatedWebinar = await updateWebinarService(id, updateData);
