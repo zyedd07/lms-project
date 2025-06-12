@@ -1,7 +1,6 @@
 import { DataTypes } from 'sequelize';
 // Adjust this import path to where your Sequelize instance (named `sequelize`) is initialized.
-// For example: `import sequelize from '../config/database';`
-import { sequelize } from '.'; // Placeholder import path, adjust as per your setup
+import { sequelize } from './index'; // Placeholder import path, adjust as per your setup
 
 const Webinar = sequelize.define('Webinar', { // No generic type for Model instance
   id: {
@@ -30,16 +29,25 @@ const Webinar = sequelize.define('Webinar', { // No generic type for Model insta
     type: DataTypes.STRING(500), // URL for image, can be longer
     allowNull: true, // Allow null if image isn't always available
   },
-  isLive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false, // Default to not live
+  // --- UPDATED: Changed isLive to status enum ---
+  status: {
+    type: DataTypes.ENUM('upcoming', 'live', 'recorded'), // Define possible states
+    defaultValue: 'upcoming', // Default status for new webinars
     allowNull: false,
   },
+  // --- END UPDATED ---
   jitsiRoomName: {
     type: DataTypes.STRING(255),
     allowNull: false,
     unique: true, // Ensure Jitsi room names are unique
   },
+  // --- NEW: Price Field ---
+  price: {
+    type: DataTypes.FLOAT, // Use FLOAT for decimal numbers (e.g., currency)
+    defaultValue: 0.0, // Default price
+    allowNull: false,
+  },
+  // --- END NEW ---
 }, {
   tableName: 'webinars', // Name of the table in your PostgreSQL database
   timestamps: true, // Enable createdAt and updatedAt fields
