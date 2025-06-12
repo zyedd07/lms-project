@@ -148,7 +148,7 @@ export type GetTeacherFilterType = {
 export type GetAllCourseServiceParams = {
     categoryId?: string;
     id?: string;
-    active?: boolean;
+    active?: boolean
     teacherId?: string;
 }
 
@@ -189,24 +189,27 @@ export type QuestionBankData = {
     updatedAt: Date;
 }
 
-// --- NEW WEBINAR TYPES ---
+---
+## Updated Webinar Types
+---
+export type WebinarStatus = 'upcoming' | 'live' | 'recorded'; // Define the enum types for status
+
 export type WebinarInput = {
     title: string;
     speaker: string;
-    date: string; // Storing date as string as per frontend's usage
+    date: string; // Storing date as string
     time: string; // Storing time as string
     imageUrl?: string; // URL for the webinar image, optional
-    isLive?: boolean; // Whether the webinar is live, optional (defaults to false)
+    status?: WebinarStatus; // Use the new status enum, optional for creation (defaults to 'upcoming')
     jitsiRoomName: string; // Unique name for Jitsi meeting room
+    price: number; // NEW: Price field, required for creation
 };
 
 export type GetAllWebinarServiceParams = {
-    // Add any filters for getAllWebinars if applicable (e.g., isLive?: boolean)
-    isLive?: boolean; // Example filter
+    status?: WebinarStatus; // Allow filtering by status
 };
 
 export type GetWebinarFilters = {
     limit?: number;
     offset?: number;
 };
-// --- END NEW WEBINAR TYPES ---
