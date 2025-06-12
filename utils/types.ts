@@ -189,9 +189,7 @@ export type QuestionBankData = {
     updatedAt: Date;
 }
 
----
-## Updated Webinar Types
----
+// Updated Webinar Types
 export type WebinarStatus = 'upcoming' | 'live' | 'recorded'; // Define the enum types for status
 
 export type WebinarInput = {
