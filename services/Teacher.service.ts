@@ -44,8 +44,9 @@ export const loginTeacherService = async ({ email, password }: LoginTeacherServi
         }
 
         // FIX: Explicitly type the options object as SignOptions
-        const jwtOptions: SignOptions = {
-    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string // Explicitly assert it as string
+       const jwtOptions: SignOptions = {
+    // Calculate 7 days in seconds. You can adjust this value as needed.
+    expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
 };
         
         const token = jwt.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here

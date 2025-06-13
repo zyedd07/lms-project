@@ -13,12 +13,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTeachersService = exports.isTeacherAssignedService = exports.loginTeacherService = exports.createTeacherService = void 0;
-const Teacher_model_1 = __importDefault(require("../models/Teacher.model"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const Teacher_model_1 = __importDefault(require("../models/Teacher.model")); // Ensure correct import path and type definition for Teacher model
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken")); // FIX: Import SignOptions
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const constants_1 = require("../utils/constants");
-const CourseTeacher_model_1 = __importDefault(require("../models/CourseTeacher.model"));
+const CourseTeacher_model_1 = __importDefault(require("../models/CourseTeacher.model")); // Ensure correct import path and type definition
 const createTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ name, email, password, phone, expertise }) {
     try {
         const salt = yield bcryptjs_1.default.genSalt(10);
@@ -29,6 +29,7 @@ const createTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* (
             password: passwordHash,
             phone,
             expertise,
+            // role: Role.TEACHER // You might want to explicitly set role here if it's not handled by the model's default
         });
         return newTeacher;
     }
@@ -41,20 +42,26 @@ const loginTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* ({
     try {
         const teacher = yield Teacher_model_1.default.findOne({ where: { email } });
         if (!teacher) {
-            throw new Error("Teacher does not exist");
+            throw new httpError_1.default("Invalid credentials", 401); // Changed from generic Error to HttpError for consistency
         }
+        // Casting teacher.get("password") to string as bcrypt.compare expects string
         const isPasswordMatch = yield bcryptjs_1.default.compare(password, teacher.get("password"));
         if (!isPasswordMatch) {
             throw new httpError_1.default("Invalid password", 400);
         }
-        const SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
+        const SECRET_KEY = process.env.SECRET_KEY || 'cleanclean'; // Ensure SECRET_KEY is always a string
         const userSessionData = {
             id: teacher.get("id"),
-            name: teacher.get("name"),
+            name: teacher.get("name"), // Assuming Teacher model has a 'name' field
             email: teacher.get("email"),
-            role: constants_1.Role.TEACHER
+            role: constants_1.Role.TEACHER // Assuming Role.TEACHER is correctly defined in your constants
         };
-        const token = jsonwebtoken_1.default.sign(userSessionData, SECRET_KEY, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+        // FIX: Explicitly type the options object as SignOptions
+        const jwtOptions = {
+            // Calculate 7 days in seconds. You can adjust this value as needed.
+            expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
+        };
+        const token = jsonwebtoken_1.default.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here
         return {
             user: userSessionData,
             token,
