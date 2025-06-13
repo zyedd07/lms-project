@@ -1,13 +1,46 @@
-import User from "../models/User.model"; // Ensure correct import path and type definition for User model
+// src/services/User.service.ts
+
+import User from "../models/User.model";
 import bcrypt from 'bcryptjs';
-import { CreateUserServiceParams, LoginUserServiceParams } from "../utils/types"; // Assuming types.ts defines these
+import { CreateUserServiceParams, LoginUserServiceParams } from "../utils/types";
 import HttpError from "../utils/httpError";
-import jwt, { SignOptions } from 'jsonwebtoken'; // FIX: Import SignOptions
+import jwt, { SignOptions } from 'jsonwebtoken';
+import * as fs from 'fs'; // Import Node.js File System module
+import * as path from 'path'; // Import Node.js Path module
 
-// Assuming you have a User model with Sequelize-like methods like .update(), .destroy()
+// Define the path to your Jitsi private key file.
+// In production on Render, it will be in /etc/secrets/.
+// For local development, you might place it in your project root or configure it via .env.
+const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
+    ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Common local dev path (e.g., if .pem is in project root)
 
-// Removed UpdateUserServiceParams interface definition as per request.
-// Type assertion will handle property checks for 'user' object in updateUserService.
+let jitsiPrivateKey: string;
+
+// Load the Jitsi Private Key once when the service file is imported
+try {
+    if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
+        // Fallback for local development if the file isn't present,
+        // or if you want to use a direct environment variable for it locally.
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a specific env var for Jitsi if needed locally
+        if (!jitsiPrivateKey) {
+            console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
+        } else {
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable (fallback).");
+        }
+    } else {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
+    }
+    if (!jitsiPrivateKey) {
+        // Only throw error if the key is absolutely critical for this service.
+        // For services that *always* need to sign Jitsi JWTs, this is appropriate.
+        throw new Error("Jitsi Private Key is not loaded. Ensure it's configured in Render's Secret Files or as an environment variable.");
+    }
+} catch (error) {
+    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
+    throw error;
+}
 
 export const createUserService = async ({ name, email, phone, password }: CreateUserServiceParams) => {
     try {
@@ -39,24 +72,24 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
         if (!isPasswordMatch) {
             throw new HttpError("Invalid password", 400);
         }
-        const SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; // Ensure SECRET_KEY is always a string
+        // Assuming SECRET_KEY is for *your app's* JWTs, and `jitsiPrivateKey` is for *Jitsi's* JWTs.
+        // If this token is *only* for Jitsi authentication, you would use `jitsiPrivateKey` here.
+        const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; 
         
-        const userRole: string = user.get("role") as string; // Ensure userRole is typed correctly
+        const userRole: string = user.get("role") as string; 
         
         const userSessionData = {
             id: user.get("id"),
-            name: user.get("name"), // Assuming User model has a 'name' field
+            name: user.get("name"),
             email: user.get("email"),
             role: userRole,
         };
 
-        // FIX: Explicitly type the options object as SignOptions
-      const jwtOptions: SignOptions = {
-    // Calculate 7 days in seconds. You can adjust this value as needed.
-    expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
-};
+        const jwtOptions: SignOptions = {
+            expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
+        };
 
-        const token = jwt.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here
+        const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions); // Use APP_SECRET_KEY for app-internal JWT
         return {
             user: userSessionData,
             token,
@@ -85,8 +118,6 @@ export const getUsersService = async (email?: string) => {
     }
 }
 
-// --- New Service Functions for User Management ---
-
 /**
  * Updates a user's profile based on their ID.
  * @param id The ID of the user to update.
@@ -96,10 +127,9 @@ export const getUsersService = async (email?: string) => {
  */
 export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; }) => {
     try {
-        // Explicitly assert the type of the user to include its expected properties
-        // IMPORTANT: This casting to `InstanceType<typeof User> & { ... }` will likely cause issues
-        // if your User.model.ts is not correctly typed. It's better to fix the User model itself.
-        const user = await User.findByPk(id) as any; // Temporary 'any' until User.model.ts is fixed
+        // User.findByPk(id) as any; // Temporary 'any' until User.model.ts is fixed
+        // Once User.model.ts is updated to extend Model<any, any>, you might not need this casting.
+        const user = await User.findByPk(id) as any; // Assuming User.model.ts extends Model<any, any> now
         
         if (!user) {
             throw new HttpError("User not found", 404);
@@ -110,11 +140,11 @@ export const updateUserService = async (id: string, updates: { name?: string; em
         if (updates.phone !== undefined) user.phone = updates.phone;
         if (updates.role !== undefined) user.role = updates.role;
 
-        await user.save(); // Save the updated user to the database
+        await user.save();
         return user;
     } catch (error) {
         console.error("Error in updateUserService:", error);
-        throw error; // Re-throw to be caught by the controller
+        throw error;
     }
 };
 
@@ -133,9 +163,9 @@ export const deleteUserService = async (id: string) => {
         if (result === 0) {
             throw new HttpError("User not found", 404);
         }
-        return true; // Indicate successful deletion
+        return true;
     } catch (error) {
         console.error("Error in deleteUserService:", error);
-        throw error; // Re-throw to be caught by the controller
+        throw error;
     }
 };

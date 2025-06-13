@@ -1,5 +1,38 @@
 "use strict";
 // src/controllers/webinar.controller.ts
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -15,23 +48,60 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getJitsiDetailsController = exports.deleteWebinarController = exports.updateWebinarController = exports.getWebinarByIdController = exports.getAllWebinarsController = exports.createWebinarController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
-const constants_1 = require("../utils/constants"); // Assuming Role enum is defined here
+const constants_1 = require("../utils/constants");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const webinar_model_1 = __importDefault(require("../models/webinar.model"));
+const webinar_model_1 = __importDefault(require("../models/webinar.model")); // Ensure correct model import
+const fs = __importStar(require("fs")); // Import Node.js File System module
+const path = __importStar(require("path")); // Import Node.js Path module
 const webinar_services_1 = require("../services/webinar.services");
 const types_1 = require("../utils/types");
 // --- IMPORTANT: CONFIGURE YOUR JITSI AS A SERVICE (JaaS) CREDENTIALS ---
 // These values MUST be set as environment variables on your Render deployment.
-// For local development, you'd typically use a .env file and 'dotenv' package.
 const JITSI_JAS_APP_ID = process.env.JITSI_JAS_APP_ID;
 const JITSI_JAS_API_KEY_ID = process.env.JITSI_JAS_API_KEY_ID;
-const JITSI_JAS_PRIVATE_KEY = process.env.JITSI_JAS_PRIVATE_KEY;
-// CRITICAL CHECK: Ensure JaaS credentials are loaded at runtime
-if (!JITSI_JAS_APP_ID || !JITSI_JAS_API_KEY_ID || !JITSI_JAS_PRIVATE_KEY) {
-    console.error("CRITICAL ERROR: Jitsi JaaS credentials (APP_ID, API_KEY_ID, PRIVATE_KEY) are not loaded from environment variables.");
+// REMOVE THE OLD PRIVATE KEY ENV VAR DIRECTLY:
+// const JITSI_JAS_PRIVATE_KEY: string = process.env.JITSI_JAS_PRIVATE_KEY as string;
+// Define the path to your Jitsi private key file.
+// In production on Render, this is where your "Secret File" will be mounted.
+// For local development, adjust `path.join` if your file is somewhere else relative to `dist/controllers`.
+const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
+    ? '/etc/secrets/jitsi_private_key.pem' // Render's default path for Secret Files
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Common local dev path if file is in project root
+let jitsiPrivateKey; // Variable to hold the loaded private key content
+// Load the Jitsi Private Key once when this controller file is imported.
+// This ensures the key is available before any JWT generation attempts.
+try {
+    if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
+        // Fallback for local development or if the file isn't mounted as expected.
+        // You might use a specific environment variable for the key locally.
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a dedicated env var for local private key
+        if (!jitsiPrivateKey) {
+            // This is the error you saw previously. Now it will only show if file *and* fallback env var are missing.
+            console.error("CRITICAL ERROR: Jitsi Private Key (for JWT signing) is not loaded.");
+            console.error(`Attempted to load from file: ${JITSI_PRIVATE_KEY_FILE_PATH} and env var: JITSI_PRIVATE_KEY.`);
+            // In a production environment, you might want to prevent the app from starting:
+            // process.exit(1);
+        }
+        else {
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable (fallback for local).");
+        }
+    }
+    else {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
+    }
+}
+catch (error) {
+    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
+    // Throwing an error here prevents the application from starting if the key is missing.
+    throw new Error("Failed to load Jitsi Private Key. Application cannot start.");
+}
+// CRITICAL CHECK for APP_ID and API_KEY_ID (these are still env vars)
+if (!JITSI_JAS_APP_ID || !JITSI_JAS_API_KEY_ID) {
+    console.error("CRITICAL ERROR: Jitsi JaaS credentials (APP_ID, API_KEY_ID) are not loaded from environment variables.");
     console.error("Please set them correctly on Render or in your local .env file.");
     // In a production app, you might want to throw an error here or prevent the app from starting:
-    // process.exit(1);
+    throw new Error("Missing Jitsi APP_ID or API_KEY_ID. Application cannot start.");
 }
 const JITSI_JAS_BASE_URL = 'https://8x8.vc/'; // The base URL for 8x8 JaaS
 /**
@@ -44,6 +114,10 @@ const JITSI_JAS_BASE_URL = 'https://8x8.vc/'; // The base URL for 8x8 JaaS
  * @returns {string} The signed JWT.
  */
 const generateJitsiJwt = (roomName, userId, userName, userEmail, isModerator = false) => {
+    if (!jitsiPrivateKey) {
+        // This check ensures we don't try to sign if the key failed to load
+        throw new httpError_1.default("Jitsi Private Key is not available for JWT generation.", 500);
+    }
     const now = Math.floor(Date.now() / 1000); // Current time in seconds
     const expiration = now + (60 * 60); // Token valid for 1 hour (adjust lifetime as needed)
     const payload = {
@@ -72,7 +146,7 @@ const generateJitsiJwt = (roomName, userId, userName, userEmail, isModerator = f
         },
         room: roomName, // The specific Jitsi room name for this webinar
     };
-    const token = jsonwebtoken_1.default.sign(payload, JITSI_JAS_PRIVATE_KEY, {
+    const token = jsonwebtoken_1.default.sign(payload, jitsiPrivateKey, {
         algorithm: 'RS256', // Algorithm directly in options
         header: {
             kid: JITSI_JAS_API_KEY_ID,
@@ -241,8 +315,7 @@ const deleteWebinarController = (req, res, next) => __awaiter(void 0, void 0, vo
             throw new httpError_1.default('Webinar ID is required in URL parameters', 400);
         }
         const response = yield (0, webinar_services_1.deleteWebinarService)(id);
-        res.status(200).json(Object.assign({ success: true }, response // Contains { message: 'Webinar deleted successfully' }
-        ));
+        res.status(200).json(Object.assign({ success: true }, response));
     }
     catch (error) {
         next(error);
@@ -258,42 +331,30 @@ const getJitsiDetailsController = (req, res, next) => __awaiter(void 0, void 0, 
     var _a, _b, _c, _d;
     try {
         const { id } = req.params;
-        // --- IMPORTANT: Get current authenticated user details ---
-        // Assuming your 'isAuth' middleware populates req.user.
-        // Use 'email' for userName as there's no 'name' field on the user object.
         const currentUserId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 'anonymous_participant';
-        const currentUserName = ((_b = req.user) === null || _b === void 0 ? void 0 : _b.email) || 'Guest User'; // FIX: Changed from 'name' to 'email'
+        const currentUserName = ((_b = req.user) === null || _b === void 0 ? void 0 : _b.email) || 'Guest User';
         const currentUserEmail = ((_c = req.user) === null || _c === void 0 ? void 0 : _c.email) || 'guest@example.com';
-        // Logic to determine if the current user is a moderator for *this specific webinar*.
-        const isModerator = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === constants_1.Role.ADMIN; // Example: only admins are moderators
+        const isModerator = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === constants_1.Role.ADMIN;
         const webinar = yield webinar_model_1.default.findByPk(id);
         if (!webinar) {
             throw new httpError_1.default('Webinar not found.', 404);
         }
-        // Optional: Add logic to restrict access based on webinar status or user's payment/registration.
         if (webinar.status === types_1.WebinarStatus.RECORDED) {
             throw new httpError_1.default('This webinar is already recorded and cannot be joined live.', 403);
         }
-        // If you only want 'live' status to allow joining, add:
-        // if (webinar.status !== WebinarStatus.LIVE && !isModerator) { // Allow moderators to join upcoming for setup
-        //     throw new HttpError('This webinar is not currently live.', 403);
-        // }
         const jitsiRoomName = webinar.jitsiRoomName;
-        // Generate the JWT for this specific room and user
         const jitsiJwt = generateJitsiJwt(jitsiRoomName, currentUserId, currentUserName, currentUserEmail, isModerator);
-        // Construct the full Jitsi meeting URL for the React Native SDK
-        // Format: https://8x8.vc/APP_ID/ROOM_NAME?jwt=JWT_TOKEN
         const jitsiMeetingUrl = `${JITSI_JAS_BASE_URL}${JITSI_JAS_APP_ID}/${jitsiRoomName}?jwt=${jitsiJwt}`;
         res.json({
-            success: true, // Standard response format
+            success: true,
             jitsiMeetingUrl: jitsiMeetingUrl,
-            jwt: jitsiJwt, // Provide JWT separately as well for clarity/alternative use
+            jwt: jitsiJwt,
             roomName: jitsiRoomName,
             webinarTitle: webinar.title,
         });
     }
     catch (error) {
-        next(error); // Pass error to the error handling middleware
+        next(error);
     }
 });
 exports.getJitsiDetailsController = getJitsiDetailsController;

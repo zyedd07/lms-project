@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -13,12 +46,48 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTeachersService = exports.isTeacherAssignedService = exports.loginTeacherService = exports.createTeacherService = void 0;
-const Teacher_model_1 = __importDefault(require("../models/Teacher.model")); // Ensure correct import path and type definition for Teacher model
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken")); // FIX: Import SignOptions
+const Teacher_model_1 = __importDefault(require("../models/Teacher.model"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const constants_1 = require("../utils/constants");
-const CourseTeacher_model_1 = __importDefault(require("../models/CourseTeacher.model")); // Ensure correct import path and type definition
+const CourseTeacher_model_1 = __importDefault(require("../models/CourseTeacher.model"));
+const fs = __importStar(require("fs")); // Import Node.js File System module
+const path = __importStar(require("path")); // Import Node.js Path module
+// Define the path to your Jitsi private key file.
+// In production on Render, it will be in /etc/secrets/.
+// For local development, you might place it in your project root or configure it via .env.
+const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
+    ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Common local dev path (e.g., if .pem is in project root)
+let jitsiPrivateKey;
+// Load the Jitsi Private Key once when the service file is imported
+try {
+    if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
+        // Fallback for local development if the file isn't present,
+        // or if you want to use a direct environment variable for it locally.
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a specific env var for Jitsi if needed locally
+        if (!jitsiPrivateKey) {
+            console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
+        }
+        else {
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable (fallback).");
+        }
+    }
+    else {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
+    }
+    if (!jitsiPrivateKey) {
+        // Only throw error if the key is absolutely critical for this service
+        // For services that *always* need to sign Jitsi JWTs, this is appropriate.
+        throw new Error("Jitsi Private Key is not loaded. Ensure it's configured in Render's Secret Files or as an environment variable.");
+    }
+}
+catch (error) {
+    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
+    throw error;
+}
 const createTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ name, email, password, phone, expertise }) {
     try {
         const salt = yield bcryptjs_1.default.genSalt(10);
@@ -29,7 +98,6 @@ const createTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* (
             password: passwordHash,
             phone,
             expertise,
-            // role: Role.TEACHER // You might want to explicitly set role here if it's not handled by the model's default
         });
         return newTeacher;
     }
@@ -42,26 +110,27 @@ const loginTeacherService = (_a) => __awaiter(void 0, [_a], void 0, function* ({
     try {
         const teacher = yield Teacher_model_1.default.findOne({ where: { email } });
         if (!teacher) {
-            throw new httpError_1.default("Invalid credentials", 401); // Changed from generic Error to HttpError for consistency
+            throw new httpError_1.default("Invalid credentials", 401);
         }
-        // Casting teacher.get("password") to string as bcrypt.compare expects string
         const isPasswordMatch = yield bcryptjs_1.default.compare(password, teacher.get("password"));
         if (!isPasswordMatch) {
             throw new httpError_1.default("Invalid password", 400);
         }
-        const SECRET_KEY = process.env.SECRET_KEY || 'cleanclean'; // Ensure SECRET_KEY is always a string
+        // Assuming SECRET_KEY is for *your app's* JWTs, and `jitsiPrivateKey` is for *Jitsi's* JWTs.
+        // If this token is *only* for Jitsi authentication, you would use `jitsiPrivateKey` directly here.
+        const APP_SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
         const userSessionData = {
             id: teacher.get("id"),
-            name: teacher.get("name"), // Assuming Teacher model has a 'name' field
+            name: teacher.get("name"),
             email: teacher.get("email"),
-            role: constants_1.Role.TEACHER // Assuming Role.TEACHER is correctly defined in your constants
+            role: constants_1.Role.TEACHER
         };
-        // FIX: Explicitly type the options object as SignOptions
         const jwtOptions = {
-            // Calculate 7 days in seconds. You can adjust this value as needed.
             expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
         };
-        const token = jsonwebtoken_1.default.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here
+        // This 'token' is for your app's authentication.
+        // The Jitsi-specific JWT (using jitsiPrivateKey) is generated in webinar.controller.ts.
+        const token = jsonwebtoken_1.default.sign(userSessionData, APP_SECRET_KEY, jwtOptions);
         return {
             user: userSessionData,
             token,

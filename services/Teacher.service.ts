@@ -1,10 +1,47 @@
-import Teacher from "../models/Teacher.model"; // Ensure correct import path and type definition for Teacher model
+import Teacher from "../models/Teacher.model";
 import { CreateTeacherServiceParams, GetTeacherFilterType, LoginTeacherServiceParams } from "../utils/types";
-import jwt, { SignOptions } from 'jsonwebtoken'; // FIX: Import SignOptions
+import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import HttpError from "../utils/httpError";
 import { Role } from "../utils/constants";
-import CourseTeacher from "../models/CourseTeacher.model"; // Ensure correct import path and type definition
+import CourseTeacher from "../models/CourseTeacher.model";
+import * as fs from 'fs'; // Import Node.js File System module
+import * as path from 'path'; // Import Node.js Path module
+
+// Define the path to your Jitsi private key file.
+// In production on Render, it will be in /etc/secrets/.
+// For local development, you might place it in your project root or configure it via .env.
+const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
+    ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Common local dev path (e.g., if .pem is in project root)
+
+let jitsiPrivateKey: string;
+
+// Load the Jitsi Private Key once when the service file is imported
+try {
+    if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
+        // Fallback for local development if the file isn't present,
+        // or if you want to use a direct environment variable for it locally.
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a specific env var for Jitsi if needed locally
+        if (!jitsiPrivateKey) {
+            console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
+        } else {
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable (fallback).");
+        }
+    } else {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
+    }
+    if (!jitsiPrivateKey) {
+        // Only throw error if the key is absolutely critical for this service
+        // For services that *always* need to sign Jitsi JWTs, this is appropriate.
+        throw new Error("Jitsi Private Key is not loaded. Ensure it's configured in Render's Secret Files or as an environment variable.");
+    }
+} catch (error) {
+    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
+    throw error;
+}
+
 
 export const createTeacherService = async ({ name, email, password, phone, expertise }: CreateTeacherServiceParams) => {
     try {
@@ -16,7 +53,6 @@ export const createTeacherService = async ({ name, email, password, phone, exper
             password: passwordHash,
             phone,
             expertise,
-            // role: Role.TEACHER // You might want to explicitly set role here if it's not handled by the model's default
         })
         return newTeacher;
     } catch (error) {
@@ -28,28 +64,30 @@ export const loginTeacherService = async ({ email, password }: LoginTeacherServi
     try {
         const teacher = await Teacher.findOne({ where: { email } });
         if (!teacher) {
-            throw new HttpError("Invalid credentials", 401); // Changed from generic Error to HttpError for consistency
+            throw new HttpError("Invalid credentials", 401);
         }
-        // Casting teacher.get("password") to string as bcrypt.compare expects string
         const isPasswordMatch = await bcrypt.compare(password, teacher.get("password") as string);
         if (!isPasswordMatch) {
             throw new HttpError("Invalid password", 400)
         }
-        const SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; // Ensure SECRET_KEY is always a string
+        // Assuming SECRET_KEY is for *your app's* JWTs, and `jitsiPrivateKey` is for *Jitsi's* JWTs.
+        // If this token is *only* for Jitsi authentication, you would use `jitsiPrivateKey` directly here.
+        const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; 
+
         const userSessionData = {
             id: teacher.get("id"),
-            name: teacher.get("name"), // Assuming Teacher model has a 'name' field
+            name: teacher.get("name"),
             email: teacher.get("email"),
-            role: Role.TEACHER // Assuming Role.TEACHER is correctly defined in your constants
+            role: Role.TEACHER
         }
 
-        // FIX: Explicitly type the options object as SignOptions
-       const jwtOptions: SignOptions = {
-    // Calculate 7 days in seconds. You can adjust this value as needed.
-    expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
-};
+        const jwtOptions: SignOptions = {
+            expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
+        };
         
-        const token = jwt.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here
+        // This 'token' is for your app's authentication.
+        // The Jitsi-specific JWT (using jitsiPrivateKey) is generated in webinar.controller.ts.
+        const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions); 
 
         return {
             user: userSessionData,
