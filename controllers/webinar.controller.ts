@@ -367,29 +367,42 @@ export const deleteWebinarController = async (req: AuthenticatedRequest, res: Re
  */
 export const getJitsiDetailsController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { id } = req.params;
+        const webinarIdWithPrefix = req.params.id; // This will be "webinar-73837a502d49405baaf68fe02abec1ca"
 
-        // Extract user details from the authenticated request or set defaults for guests
-        const currentUserId = req.user?.id || 'anonymous_participant';
-        // Using email as the primary user name, since 'fullName' is not in req.user
-        const currentUserName = req.user?.email || 'Guest User'; 
-        const currentUserEmail = req.user?.email || 'guest@example.com';
-        
-        // Determine if the current user is a moderator based on their role
-        const isModerator = req.user?.role === Role.ADMIN; // Example: only admins are moderators
+        // --- CRITICAL FIX START ---
+        // Strip the "webinar-" prefix to get the actual UUID
+        const actualWebinarUuid = webinarIdWithPrefix.startsWith('webinar-')
+            ? webinarIdWithPrefix.substring('webinar-'.length)
+            : webinarIdWithPrefix; // If it doesn't start with 'webinar-', use it as is (for safety)
 
-        const webinar = await Webinar.findByPk(id);
+        // Optional: Add UUID validation here if you have a validator (e.g., 'uuid' library)
+        // import { validate as isUuid } from 'uuid';
+        // if (!isUuid(actualWebinarUuid)) {
+        //     throw new HttpError('Invalid webinar ID format provided in URL.', 400);
+        // }
+        // --- CRITICAL FIX END ---
+
+        // Now, use the `actualWebinarUuid` for your database query
+        const webinar = await Webinar.findByPk(actualWebinarUuid);
 
         if (!webinar) {
             throw new HttpError('Webinar not found.', 404);
         }
 
-        // Prevent joining if the webinar is already recorded
+        // Prevent joining if the webinar is already recorded (this is good existing logic)
         if (webinar.status === WebinarStatus.RECORDED) {
             throw new HttpError('This webinar is already recorded and cannot be joined live.', 403);
         }
 
-        const jitsiRoomName = webinar.jitsiRoomName;
+        // Extract user details from the authenticated request or set defaults for guests
+        const currentUserId = req.user?.id || 'anonymous_participant';
+        const currentUserName = req.user?.email || 'Guest User'; // Using email as username
+        const currentUserEmail = req.user?.email || 'guest@example.com';
+        
+        // Determine if the current user is a moderator based on their role
+        const isModerator = req.user?.role === Role.ADMIN; // Example: only admins are moderators
+
+        const jitsiRoomName = webinar.jitsiRoomName; // This should be the pure UUID from your DB
 
         // Generate the JWT for the Jitsi meeting
         const jitsiJwt = generateJitsiJwt(
@@ -412,6 +425,15 @@ export const getJitsiDetailsController = async (req: AuthenticatedRequest, res: 
         });
 
     } catch (error) {
-        next(error);
+        // More robust error handling for UUID parsing or DB errors
+        if (error instanceof HttpError) {
+            next(error); // Pass custom HttpErrors directly
+        } else if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
+            // Catch specific database errors if they indicate UUID format issues
+            next(new HttpError('Invalid webinar ID format provided.', 400));
+        } else {
+            console.error("Error in getJitsiDetailsController:", error); // Log unexpected errors
+            next(new HttpError('Internal server error when fetching Jitsi details.', 500));
+        }
     }
 };

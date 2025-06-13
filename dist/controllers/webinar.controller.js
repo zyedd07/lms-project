@@ -343,23 +343,34 @@ exports.deleteWebinarController = deleteWebinarController;
 const getJitsiDetailsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d;
     try {
-        const { id } = req.params;
-        // Extract user details from the authenticated request or set defaults for guests
-        const currentUserId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 'anonymous_participant';
-        // Using email as the primary user name, since 'fullName' is not in req.user
-        const currentUserName = ((_b = req.user) === null || _b === void 0 ? void 0 : _b.email) || 'Guest User';
-        const currentUserEmail = ((_c = req.user) === null || _c === void 0 ? void 0 : _c.email) || 'guest@example.com';
-        // Determine if the current user is a moderator based on their role
-        const isModerator = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === constants_1.Role.ADMIN; // Example: only admins are moderators
-        const webinar = yield webinar_model_1.default.findByPk(id);
+        const webinarIdWithPrefix = req.params.id; // This will be "webinar-73837a502d49405baaf68fe02abec1ca"
+        // --- CRITICAL FIX START ---
+        // Strip the "webinar-" prefix to get the actual UUID
+        const actualWebinarUuid = webinarIdWithPrefix.startsWith('webinar-')
+            ? webinarIdWithPrefix.substring('webinar-'.length)
+            : webinarIdWithPrefix; // If it doesn't start with 'webinar-', use it as is (for safety)
+        // Optional: Add UUID validation here if you have a validator (e.g., 'uuid' library)
+        // import { validate as isUuid } from 'uuid';
+        // if (!isUuid(actualWebinarUuid)) {
+        //     throw new HttpError('Invalid webinar ID format provided in URL.', 400);
+        // }
+        // --- CRITICAL FIX END ---
+        // Now, use the `actualWebinarUuid` for your database query
+        const webinar = yield webinar_model_1.default.findByPk(actualWebinarUuid);
         if (!webinar) {
             throw new httpError_1.default('Webinar not found.', 404);
         }
-        // Prevent joining if the webinar is already recorded
+        // Prevent joining if the webinar is already recorded (this is good existing logic)
         if (webinar.status === types_1.WebinarStatus.RECORDED) {
             throw new httpError_1.default('This webinar is already recorded and cannot be joined live.', 403);
         }
-        const jitsiRoomName = webinar.jitsiRoomName;
+        // Extract user details from the authenticated request or set defaults for guests
+        const currentUserId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 'anonymous_participant';
+        const currentUserName = ((_b = req.user) === null || _b === void 0 ? void 0 : _b.email) || 'Guest User'; // Using email as username
+        const currentUserEmail = ((_c = req.user) === null || _c === void 0 ? void 0 : _c.email) || 'guest@example.com';
+        // Determine if the current user is a moderator based on their role
+        const isModerator = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === constants_1.Role.ADMIN; // Example: only admins are moderators
+        const jitsiRoomName = webinar.jitsiRoomName; // This should be the pure UUID from your DB
         // Generate the JWT for the Jitsi meeting
         const jitsiJwt = generateJitsiJwt(jitsiRoomName, currentUserId, currentUserName, currentUserEmail, isModerator);
         // Construct the full Jitsi meeting URL
@@ -373,7 +384,18 @@ const getJitsiDetailsController = (req, res, next) => __awaiter(void 0, void 0, 
         });
     }
     catch (error) {
-        next(error);
+        // More robust error handling for UUID parsing or DB errors
+        if (error instanceof httpError_1.default) {
+            next(error); // Pass custom HttpErrors directly
+        }
+        else if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
+            // Catch specific database errors if they indicate UUID format issues
+            next(new httpError_1.default('Invalid webinar ID format provided.', 400));
+        }
+        else {
+            console.error("Error in getJitsiDetailsController:", error); // Log unexpected errors
+            next(new httpError_1.default('Internal server error when fetching Jitsi details.', 500));
+        }
     }
 });
 exports.getJitsiDetailsController = getJitsiDetailsController;
