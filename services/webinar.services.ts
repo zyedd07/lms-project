@@ -1,8 +1,8 @@
 // src/services/webinar.service.ts
 
-import Webinar from '../models/webinar.model'; // Import your Webinar model
-import HttpError from '../utils/httpError'; // Assuming HttpError is defined in this path
-import { // Import updated types from your utils/types file
+import Webinar from '../models/webinar.model';
+import HttpError from '../utils/httpError';
+import {
   WebinarInput,
   GetAllWebinarServiceParams,
   GetWebinarFilters,
@@ -13,12 +13,11 @@ import { // Import updated types from your utils/types file
 /**
  * Creates a new webinar in the database.
  * @param params The data for the new webinar.
- * @returns A promise that resolves to the newly created Webinar instance (typed as any).
+ * @returns A promise that resolves to the newly created Webinar instance.
  * @throws {HttpError} If a webinar with the same Jitsi room name already exists.
  */
-export const createWebinarService = async (params: WebinarInput): Promise<any> => { // Use 'any' for the returned instance type
+export const createWebinarService = async (params: WebinarInput): Promise<any> => {
   try {
-    // Ensure jitsiRoomName is unique before creation
     const existingWebinar: any = await Webinar.findOne({ where: { jitsiRoomName: params.jitsiRoomName } });
     if (existingWebinar) {
       throw new HttpError('Webinar with this Jitsi room name already exists.', 400);
@@ -26,26 +25,26 @@ export const createWebinarService = async (params: WebinarInput): Promise<any> =
 
     const newWebinar: any = await Webinar.create({
       ...params,
-      // Ensure status is correctly set, defaulting to 'upcoming' if not provided
-      status: params.status || 'upcoming',
+      // FIX: Ensure status defaults to WebinarStatus.UPCOMING enum value
+      status: params.status || WebinarStatus.UPCOMING,
       // Ensure price is a number, defaulting to 0 if not provided or invalid
       price: typeof params.price === 'number' ? params.price : 0,
     });
     return newWebinar;
   } catch (error) {
     console.error("Error in createWebinarService:", error);
-    throw error; // Re-throw the HttpError or any other caught error
+    throw error;
   }
 };
 
 /**
  * Fetches a single webinar by its ID.
  * @param id The UUID of the webinar to fetch.
- * @returns A promise that resolves to a Webinar instance (typed as any) or null if not found.
+ * @returns A promise that resolves to a Webinar instance or null if not found.
  */
-export const getWebinarByIdService = async (id: string): Promise<any | null> => { // Use 'any' for the returned instance type
+export const getWebinarByIdService = async (id: string): Promise<any | null> => {
   try {
-    const webinar: any = await Webinar.findByPk(id); // Explicitly cast to 'any'
+    const webinar: any = await Webinar.findByPk(id);
     if (!webinar) {
       return null;
     }
@@ -60,9 +59,9 @@ export const getWebinarByIdService = async (id: string): Promise<any | null> => 
  * Fetches all webinars from the database.
  * @param params Optional parameters for filtering by status.
  * @param filters Optional pagination filters (limit, offset).
- * @returns A promise that resolves to an array of Webinar instances (typed as any).
+ * @returns A promise that resolves to an array of Webinar instances.
  */
-export const getAllWebinarsService = async (params: GetAllWebinarServiceParams = {}, filters?: GetWebinarFilters): Promise<any[]> => { // Use 'any' for the returned array elements
+export const getAllWebinarsService = async (params: GetAllWebinarServiceParams = {}, filters?: GetWebinarFilters): Promise<any[]> => {
   try {
     let whereClause: any = {};
 
@@ -88,12 +87,12 @@ export const getAllWebinarsService = async (params: GetAllWebinarServiceParams =
  * Updates an existing webinar in the database.
  * @param id The UUID of the webinar to update.
  * @param params The data to update the webinar with.
- * @returns A promise that resolves to the updated Webinar instance (typed as any) or null if not found.
+ * @returns A promise that resolves to the updated Webinar instance or null if not found.
  * @throws {HttpError} If the webinar is not found or if the Jitsi room name is already in use.
  */
-export const updateWebinarService = async (id: string, params: Partial<WebinarInput>): Promise<any | null> => { // Use 'any' for the returned instance type
+export const updateWebinarService = async (id: string, params: Partial<WebinarInput>): Promise<any | null> => {
   try {
-    const webinar: any = await Webinar.findByPk(id); // Explicitly cast to 'any'
+    const webinar: any = await Webinar.findByPk(id);
     if (!webinar) {
       throw new HttpError('Webinar not found', 404);
     }

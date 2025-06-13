@@ -1,10 +1,12 @@
+// src/controllers/webinar.controller.ts
+
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth"; // Assuming AuthenticatedRequest is defined here
 import HttpError from "../utils/httpError";
 import { Role } from "../utils/constants"; // Assuming Role enum is defined here
-import jwt from 'jsonwebtoken'; // NEW: Import jsonwebtoken for JWT generation
+import jwt from 'jsonwebtoken';
 
-import Webinar from '../models/Webinar'; // NEW: Import your Webinar model (adjust path if needed)
+import Webinar from '../models/Webinar.model'; // Ensure this path is correct for your Webinar model
 
 import {
     createWebinarService,
@@ -18,7 +20,7 @@ import {
     WebinarInput,
     GetAllWebinarServiceParams,
     GetWebinarFilters,
-    WebinarStatus // New: Import WebinarStatus enum type
+    WebinarStatus // Ensure WebinarStatus is an actual enum (not just a type) in utils/types.ts
 } from "../utils/types";
 
 
@@ -32,7 +34,7 @@ const JITSI_JAS_PRIVATE_KEY: string = process.env.JITSI_JAS_PRIVATE_KEY as strin
 
 // CRITICAL CHECK: Ensure JaaS credentials are loaded at runtime
 if (!JITSI_JAS_APP_ID || !JITSI_JAS_API_KEY_ID || !JITSI_JAS_PRIVATE_KEY) {
-  console.error("ERROR: Jitsi JaaS credentials (APP_ID, API_KEY_ID, PRIVATE_KEY) are not loaded from environment variables.");
+  console.error("CRITICAL ERROR: Jitsi JaaS credentials (APP_ID, API_KEY_ID, PRIVATE_KEY) are not loaded from environment variables.");
   console.error("Please set them correctly on Render or in your local .env file.");
   // In a production app, you might want to throw an error here or prevent the app from starting:
   // process.exit(1);
@@ -68,17 +70,16 @@ const generateJitsiJwt = (
     sub: JITSI_JAS_APP_ID, // Your JaaS App ID
     context: {
       features: {
-        livestreaming: true,
+        livestreaming: true, // As specified in your provided code
         outbound_call: false,
         sip_outbound_call: false,
         transcription: false,
         recording: false, // Set to true if you want to allow recording for this user/room
-        // Add or remove other JaaS features based on your plan and needs
       },
       user: {
         hidden_from_recorder: false,
         moderator: isModerator, // Set to true for hosts/presenters
-        name: userName,
+        name: userName, // Use the provided userName (will be email)
         id: userId,
         avatar: '', // Optional URL to user's avatar image
         email: userEmail,
@@ -88,9 +89,10 @@ const generateJitsiJwt = (
   };
 
   const token = jwt.sign(payload, JITSI_JAS_PRIVATE_KEY, {
-    algorithm: 'RS256', // Must be RS256 for JaaS
+    algorithm: 'RS256', // Algorithm directly in options
     header: {
-      kid: JITSI_JAS_API_KEY_ID // Your JaaS API Key ID
+      kid: JITSI_JAS_API_KEY_ID,
+      alg: 'RS256' // alg MUST be in header too for some JWT libraries/implementations
     }
   });
 
@@ -125,7 +127,7 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
         }
 
         // Optional validation for status if it's provided and needs to be one of the enum values
-        if (status && !Object.values(WebinarStatus).includes(status)) { // Using Object.values for enum check
+        if (status && !Object.values(WebinarStatus).includes(status)) {
             throw new HttpError(`Invalid status value. Must be one of "${Object.values(WebinarStatus).join(', ')}".`, 400);
         }
 
@@ -146,7 +148,7 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
             data: newWebinar
         });
     } catch (error) {
-        next(error); // Pass error to the error handling middleware
+        next(error);
     }
 };
 
@@ -313,13 +315,12 @@ export const getJitsiDetailsController = async (req: AuthenticatedRequest, res: 
 
     // --- IMPORTANT: Get current authenticated user details ---
     // Assuming your 'isAuth' middleware populates req.user.
-    // Ensure AuthenticatedRequest defines req.user with 'id', 'name', 'email', and 'role' (optional for moderator logic).
+    // Use 'email' for userName as there's no 'name' field on the user object.
     const currentUserId = req.user?.id || 'anonymous_participant';
-    const currentUserName = req.user?.name || 'Guest User';
+    const currentUserName = req.user?.email || 'Guest User'; // FIX: Changed from 'name' to 'email'
     const currentUserEmail = req.user?.email || 'guest@example.com';
     
     // Logic to determine if the current user is a moderator for *this specific webinar*.
-    // Example: If a user is an 'admin' or if the 'currentUserId' matches a 'hostId' on the webinar.
     const isModerator = req.user?.role === Role.ADMIN; // Example: only admins are moderators
 
     const webinar = await Webinar.findByPk(id);
@@ -329,7 +330,6 @@ export const getJitsiDetailsController = async (req: AuthenticatedRequest, res: 
     }
 
     // Optional: Add logic to restrict access based on webinar status or user's payment/registration.
-    // For example, if a webinar is 'recorded', you might prevent joining the live session.
     if (webinar.status === WebinarStatus.RECORDED) {
         throw new HttpError('This webinar is already recorded and cannot be joined live.', 403);
     }
