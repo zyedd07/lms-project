@@ -1,9 +1,10 @@
-// src/controllers/webinar.controller.ts
-
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth"; // Assuming AuthenticatedRequest is defined here
 import HttpError from "../utils/httpError";
 import { Role } from "../utils/constants"; // Assuming Role enum is defined here
+import jwt from 'jsonwebtoken'; // NEW: Import jsonwebtoken for JWT generation
+
+import Webinar from '../models/Webinar'; // NEW: Import your Webinar model (adjust path if needed)
 
 import {
     createWebinarService,
@@ -11,15 +12,90 @@ import {
     getWebinarByIdService,
     updateWebinarService,
     deleteWebinarService,
-} from "../services/webinar.services"; // Import your webinar services
+} from "../services/webinar.services";
 
 import {
-    WebinarInput, // For create and update request bodies
-    GetAllWebinarServiceParams, // For query parameters for getting all webinars
-    GetWebinarFilters, // For pagination filters
+    WebinarInput,
+    GetAllWebinarServiceParams,
+    GetWebinarFilters,
     WebinarStatus // New: Import WebinarStatus enum type
 } from "../utils/types";
 
+
+// --- IMPORTANT: CONFIGURE YOUR JITSI AS A SERVICE (JaaS) CREDENTIALS ---
+// These values MUST be set as environment variables on your Render deployment.
+// For local development, you'd typically use a .env file and 'dotenv' package.
+
+const JITSI_JAS_APP_ID: string = process.env.JITSI_JAS_APP_ID as string;
+const JITSI_JAS_API_KEY_ID: string = process.env.JITSI_JAS_API_KEY_ID as string;
+const JITSI_JAS_PRIVATE_KEY: string = process.env.JITSI_JAS_PRIVATE_KEY as string;
+
+// CRITICAL CHECK: Ensure JaaS credentials are loaded at runtime
+if (!JITSI_JAS_APP_ID || !JITSI_JAS_API_KEY_ID || !JITSI_JAS_PRIVATE_KEY) {
+  console.error("ERROR: Jitsi JaaS credentials (APP_ID, API_KEY_ID, PRIVATE_KEY) are not loaded from environment variables.");
+  console.error("Please set them correctly on Render or in your local .env file.");
+  // In a production app, you might want to throw an error here or prevent the app from starting:
+  // process.exit(1);
+}
+
+const JITSI_JAS_BASE_URL: string = 'https://8x8.vc/'; // The base URL for 8x8 JaaS
+
+/**
+ * Helper function to generate a Jitsi JWT.
+ * @param {string} roomName - The specific Jitsi room name (from webinar.jitsiRoomName).
+ * @param {string} userId - The unique ID of the user joining the meeting.
+ * @param {string} userName - The display name of the user.
+ * @param {string} userEmail - The email of the user.
+ * @param {boolean} isModerator - True if the user should have moderator privileges.
+ * @returns {string} The signed JWT.
+ */
+const generateJitsiJwt = (
+  roomName: string,
+  userId: string,
+  userName: string,
+  userEmail: string,
+  isModerator: boolean = false
+): string => {
+  const now = Math.floor(Date.now() / 1000); // Current time in seconds
+  const expiration = now + (60 * 60); // Token valid for 1 hour (adjust lifetime as needed)
+
+  const payload = {
+    iss: "chat", // Issuer for Jitsi (usually 'chat' for JaaS)
+    aud: "jitsi", // Audience
+    exp: expiration, // Expiration time (seconds since epoch)
+    nbf: now, // Not Before time
+    iat: now, // Issued At time
+    sub: JITSI_JAS_APP_ID, // Your JaaS App ID
+    context: {
+      features: {
+        livestreaming: true,
+        outbound_call: false,
+        sip_outbound_call: false,
+        transcription: false,
+        recording: false, // Set to true if you want to allow recording for this user/room
+        // Add or remove other JaaS features based on your plan and needs
+      },
+      user: {
+        hidden_from_recorder: false,
+        moderator: isModerator, // Set to true for hosts/presenters
+        name: userName,
+        id: userId,
+        avatar: '', // Optional URL to user's avatar image
+        email: userEmail,
+      },
+    },
+    room: roomName, // The specific Jitsi room name for this webinar
+  };
+
+  const token = jwt.sign(payload, JITSI_JAS_PRIVATE_KEY, {
+    algorithm: 'RS256', // Must be RS256 for JaaS
+    header: {
+      kid: JITSI_JAS_API_KEY_ID // Your JaaS API Key ID
+    }
+  });
+
+  return token;
+};
 
 /**
  * Controller to create a new webinar.
@@ -38,9 +114,9 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
             date,
             time,
             imageUrl,
-            status, // NEW: Include status from request body
+            status,
             jitsiRoomName,
-            price // NEW: Include price from request body
+            price
         }: WebinarInput = req.body;
 
         // Basic validation for required fields
@@ -49,8 +125,8 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
         }
 
         // Optional validation for status if it's provided and needs to be one of the enum values
-        if (status && !['upcoming', 'live', 'recorded'].includes(status)) {
-            throw new HttpError('Invalid status value. Must be one of "upcoming", "live", or "recorded".', 400);
+        if (status && !Object.values(WebinarStatus).includes(status)) { // Using Object.values for enum check
+            throw new HttpError(`Invalid status value. Must be one of "${Object.values(WebinarStatus).join(', ')}".`, 400);
         }
 
         const newWebinar = await createWebinarService({
@@ -59,9 +135,9 @@ export const createWebinarController = async (req: AuthenticatedRequest, res: Re
             date,
             time,
             imageUrl,
-            status, // Pass status to service
+            status,
             jitsiRoomName,
-            price // Pass price to service
+            price
         });
 
         res.status(201).json({
@@ -84,7 +160,7 @@ export const getAllWebinarsController = async (req: Request, res: Response, next
 
         // Prepare parameters for the service
         const params: GetAllWebinarServiceParams = {};
-        if (status && ['upcoming', 'live', 'recorded'].includes(status as string)) {
+        if (status && Object.values(WebinarStatus).includes(status as WebinarStatus)) {
             params.status = status as WebinarStatus; // Filter by status if provided and valid
         }
 
@@ -157,19 +233,19 @@ export const updateWebinarController = async (req: AuthenticatedRequest, res: Re
             date,
             time,
             imageUrl,
-            status, // NEW: Include status from request body
+            status,
             jitsiRoomName,
-            price // NEW: Include price from request body
+            price
         }: Partial<WebinarInput> = req.body;
 
         const updateData: Partial<WebinarInput> = {
             title, speaker, date, time, imageUrl, status, jitsiRoomName, price
         };
 
-        // Fix for TS7053: Assert key as a valid key of updateData
+        // Remove undefined values to avoid updating fields with 'undefined'
         Object.keys(updateData).forEach(key => {
-            if (updateData[key as keyof Partial<WebinarInput>] === undefined) { // Explicitly cast key
-                delete updateData[key as keyof Partial<WebinarInput>]; // Explicitly cast key
+            if (updateData[key as keyof Partial<WebinarInput>] === undefined) {
+                delete updateData[key as keyof Partial<WebinarInput>];
             }
         });
 
@@ -179,8 +255,8 @@ export const updateWebinarController = async (req: AuthenticatedRequest, res: Re
         }
 
         // Optional validation for status if it's provided and needs to be one of the enum values
-        if (updateData.status && !['upcoming', 'live', 'recorded'].includes(updateData.status)) {
-            throw new HttpError('Invalid status value. Must be one of "upcoming", "live", or "recorded".', 400);
+        if (updateData.status && !Object.values(WebinarStatus).includes(updateData.status)) {
+            throw new HttpError(`Invalid status value. Must be one of "${Object.values(WebinarStatus).join(', ')}".`, 400);
         }
 
         const updatedWebinar = await updateWebinarService(id, updateData);
@@ -224,4 +300,68 @@ export const deleteWebinarController = async (req: AuthenticatedRequest, res: Re
     } catch (error) {
         next(error);
     }
+};
+
+/**
+ * Controller to get Jitsi meeting details for a specific webinar.
+ * Fetches webinar details and generates a Jitsi JWT.
+ * It's recommended to protect this endpoint with authentication.
+ */
+export const getJitsiDetailsController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // --- IMPORTANT: Get current authenticated user details ---
+    // Assuming your 'isAuth' middleware populates req.user.
+    // Ensure AuthenticatedRequest defines req.user with 'id', 'name', 'email', and 'role' (optional for moderator logic).
+    const currentUserId = req.user?.id || 'anonymous_participant';
+    const currentUserName = req.user?.name || 'Guest User';
+    const currentUserEmail = req.user?.email || 'guest@example.com';
+    
+    // Logic to determine if the current user is a moderator for *this specific webinar*.
+    // Example: If a user is an 'admin' or if the 'currentUserId' matches a 'hostId' on the webinar.
+    const isModerator = req.user?.role === Role.ADMIN; // Example: only admins are moderators
+
+    const webinar = await Webinar.findByPk(id);
+
+    if (!webinar) {
+      throw new HttpError('Webinar not found.', 404);
+    }
+
+    // Optional: Add logic to restrict access based on webinar status or user's payment/registration.
+    // For example, if a webinar is 'recorded', you might prevent joining the live session.
+    if (webinar.status === WebinarStatus.RECORDED) {
+        throw new HttpError('This webinar is already recorded and cannot be joined live.', 403);
+    }
+    // If you only want 'live' status to allow joining, add:
+    // if (webinar.status !== WebinarStatus.LIVE && !isModerator) { // Allow moderators to join upcoming for setup
+    //     throw new HttpError('This webinar is not currently live.', 403);
+    // }
+
+    const jitsiRoomName = webinar.jitsiRoomName;
+
+    // Generate the JWT for this specific room and user
+    const jitsiJwt = generateJitsiJwt(
+      jitsiRoomName,
+      currentUserId,
+      currentUserName,
+      currentUserEmail,
+      isModerator
+    );
+
+    // Construct the full Jitsi meeting URL for the React Native SDK
+    // Format: https://8x8.vc/APP_ID/ROOM_NAME?jwt=JWT_TOKEN
+    const jitsiMeetingUrl = `${JITSI_JAS_BASE_URL}${JITSI_JAS_APP_ID}/${jitsiRoomName}?jwt=${jitsiJwt}`;
+
+    res.json({
+      success: true, // Standard response format
+      jitsiMeetingUrl: jitsiMeetingUrl,
+      jwt: jitsiJwt, // Provide JWT separately as well for clarity/alternative use
+      roomName: jitsiRoomName,
+      webinarTitle: webinar.title,
+    });
+
+  } catch (error) {
+    next(error); // Pass error to the error handling middleware
+  }
 };
