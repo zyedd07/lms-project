@@ -60,9 +60,9 @@ export const loginAdminService = async ({ email, password }: LoginAdminServicePa
         console.log(`[AdminService] userSessionData before JWT:`, userSessionData);
 
         // FIX: Explicitly type the options object as SignOptions
-        const jwtOptions: SignOptions = {
-            expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-        };
+       const jwtOptions: SignOptions = {
+    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string // Explicitly assert it as string
+};
         
         const token = jwt.sign(userSessionData, SECRET_KEY, jwtOptions);
         
