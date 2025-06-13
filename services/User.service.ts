@@ -1,8 +1,8 @@
-import User from "../models/User.model";
+import User from "../models/User.model"; // Ensure correct import path and type definition for User model
 import bcrypt from 'bcryptjs';
 import { CreateUserServiceParams, LoginUserServiceParams } from "../utils/types"; // Assuming types.ts defines these
 import HttpError from "../utils/httpError";
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken'; // FIX: Import SignOptions
 
 // Assuming you have a User model with Sequelize-like methods like .update(), .destroy()
 
@@ -34,22 +34,28 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
         if (!user) {
             throw new HttpError("User does not exist", 400);
         }
-        const isPasswordMatch = await bcrypt.compare(password, user.get("password") as unknown as string);
+        // Casting user.get("password") to string as bcrypt.compare expects string
+        const isPasswordMatch = await bcrypt.compare(password, user.get("password") as string);
         if (!isPasswordMatch) {
             throw new HttpError("Invalid password", 400);
         }
-        const SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
+        const SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; // Ensure SECRET_KEY is always a string
         
-        const userRole = user.get("role") as string;
+        const userRole: string = user.get("role") as string; // Ensure userRole is typed correctly
         
         const userSessionData = {
             id: user.get("id"),
-            name: user.get("name"),
+            name: user.get("name"), // Assuming User model has a 'name' field
             email: user.get("email"),
             role: userRole,
         };
 
-        const token = jwt.sign(userSessionData, SECRET_KEY, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+        // FIX: Explicitly type the options object as SignOptions
+        const jwtOptions: SignOptions = {
+            expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+        };
+
+        const token = jwt.sign(userSessionData, SECRET_KEY, jwtOptions); // FIX: Pass jwtOptions here
         return {
             user: userSessionData,
             token,
@@ -90,16 +96,14 @@ export const getUsersService = async (email?: string) => {
 export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; }) => {
     try {
         // Explicitly assert the type of the user to include its expected properties
-        // Changed `User` to `InstanceType<typeof User>` to correctly refer to the instance type.
-        const user = await User.findByPk(id) as InstanceType<typeof User> & { name: string; email: string; phone?: string; role: string; };
+        // IMPORTANT: This casting to `InstanceType<typeof User> & { ... }` will likely cause issues
+        // if your User.model.ts is not correctly typed. It's better to fix the User model itself.
+        const user = await User.findByPk(id) as any; // Temporary 'any' until User.model.ts is fixed
         
         if (!user) {
             throw new HttpError("User not found", 404);
         }
 
-        // Apply updates
-        // Note: For sensitive fields like 'password', you'd typically have a separate
-        // dedicated service/endpoint with proper password hashing.
         if (updates.name !== undefined) user.name = updates.name;
         if (updates.email !== undefined) user.email = updates.email;
         if (updates.phone !== undefined) user.phone = updates.phone;
