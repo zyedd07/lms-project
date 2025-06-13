@@ -6,7 +6,7 @@ import HttpError from "../utils/httpError";
 import { Role } from "../utils/constants"; // Assuming Role enum is defined here
 import jwt from 'jsonwebtoken';
 
-import Webinar from '../models/Webinar.model'; // Ensure this path is correct for your Webinar model
+import Webinar from "../models/webinar.model"
 
 import {
     createWebinarService,
