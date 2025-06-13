@@ -1,12 +1,15 @@
-// src/services/webinar.service.ts
+// src/services/webinar.services.ts
 
-import Webinar from '../models/webinar.model';
+// Import the specific instance type from your model
+import Webinar from '../models/webinar.model'; // Adjust path if needed
+// You don't need a separate type import for WebinarInstance if you use `import Webinar from '../models/webinar.model';`
+// and `Webinar` itself is the typed class.
 import HttpError from '../utils/httpError';
 import {
   WebinarInput,
   GetAllWebinarServiceParams,
   GetWebinarFilters,
-  WebinarStatus // New import for the enum type
+  WebinarStatus
 } from '../utils/types';
 
 
@@ -16,18 +19,16 @@ import {
  * @returns A promise that resolves to the newly created Webinar instance.
  * @throws {HttpError} If a webinar with the same Jitsi room name already exists.
  */
-export const createWebinarService = async (params: WebinarInput): Promise<any> => {
+export const createWebinarService = async (params: WebinarInput): Promise<Webinar> => { // Return type is Webinar (the class itself)
   try {
-    const existingWebinar: any = await Webinar.findOne({ where: { jitsiRoomName: params.jitsiRoomName } });
+    const existingWebinar = await Webinar.findOne({ where: { jitsiRoomName: params.jitsiRoomName } });
     if (existingWebinar) {
       throw new HttpError('Webinar with this Jitsi room name already exists.', 400);
     }
 
-    const newWebinar: any = await Webinar.create({
+    const newWebinar = await Webinar.create({
       ...params,
-      // FIX: Ensure status defaults to WebinarStatus.UPCOMING enum value
       status: params.status || WebinarStatus.UPCOMING,
-      // Ensure price is a number, defaulting to 0 if not provided or invalid
       price: typeof params.price === 'number' ? params.price : 0,
     });
     return newWebinar;
@@ -42,9 +43,9 @@ export const createWebinarService = async (params: WebinarInput): Promise<any> =
  * @param id The UUID of the webinar to fetch.
  * @returns A promise that resolves to a Webinar instance or null if not found.
  */
-export const getWebinarByIdService = async (id: string): Promise<any | null> => {
+export const getWebinarByIdService = async (id: string): Promise<Webinar | null> => { // Return type is Webinar | null
   try {
-    const webinar: any = await Webinar.findByPk(id);
+    const webinar = await Webinar.findByPk(id);
     if (!webinar) {
       return null;
     }
@@ -61,20 +62,18 @@ export const getWebinarByIdService = async (id: string): Promise<any | null> => 
  * @param filters Optional pagination filters (limit, offset).
  * @returns A promise that resolves to an array of Webinar instances.
  */
-export const getAllWebinarsService = async (params: GetAllWebinarServiceParams = {}, filters?: GetWebinarFilters): Promise<any[]> => {
+export const getAllWebinarsService = async (params: GetAllWebinarServiceParams = {}, filters?: GetWebinarFilters): Promise<Webinar[]> => { // Return type is Webinar[]
   try {
-    let whereClause: any = {};
+    let whereClause: any = {}; // Still okay for Sequelize `where` options
 
-    // Filter by status if provided in params
     if (params.status) {
       whereClause.status = params.status;
     }
 
-    const webinars: any[] = await Webinar.findAll({
+    const webinars = await Webinar.findAll({
       where: whereClause,
       limit: filters?.limit,
       offset: filters?.offset,
-      // include: [], // Add includes if you have associations (e.g., with Speakers or Categories)
     });
     return webinars;
   } catch (error) {
@@ -90,16 +89,15 @@ export const getAllWebinarsService = async (params: GetAllWebinarServiceParams =
  * @returns A promise that resolves to the updated Webinar instance or null if not found.
  * @throws {HttpError} If the webinar is not found or if the Jitsi room name is already in use.
  */
-export const updateWebinarService = async (id: string, params: Partial<WebinarInput>): Promise<any | null> => {
+export const updateWebinarService = async (id: string, params: Partial<WebinarInput>): Promise<Webinar | null> => { // Return type is Webinar | null
   try {
-    const webinar: any = await Webinar.findByPk(id);
+    const webinar = await Webinar.findByPk(id);
     if (!webinar) {
       throw new HttpError('Webinar not found', 404);
     }
 
-    // Check if jitsiRoomName is being updated and if it's unique to another webinar
     if (params.jitsiRoomName && params.jitsiRoomName !== webinar.jitsiRoomName) {
-      const existingWebinarWithSameRoomName: any = await Webinar.findOne({
+      const existingWebinarWithSameRoomName = await Webinar.findOne({
         where: { jitsiRoomName: params.jitsiRoomName }
       });
       if (existingWebinarWithSameRoomName && existingWebinarWithSameRoomName.id !== webinar.id) {
@@ -107,10 +105,9 @@ export const updateWebinarService = async (id: string, params: Partial<WebinarIn
       }
     }
 
-    // Prepare data for update, ensuring price is handled correctly
     const dataToUpdate: Partial<WebinarInput> = { ...params };
     if (typeof params.price === 'string') {
-      dataToUpdate.price = parseFloat(params.price); // Convert string price to number if it came as string
+      dataToUpdate.price = parseFloat(params.price);
     } else if (typeof params.price === 'number') {
       dataToUpdate.price = params.price;
     }
