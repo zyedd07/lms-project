@@ -202,7 +202,7 @@ export type WebinarInput = {
     time: string; // Storing time as string
     imageUrl?: string; // URL for the webinar image, optional
     status?: WebinarStatus; // Use the new status enum, optional for creation (defaults to 'upcoming')
-    jitsiRoomName: string; // Unique name for Jitsi meeting room
+    jitsiRoomName?: string; // Unique name for Jitsi meeting room
     price: number; // NEW: Price field, required for creation
 };
 
