@@ -35,7 +35,6 @@ Company.init(
         name: {
             type: DataTypes.STRING,
             allowNull: false,
-            unique: true, // Assuming company names should be unique
         },
         // FIX: Explicitly add createdAt and updatedAt attribute definitions
         // even though timestamps: true will manage their values.
