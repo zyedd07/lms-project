@@ -1,11 +1,11 @@
 // src/models/Brand.model.ts
 import { DataTypes, Model, Optional } from "sequelize";
-import { sequelize } from "."; // Assuming your sequelize instance is exported from index.ts
+import { sequelize } from ".";
 
 class Brand extends Model<
     { // Attributes of the Brand instance
         id: string;
-        name: string; // RE-ADDED: name field
+        name: string;
         contents: any[] | null;
         brandCategoryId: string;
         companyId: string;
@@ -16,7 +16,7 @@ class Brand extends Model<
     },
     { // Attributes that are optional when creating a new instance
         id?: string;
-        name: string; // RE-ADDED: name field (required for creation)
+        name: string;
         contents?: any[] | null;
         brandCategoryId: string;
         companyId: string;
@@ -27,7 +27,7 @@ class Brand extends Model<
     }
 > {
     public id!: string;
-    public name!: string; // RE-ADDED: name property
+    public name!: string;
     public contents!: any[] | null;
     public brandCategoryId!: string;
     public companyId!: string;
@@ -44,10 +44,10 @@ Brand.init(
             defaultValue: DataTypes.UUIDV4,
             primaryKey: true,
         },
-        name: { // RE-ADDED: name attribute definition
+        name: {
             type: DataTypes.STRING,
             allowNull: false,
-            unique: false, // Part of a composite unique index
+            // unique: false is fine here, or can be removed if no other unique constraint relies on it
         },
         contents: {
             type: DataTypes.JSON,
@@ -84,13 +84,15 @@ Brand.init(
         sequelize,
         timestamps: true,
         modelName: 'Brand',
-        indexes: [
-            {
-                // REVERTED: Unique index to include 'name'
-                fields: ['name', 'brandCategoryId', 'companyId'],
-                name: 'brands_name_brand_category_id_company_id_unique_index',
-            },
-        ],
+        // --- REMOVE THE ENTIRE 'indexes' BLOCK HERE ---
+        // indexes: [
+        //     {
+        //         unique: true,
+        //         fields: ['name', 'brandCategoryId', 'companyId'],
+        //         name: 'brands_name_brand_category_id_company_id_unique_index',
+        //     },
+        // ],
+        // ---------------------------------------------
     }
 );
 
