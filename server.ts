@@ -9,7 +9,7 @@ console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL)
 // Routers
 import userRouter from './routes/User.router';
 import teacherRouter from './routes/Teacher.router';
-import categoryRouter from './routes/Category.router';
+import categoryRouter from './routes/Category.router'; // This is likely for Course Categories
 import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router';
@@ -20,6 +20,12 @@ import questionBankRouter from './routes/questionBank.router';
 // --- ADDED: Webinar Router Import ---
 import webinarRouter from './routes/webinar.router';
 // --- END ADDED ---
+
+// --- NEW: Brand, BrandCategory, Company Router Imports ---
+import brandCategoryRouter from './routes/brandCategory.router'; // New Brand Category router
+import companyRouter from './routes/company.router';           // New Company router
+import brandRouter from './routes/brand.router';               // New Brand router
+// --- END NEW ---
 
 const app = express();
 
@@ -64,7 +70,7 @@ app.get('/', (req: Request, res: Response) => {
 // Routes
 app.use('/user', userRouter);
 app.use('/teacher', teacherRouter);
-app.use('/categories', categoryRouter);
+app.use('/categories', categoryRouter); // This is likely for Course Categories
 app.use('/admin', adminRouter);
 app.use('/course', courseRouter);
 app.use('/testseries', testSeriesRouter);
@@ -75,6 +81,12 @@ app.use('/question-banks', questionBankRouter);
 // --- ADDED: Webinar Route Mounting ---
 app.use('/webinars', webinarRouter); // Mount your webinar router here
 // --- END ADDED ---
+
+// --- NEW: Brand, BrandCategory, Company Route Mounting ---
+app.use('/brand-categories', brandCategoryRouter); // API path for brand categories
+app.use('/companies', companyRouter);             // API path for companies
+app.use('/brands', brandRouter);                 // API path for brands
+// --- END NEW ---
 
 // Error handling middleware (ensure AuthenticatedRequest is correctly defined if used)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -103,6 +115,10 @@ import './models/associations/index'; // Example: Path to your association setup
 import { AuthenticatedRequest } from './middleware/auth'; // Example: Path to your AuthenticatedRequest type definition
 import initAssociation from './models/associations/index'; // Example: Path to your association initialization function
 import Webinar from './models/webinar.model'; // Ensure Webinar model is imported for Sequelize to recognize it
+import Brand from './models/Brand.model';
+import BrandCategory from './models/BrandCategory.model';
+import Company from './models/Company.model';
+
 
 initAssociation(); // Call the association initialization
 

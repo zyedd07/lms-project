@@ -1,7 +1,8 @@
 "use strict";
+// src/utils/types.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebinarStatus = void 0;
-// Updated Webinar Types
+// --- Webinar Types ---
 var WebinarStatus;
 (function (WebinarStatus) {
     WebinarStatus["UPCOMING"] = "upcoming";

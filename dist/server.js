@@ -21,7 +21,7 @@ console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL)
 // Routers
 const User_router_1 = __importDefault(require("./routes/User.router"));
 const Teacher_router_1 = __importDefault(require("./routes/Teacher.router"));
-const Category_router_1 = __importDefault(require("./routes/Category.router"));
+const Category_router_1 = __importDefault(require("./routes/Category.router")); // This is likely for Course Categories
 const Admin_router_1 = __importDefault(require("./routes/Admin.router"));
 const Course_router_1 = __importDefault(require("./routes/Course.router"));
 const TestSeries_router_1 = __importDefault(require("./routes/TestSeries.router"));
@@ -31,6 +31,11 @@ const questionBank_router_1 = __importDefault(require("./routes/questionBank.rou
 // --- ADDED: Webinar Router Import ---
 const webinar_router_1 = __importDefault(require("./routes/webinar.router"));
 // --- END ADDED ---
+// --- NEW: Brand, BrandCategory, Company Router Imports ---
+const brandCategory_router_1 = __importDefault(require("./routes/brandCategory.router")); // New Brand Category router
+const company_router_1 = __importDefault(require("./routes/company.router")); // New Company router
+const brand_router_1 = __importDefault(require("./routes/brand.router")); // New Brand router
+// --- END NEW ---
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -69,7 +74,7 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/user', User_router_1.default);
 app.use('/teacher', Teacher_router_1.default);
-app.use('/categories', Category_router_1.default);
+app.use('/categories', Category_router_1.default); // This is likely for Course Categories
 app.use('/admin', Admin_router_1.default);
 app.use('/course', Course_router_1.default);
 app.use('/testseries', TestSeries_router_1.default);
@@ -79,6 +84,11 @@ app.use('/question-banks', questionBank_router_1.default);
 // --- ADDED: Webinar Route Mounting ---
 app.use('/webinars', webinar_router_1.default); // Mount your webinar router here
 // --- END ADDED ---
+// --- NEW: Brand, BrandCategory, Company Route Mounting ---
+app.use('/brand-categories', brandCategory_router_1.default); // API path for brand categories
+app.use('/companies', company_router_1.default); // API path for companies
+app.use('/brands', brand_router_1.default); // API path for brands
+// --- END NEW ---
 // Error handling middleware (ensure AuthenticatedRequest is correctly defined if used)
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;
