@@ -86,7 +86,6 @@ Brand.init(
         modelName: 'Brand',
         indexes: [
             {
-                unique: true,
                 // REVERTED: Unique index to include 'name'
                 fields: ['name', 'brandCategoryId', 'companyId'],
                 name: 'brands_name_brand_category_id_company_id_unique_index',
