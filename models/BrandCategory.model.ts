@@ -21,7 +21,6 @@ BrandCategory.init({
     name: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
     },
     // FIX: Add createdAt and updatedAt explicitly here
     createdAt: {
