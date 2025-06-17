@@ -1,18 +1,21 @@
-import Categories from "../Categories.model";
-import Course from "../Course.model";
-import CourseLiveLecture from "../CourseLiveLecture.model";
-import CourseTeacher from "../CourseTeacher.model";
-import CourseTestSeries from "../CourseTestSeries.model";
-import Enrollment from "../Enrollment.model";
-import Lecture from "../Lecture.model";
-import LiveLecture from "../LiveLecture.model";
-import Payment from "../Payment.model";
-import Teacher from "../Teacher.model";
-import TestSeries from "../TestSeries.model";
-import User from "../User.model";
-import Test from "../Test.model";
-import Question from "../Question.model";
-// import TestOption from "../Option.model"; // Correctly commented out
+import Categories from "./Categories.model";
+import Course from "./Course.model";
+import CourseLiveLecture from "./CourseLiveLecture.model";
+import CourseTeacher from "./CourseTeacher.model";
+import CourseTestSeries from "./CourseTestSeries.model";
+import Enrollment from "./Enrollment.model";
+import Lecture from "./Lecture.model";
+import LiveLecture from "./LiveLecture.model";
+import Payment from "./Payment.model";
+import Teacher from "./Teacher.model";
+import TestSeries from "./TestSeries.model";
+import User from "./User.model";
+import Test from "./Test.model";
+import Question from "./Question.model";
+// Import Brand, BrandCategory, and Company models
+import Brand from './Brand.model';
+import BrandCategory from './BrandCategory.model';
+import Company from './Company.model';
 
 const initAssociation = () => {
     // Relationships
@@ -54,12 +57,37 @@ const initAssociation = () => {
     Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
 
     // Test and Question
-    // CHANGING THE ALIAS HERE TO 'testQuestions' to ensure uniqueness
     Test.hasMany(Question, { foreignKey: 'testId', as: 'testQuestions' });
     Question.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
 
     Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
     Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
+
+    // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
+    // A Brand belongs to one BrandCategory
+    Brand.belongsTo(BrandCategory, {
+        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
+        as: 'brandCategory'           // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
+    });
+
+    // A BrandCategory can have many Brands
+    BrandCategory.hasMany(Brand, {
+        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
+        as: 'brands'                  // Alias if querying from BrandCategory to its Brands
+    });
+
+    // A Brand belongs to one Company
+    Brand.belongsTo(Company, {
+        foreignKey: 'companyId',      // This must match the column in your 'brands' table
+        as: 'company'                 // Alias used in queries (e.g., include: { model: Company, as: 'company' })
+    });
+
+    // A Company can have many Brands
+    Company.hasMany(Brand, {
+        foreignKey: 'companyId',      // This must match the column in your 'brands' table
+        as: 'brands'                  // Alias if querying from Company to its Brands
+    });
+    // --- END NEW ASSOCIATIONS ---
 };
 
 export default initAssociation;
