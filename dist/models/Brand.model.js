@@ -2,8 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 // src/models/Brand.model.ts
 const sequelize_1 = require("sequelize");
-const _1 = require(".");
-// Define the Brand model class
+const _1 = require("."); // Assuming your sequelize instance is exported from index.ts
 class Brand extends sequelize_1.Model {
 }
 Brand.init({
@@ -11,6 +10,11 @@ Brand.init({
         type: sequelize_1.DataTypes.UUID,
         defaultValue: sequelize_1.DataTypes.UUIDV4,
         primaryKey: true,
+    },
+    name: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+        unique: false, // Part of a composite unique index
     },
     contents: {
         type: sequelize_1.DataTypes.JSON,
@@ -20,18 +24,10 @@ Brand.init({
     brandCategoryId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'brand_categories', // Ensure this matches your BrandCategory table name
-            key: 'id',
-        },
     },
     companyId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'companies', // Ensure this matches your Company table name
-            key: 'id',
-        },
     },
     availability: {
         type: sequelize_1.DataTypes.STRING,
@@ -41,7 +37,6 @@ Brand.init({
         type: sequelize_1.DataTypes.BOOLEAN,
         defaultValue: false,
     },
-    // FIX: Add createdAt and updatedAt explicitly here
     createdAt: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: false,
@@ -54,10 +49,13 @@ Brand.init({
     tableName: 'brands',
     sequelize: _1.sequelize,
     timestamps: true,
+    modelName: 'Brand',
     indexes: [
         {
             unique: true,
-            fields: ["brandCategoryId", "companyId"],
+            // REVERTED: Unique index to include 'name'
+            fields: ['name', 'brandCategoryId', 'companyId'],
+            name: 'brands_name_brand_category_id_company_id_unique_index',
         },
     ],
 });

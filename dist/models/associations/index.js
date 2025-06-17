@@ -17,7 +17,10 @@ const TestSeries_model_1 = __importDefault(require("../TestSeries.model"));
 const User_model_1 = __importDefault(require("../User.model"));
 const Test_model_1 = __importDefault(require("../Test.model"));
 const Question_model_1 = __importDefault(require("../Question.model"));
-// import TestOption from "../Option.model"; // Correctly commented out
+// Import Brand, BrandCategory, and Company models
+const Brand_model_1 = __importDefault(require("../Brand.model"));
+const BrandCategory_model_1 = __importDefault(require("../BrandCategory.model"));
+const Company_model_1 = __importDefault(require("../Company.model"));
 const initAssociation = () => {
     // Relationships
     User_model_1.default.hasMany(Enrollment_model_1.default, { foreignKey: 'userId' });
@@ -47,10 +50,31 @@ const initAssociation = () => {
     TestSeries_model_1.default.hasMany(Test_model_1.default, { foreignKey: 'testSeriesId', as: 'tests' });
     Test_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId', as: 'testSeries' });
     // Test and Question
-    // CHANGING THE ALIAS HERE TO 'testQuestions' to ensure uniqueness
     Test_model_1.default.hasMany(Question_model_1.default, { foreignKey: 'testId', as: 'testQuestions' });
     Question_model_1.default.belongsTo(Test_model_1.default, { foreignKey: 'testId', as: 'test' });
     Lecture_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
     Course_model_1.default.hasMany(Lecture_model_1.default, { foreignKey: 'courseId', as: 'lectures' });
+    // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
+    // A Brand belongs to one BrandCategory
+    Brand_model_1.default.belongsTo(BrandCategory_model_1.default, {
+        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
+        as: 'brandCategory' // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
+    });
+    // A BrandCategory can have many Brands
+    BrandCategory_model_1.default.hasMany(Brand_model_1.default, {
+        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
+        as: 'brands' // Alias if querying from BrandCategory to its Brands
+    });
+    // A Brand belongs to one Company
+    Brand_model_1.default.belongsTo(Company_model_1.default, {
+        foreignKey: 'companyId', // This must match the column in your 'brands' table
+        as: 'company' // Alias used in queries (e.g., include: { model: Company, as: 'company' })
+    });
+    // A Company can have many Brands
+    Company_model_1.default.hasMany(Brand_model_1.default, {
+        foreignKey: 'companyId', // This must match the column in your 'brands' table
+        as: 'brands' // Alias if querying from Company to its Brands
+    });
+    // --- END NEW ASSOCIATIONS ---
 };
 exports.default = initAssociation;

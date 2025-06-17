@@ -11,7 +11,7 @@ import {
     updateBrandService,
     deleteBrandService
 } from "../services/brandService";
-import { GetAllBrandServiceParams } from "../utils/types"; // Import the type for query parameters
+import { GetAllBrandServiceParams } from "../utils/types";
 
 export const createBrandController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -20,16 +20,16 @@ export const createBrandController = async (req: AuthenticatedRequest, res: Resp
             throw new HttpError('Unauthorized: Only admins can create brands.', 403);
         }
 
-        // Removed 'name' from destructuring
-        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // RE-ADDED: name to destructuring
+        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
 
-        // Removed 'name' from the validation check
-        if (!brandCategoryId || !companyId || !availability) {
-            throw new HttpError('Please provide brand category ID, company ID, and availability.', 400);
+        // RE-ADDED: name to validation check
+        if (!name || !brandCategoryId || !companyId || !availability) {
+            throw new HttpError('Please provide brand name, category ID, company ID, and availability.', 400);
         }
 
         const newBrand = await createBrandService({
-            // Removed 'name' from the service call
+            name, // RE-ADDED: name to service call
             contents,
             brandCategoryId,
             companyId,
@@ -66,15 +66,14 @@ export const getBrandByIdController = async (req: Request, res: Response, next: 
 
 export const getAllBrandsController = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Removed 'name' from destructuring query parameters
-        const { id, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
+        // RE-ADDED: name to destructuring query parameters
+        const { id, name, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
 
         const params: GetAllBrandServiceParams = {
             id: id as string,
-            // Removed 'name' from params object
+            name: name as string, // RE-ADDED: name to params object
             brandCategoryId: brandCategoryId as string,
             companyId: companyId as string,
-            // Convert recommended_by_vets to boolean if present
             recommended_by_vets: typeof recommended_by_vets === 'string' ? recommended_by_vets === 'true' : undefined,
             availability: availability as string,
             limit: limit ? parseInt(limit as string) : undefined,
@@ -99,20 +98,20 @@ export const updateBrandController = async (req: AuthenticatedRequest, res: Resp
         }
 
         const { id } = req.params;
-        // Removed 'name' from destructuring body
-        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // RE-ADDED: name to destructuring body
+        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
 
         if (!id) {
             throw new HttpError('Brand ID is required in URL parameters.', 400);
         }
 
-        // Removed 'name' from the update fields check
-        if (!contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
+        // RE-ADDED: name to the update fields check
+        if (!name && !contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
             throw new HttpError('Please provide at least one field to update.', 400);
         }
 
         const updatedBrand = await updateBrandService(id, {
-            // Removed 'name' from the service call
+            name, // RE-ADDED: name to service call
             contents,
             brandCategoryId,
             companyId,
@@ -148,6 +147,6 @@ export const deleteBrandController = async (req: AuthenticatedRequest, res: Resp
             ...response
         });
     } catch (error) {
-        next(error);
+        throw error;
     }
 };

@@ -20,17 +20,21 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
             throw new HttpError(`Company with ID ${params.companyId} not found.`, 404);
         }
 
+        // RE-ADDED: name to the unique check
         const existingBrand = await Brand.findOne({
             where: {
+                name: params.name, // Re-add name to unique check
                 brandCategoryId: params.brandCategoryId,
                 companyId: params.companyId
             },
         });
         if (existingBrand) {
-            throw new HttpError("A brand with this category and company already exists.", 400);
+            // Updated error message to reflect the re-added unique constraint
+            throw new HttpError("A brand with this name, category, and company already exists.", 400);
         }
 
         const newBrand = await Brand.create({
+            name: params.name, // RE-ADDED: name to create payload
             contents: params.contents || [],
             brandCategoryId: params.brandCategoryId,
             companyId: params.companyId,
@@ -55,7 +59,7 @@ export const getBrandByIdService = async (id: string) => {
                 {
                     model: Company,
                     as: 'company',
-                    // FIX: Removed 'website' and 'logoUrl' from attributes
+                    // Only 'id' and 'name' are expected in Company model
                     attributes: ['id', 'name']
                 }
             ]
@@ -76,6 +80,9 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
         const whereClause: any = {};
         if (params.id) {
             whereClause.id = params.id;
+        }
+        if (params.name) { // RE-ADDED: name to where clause
+            whereClause.name = params.name;
         }
         if (params.brandCategoryId) {
             whereClause.brandCategoryId = params.brandCategoryId;
@@ -102,7 +109,6 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
                 {
                     model: Company,
                     as: 'company',
-                    // FIX: Removed 'website' and 'logoUrl' from attributes
                     attributes: ['id', 'name'],
                     required: false
                 }
@@ -137,18 +143,22 @@ export const updateBrandService = async (id: string, params: UpdateBrandServiceP
             }
         }
 
+        // RE-ADDED: targetName for unique check logic
+        const targetName = params.name !== undefined ? params.name : brand.name;
         const targetBrandCategoryId = params.brandCategoryId !== undefined ? params.brandCategoryId : brand.brandCategoryId;
         const targetCompanyId = params.companyId !== undefined ? params.companyId : brand.companyId;
 
-        if (targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
+        // RE-ADDED: name to the unique check condition
+        if (targetName !== brand.name || targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
             const existingBrand = await Brand.findOne({
                 where: {
+                    name: targetName, // Re-add name to unique check
                     brandCategoryId: targetBrandCategoryId,
                     companyId: targetCompanyId
                 },
             });
             if (existingBrand && existingBrand.id !== id) {
-                throw new HttpError("A brand with this category and company already exists.", 400);
+                throw new HttpError("A brand with this name, category, and company already exists.", 400);
             }
         }
 
@@ -156,12 +166,7 @@ export const updateBrandService = async (id: string, params: UpdateBrandServiceP
         const updatedBrand = await Brand.findByPk(id, {
             include: [
                 { model: BrandCategory, as: 'brandCategory', attributes: ['id', 'name'] },
-                {
-                    model: Company,
-                    as: 'company',
-                    // FIX: Removed 'website' and 'logoUrl' from attributes
-                    attributes: ['id', 'name']
-                }
+                { model: Company, as: 'company', attributes: ['id', 'name'] }
             ]
         });
         return updatedBrand;

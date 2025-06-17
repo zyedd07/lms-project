@@ -28,19 +28,20 @@ const createBrandService = (params) => __awaiter(void 0, void 0, void 0, functio
         if (!companyExists) {
             throw new httpError_1.default(`Company with ID ${params.companyId} not found.`, 404);
         }
-        // Removed 'name' from the unique check, as per the updated model and index
+        // RE-ADDED: name to the unique check
         const existingBrand = yield Brand_model_1.default.findOne({
             where: {
+                name: params.name, // Re-add name to unique check
                 brandCategoryId: params.brandCategoryId,
                 companyId: params.companyId
             },
         });
         if (existingBrand) {
-            // Updated error message to reflect the new unique constraint
-            throw new httpError_1.default("A brand with this category and company already exists.", 400);
+            // Updated error message to reflect the re-added unique constraint
+            throw new httpError_1.default("A brand with this name, category, and company already exists.", 400);
         }
         const newBrand = yield Brand_model_1.default.create({
-            // Removed 'name: params.name'
+            name: params.name, // RE-ADDED: name to create payload
             contents: params.contents || [],
             brandCategoryId: params.brandCategoryId,
             companyId: params.companyId,
@@ -56,7 +57,6 @@ const createBrandService = (params) => __awaiter(void 0, void 0, void 0, functio
 exports.createBrandService = createBrandService;
 const getBrandByIdService = (id) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Removed 'as Brand' cast
         const brand = yield Brand_model_1.default.findByPk(id, {
             include: [
                 {
@@ -67,7 +67,8 @@ const getBrandByIdService = (id) => __awaiter(void 0, void 0, void 0, function* 
                 {
                     model: Company_model_1.default,
                     as: 'company',
-                    attributes: ['id', 'name', 'website', 'logoUrl']
+                    // Only 'id' and 'name' are expected in Company model
+                    attributes: ['id', 'name']
                 }
             ]
         });
@@ -88,12 +89,9 @@ const getAllBrandsService = (params) => __awaiter(void 0, void 0, void 0, functi
         if (params.id) {
             whereClause.id = params.id;
         }
-        // Removed 'name' from whereClause
-        /*
-        if (params.name) {
+        if (params.name) { // RE-ADDED: name to where clause
             whereClause.name = params.name;
         }
-        */
         if (params.brandCategoryId) {
             whereClause.brandCategoryId = params.brandCategoryId;
         }
@@ -118,7 +116,7 @@ const getAllBrandsService = (params) => __awaiter(void 0, void 0, void 0, functi
                 {
                     model: Company_model_1.default,
                     as: 'company',
-                    attributes: ['id', 'name', 'website', 'logoUrl'],
+                    attributes: ['id', 'name'],
                     required: false
                 }
             ],
@@ -134,7 +132,6 @@ const getAllBrandsService = (params) => __awaiter(void 0, void 0, void 0, functi
 exports.getAllBrandsService = getAllBrandsService;
 const updateBrandService = (id, params) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Removed 'as Brand' cast
         const brand = yield Brand_model_1.default.findByPk(id);
         if (!brand) {
             throw new httpError_1.default('Brand not found', 404);
@@ -151,31 +148,28 @@ const updateBrandService = (id, params) => __awaiter(void 0, void 0, void 0, fun
                 throw new httpError_1.default(`Company with ID ${params.companyId} not found.`, 404);
             }
         }
-        // Removed 'targetName' and its usage, as 'name' is no longer a field
-        // const targetName = params.name !== undefined ? params.name : brand.name; // This line is now incorrect
+        // RE-ADDED: targetName for unique check logic
+        const targetName = params.name !== undefined ? params.name : brand.name;
         const targetBrandCategoryId = params.brandCategoryId !== undefined ? params.brandCategoryId : brand.brandCategoryId;
         const targetCompanyId = params.companyId !== undefined ? params.companyId : brand.companyId;
-        // Adjusted the unique check condition
-        // If brandCategoryId or companyId is changing, we need to check for existing combinations
-        if (targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
-            // Removed 'as Brand' cast
+        // RE-ADDED: name to the unique check condition
+        if (targetName !== brand.name || targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
             const existingBrand = yield Brand_model_1.default.findOne({
                 where: {
+                    name: targetName, // Re-add name to unique check
                     brandCategoryId: targetBrandCategoryId,
                     companyId: targetCompanyId
                 },
             });
-            // If an existing brand with the new (category, company) combo is found AND it's not the current brand
             if (existingBrand && existingBrand.id !== id) {
-                throw new httpError_1.default("A brand with this category and company already exists.", 400);
+                throw new httpError_1.default("A brand with this name, category, and company already exists.", 400);
             }
         }
         yield brand.update(params);
-        // Removed 'as Brand' cast
         const updatedBrand = yield Brand_model_1.default.findByPk(id, {
             include: [
                 { model: BrandCategory_model_1.default, as: 'brandCategory', attributes: ['id', 'name'] },
-                { model: Company_model_1.default, as: 'company', attributes: ['id', 'name', 'website', 'logoUrl'] }
+                { model: Company_model_1.default, as: 'company', attributes: ['id', 'name'] }
             ]
         });
         return updatedBrand;

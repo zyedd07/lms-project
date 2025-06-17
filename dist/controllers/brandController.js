@@ -24,14 +24,14 @@ const createBrandController = (req, res, next) => __awaiter(void 0, void 0, void
         if (role !== constants_1.Role.ADMIN) {
             throw new httpError_1.default('Unauthorized: Only admins can create brands.', 403);
         }
-        // Removed 'name' from destructuring
-        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
-        // Removed 'name' from the validation check
-        if (!brandCategoryId || !companyId || !availability) {
-            throw new httpError_1.default('Please provide brand category ID, company ID, and availability.', 400);
+        // RE-ADDED: name to destructuring
+        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // RE-ADDED: name to validation check
+        if (!name || !brandCategoryId || !companyId || !availability) {
+            throw new httpError_1.default('Please provide brand name, category ID, company ID, and availability.', 400);
         }
         const newBrand = yield (0, brandService_1.createBrandService)({
-            // Removed 'name' from the service call
+            name, // RE-ADDED: name to service call
             contents,
             brandCategoryId,
             companyId,
@@ -68,14 +68,13 @@ const getBrandByIdController = (req, res, next) => __awaiter(void 0, void 0, voi
 exports.getBrandByIdController = getBrandByIdController;
 const getAllBrandsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Removed 'name' from destructuring query parameters
-        const { id, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
+        // RE-ADDED: name to destructuring query parameters
+        const { id, name, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
         const params = {
             id: id,
-            // Removed 'name' from params object
+            name: name, // RE-ADDED: name to params object
             brandCategoryId: brandCategoryId,
             companyId: companyId,
-            // Convert recommended_by_vets to boolean if present
             recommended_by_vets: typeof recommended_by_vets === 'string' ? recommended_by_vets === 'true' : undefined,
             availability: availability,
             limit: limit ? parseInt(limit) : undefined,
@@ -100,17 +99,17 @@ const updateBrandController = (req, res, next) => __awaiter(void 0, void 0, void
             throw new httpError_1.default('Unauthorized: Only admins can update brands.', 403);
         }
         const { id } = req.params;
-        // Removed 'name' from destructuring body
-        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // RE-ADDED: name to destructuring body
+        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
         if (!id) {
             throw new httpError_1.default('Brand ID is required in URL parameters.', 400);
         }
-        // Removed 'name' from the update fields check
-        if (!contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
+        // RE-ADDED: name to the update fields check
+        if (!name && !contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
             throw new httpError_1.default('Please provide at least one field to update.', 400);
         }
         const updatedBrand = yield (0, brandService_1.updateBrandService)(id, {
-            // Removed 'name' from the service call
+            name, // RE-ADDED: name to service call
             contents,
             brandCategoryId,
             companyId,
@@ -143,7 +142,7 @@ const deleteBrandController = (req, res, next) => __awaiter(void 0, void 0, void
         res.status(200).json(Object.assign({ success: true }, response));
     }
     catch (error) {
-        next(error);
+        throw error;
     }
 });
 exports.deleteBrandController = deleteBrandController;
