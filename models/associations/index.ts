@@ -9,7 +9,7 @@ import LiveLecture from "../LiveLecture.model";
 import Payment from "../Payment.model";
 import Teacher from "../Teacher.model";
 import TestSeries from "../TestSeries.model";
-import User from "../User.model"e;
+import User from "../User.model";
 import Test from "../Test.model";
 import Question from "../Question.model";
 // Import Brand, BrandCategory, and Company models
