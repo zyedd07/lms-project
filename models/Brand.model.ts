@@ -7,7 +7,6 @@ import Company from './Company.model';
 // Define the Brand model class
 class Brand extends Model<InferAttributes<Brand>, InferCreationAttributes<Brand>> {
     public id!: CreationOptional<string>;
-    public name!: string;
     public contents!: any[] | null; // JSON type, typically an array of objects, can be nullable
     public brandCategoryId!: string;
     public companyId!: string;
@@ -25,11 +24,7 @@ Brand.init({
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: false,
-    },
+   
     contents: {
         type: DataTypes.JSON,
         allowNull: true,
@@ -75,7 +70,7 @@ Brand.init({
     indexes: [
         {
             unique: true,
-            fields: ["name", "brandCategoryId", "companyId"],
+            fields: [ "brandCategoryId", "companyId"],
         },
     ],
 });

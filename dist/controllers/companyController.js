@@ -16,7 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteCompanyController = exports.updateCompanyController = exports.getAllCompaniesController = exports.getCompanyByIdController = exports.createCompanyController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const constants_1 = require("../utils/constants");
-const companyService_1 = require("../services/companyService"); // Ensure correct import path
+const companyService_1 = require("../services/companyService");
 const createCompanyController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
@@ -24,11 +24,15 @@ const createCompanyController = (req, res, next) => __awaiter(void 0, void 0, vo
         if (role !== constants_1.Role.ADMIN) {
             throw new httpError_1.default('Unauthorized: Only admins can create companies.', 403);
         }
-        const { name, website, logoUrl, address } = req.body;
+        // Only destructure 'name'
+        const { name } = req.body;
         if (!name) {
-            throw new httpError_1.default('Please provide the company name.', 400);
+            throw new httpError_1.default('Please provide company name.', 400);
         }
-        const newCompany = yield (0, companyService_1.createCompanyService)({ name, website, logoUrl, address });
+        const newCompany = yield (0, companyService_1.createCompanyService)({
+            name,
+            // REMOVED: website, logoUrl, address
+        });
         res.status(201).json({
             success: true,
             message: "Company created successfully.",
@@ -59,6 +63,7 @@ const getCompanyByIdController = (req, res, next) => __awaiter(void 0, void 0, v
 exports.getCompanyByIdController = getCompanyByIdController;
 const getAllCompaniesController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        // If you had query parameters for website, logoUrl, address, they'd be removed here
         const companies = yield (0, companyService_1.getAllCompaniesService)();
         res.status(200).json({
             success: true,
@@ -78,15 +83,19 @@ const updateCompanyController = (req, res, next) => __awaiter(void 0, void 0, vo
             throw new httpError_1.default('Unauthorized: Only admins can update companies.', 403);
         }
         const { id } = req.params;
-        const { name, website, logoUrl, address } = req.body;
+        // Only destructure 'name' for update
+        const { name } = req.body;
         if (!id) {
             throw new httpError_1.default('Company ID is required in URL parameters.', 400);
         }
-        // At least one field must be provided for update
-        if (!name && !website && !logoUrl && !address) {
-            throw new httpError_1.default('Please provide at least one field to update (name, website, logoUrl, or address).', 400);
+        // Check if 'name' is provided for update
+        if (!name) {
+            throw new httpError_1.default('Please provide company name to update.', 400);
         }
-        const updatedCompany = yield (0, companyService_1.updateCompanyService)(id, { name, website, logoUrl, address });
+        const updatedCompany = yield (0, companyService_1.updateCompanyService)(id, {
+            name,
+            // REMOVED: website, logoUrl, address
+        });
         res.status(200).json({
             success: true,
             message: "Company updated successfully.",
@@ -110,8 +119,7 @@ const deleteCompanyController = (req, res, next) => __awaiter(void 0, void 0, vo
             throw new httpError_1.default('Company ID is required in URL parameters.', 400);
         }
         const response = yield (0, companyService_1.deleteCompanyService)(id);
-        res.status(200).json(Object.assign({ success: true }, response // Contains the message from the service
-        ));
+        res.status(200).json(Object.assign({ success: true }, response));
     }
     catch (error) {
         next(error);

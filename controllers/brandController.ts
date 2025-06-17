@@ -10,7 +10,7 @@ import {
     getAllBrandsService,
     updateBrandService,
     deleteBrandService
-} from "../services/brandService"; // Ensure correct import path
+} from "../services/brandService";
 import { GetAllBrandServiceParams } from "../utils/types"; // Import the type for query parameters
 
 export const createBrandController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -20,19 +20,21 @@ export const createBrandController = async (req: AuthenticatedRequest, res: Resp
             throw new HttpError('Unauthorized: Only admins can create brands.', 403);
         }
 
-        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
-        
-        if (!name || !brandCategoryId || !companyId || !availability) {
-            throw new HttpError('Please provide brand name, category ID, company ID, and availability.', 400);
+        // Removed 'name' from destructuring
+        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+
+        // Removed 'name' from the validation check
+        if (!brandCategoryId || !companyId || !availability) {
+            throw new HttpError('Please provide brand category ID, company ID, and availability.', 400);
         }
 
-        const newBrand = await createBrandService({ 
-            name, 
-            contents, 
-            brandCategoryId, 
-            companyId, 
-            availability, 
-            recommended_by_vets 
+        const newBrand = await createBrandService({
+            // Removed 'name' from the service call
+            contents,
+            brandCategoryId,
+            companyId,
+            availability,
+            recommended_by_vets
         });
 
         res.status(201).json({
@@ -64,17 +66,17 @@ export const getBrandByIdController = async (req: Request, res: Response, next: 
 
 export const getAllBrandsController = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Destructure and type-cast query parameters
-        const { id, name, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
+        // Removed 'name' from destructuring query parameters
+        const { id, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
 
         const params: GetAllBrandServiceParams = {
             id: id as string,
-            name: name as string,
+            // Removed 'name' from params object
             brandCategoryId: brandCategoryId as string,
             companyId: companyId as string,
             // Convert recommended_by_vets to boolean if present
             recommended_by_vets: typeof recommended_by_vets === 'string' ? recommended_by_vets === 'true' : undefined,
-            availability: availability as string, // This is now a string
+            availability: availability as string,
             limit: limit ? parseInt(limit as string) : undefined,
             offset: offset ? parseInt(offset as string) : undefined,
         };
@@ -97,24 +99,25 @@ export const updateBrandController = async (req: AuthenticatedRequest, res: Resp
         }
 
         const { id } = req.params;
-        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // Removed 'name' from destructuring body
+        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
 
         if (!id) {
             throw new HttpError('Brand ID is required in URL parameters.', 400);
         }
-        
-        // At least one field must be provided for update
-        if (!name && !contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
+
+        // Removed 'name' from the update fields check
+        if (!contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
             throw new HttpError('Please provide at least one field to update.', 400);
         }
 
-        const updatedBrand = await updateBrandService(id, { 
-            name, 
-            contents, 
-            brandCategoryId, 
-            companyId, 
-            availability, 
-            recommended_by_vets 
+        const updatedBrand = await updateBrandService(id, {
+            // Removed 'name' from the service call
+            contents,
+            brandCategoryId,
+            companyId,
+            availability,
+            recommended_by_vets
         });
 
         res.status(200).json({
@@ -142,7 +145,7 @@ export const deleteBrandController = async (req: AuthenticatedRequest, res: Resp
         const response = await deleteBrandService(id);
         res.status(200).json({
             success: true,
-            ...response // Contains the message from the service
+            ...response
         });
     } catch (error) {
         next(error);

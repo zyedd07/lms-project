@@ -244,21 +244,16 @@ export type UpdateBrandCategoryServiceParams = {
 // --- Company Types ---
 export type CreateCompanyServiceParams = {
     name: string;
-    website?: string;
-    logoUrl?: string;
-    address?: string;
+   
 }
 
 export type UpdateCompanyServiceParams = {
     name?: string;
-    website?: string;
-    logoUrl?: string;
-    address?: string;
+    
 }
 
 // --- Brand Types ---
 export type CreateBrandServiceParams = {
-    name: string;
     contents?: any[]; // JSON type, typically an array of objects
     brandCategoryId: string; // UUID
     companyId: string;       // UUID
@@ -267,7 +262,6 @@ export type CreateBrandServiceParams = {
 }
 
 export type UpdateBrandServiceParams = {
-    name?: string;
     contents?: any[];
     brandCategoryId?: string;
     companyId?: string;
@@ -277,7 +271,6 @@ export type UpdateBrandServiceParams = {
 
 export type GetAllBrandServiceParams = GetFilters & {
     id?: string;
-    name?: string;
     brandCategoryId?: string;
     companyId?: string;
     recommended_by_vets?: boolean;

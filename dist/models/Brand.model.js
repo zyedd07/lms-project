@@ -12,11 +12,6 @@ Brand.init({
         defaultValue: sequelize_1.DataTypes.UUIDV4,
         primaryKey: true,
     },
-    name: {
-        type: sequelize_1.DataTypes.STRING,
-        allowNull: false,
-        unique: false,
-    },
     contents: {
         type: sequelize_1.DataTypes.JSON,
         allowNull: true,
@@ -62,7 +57,7 @@ Brand.init({
     indexes: [
         {
             unique: true,
-            fields: ["name", "brandCategoryId", "companyId"],
+            fields: ["brandCategoryId", "companyId"],
         },
     ],
 });

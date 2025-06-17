@@ -3,11 +3,11 @@ import Brand from "../models/Brand.model";
 import BrandCategory from "../models/BrandCategory.model";
 import Company from "../models/Company.model";
 import HttpError from "../utils/httpError";
-import { 
-    CreateBrandServiceParams, 
-    GetAllBrandServiceParams, 
-    UpdateBrandServiceParams 
-} from "../utils/types"; 
+import {
+    CreateBrandServiceParams,
+    GetAllBrandServiceParams,
+    UpdateBrandServiceParams
+} from "../utils/types";
 
 export const createBrandService = async (params: CreateBrandServiceParams) => {
     try {
@@ -20,20 +20,20 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
             throw new HttpError(`Company with ID ${params.companyId} not found.`, 404);
         }
 
-        // Explicitly cast the result to Brand
+        // Removed 'name' from the unique check, as per the updated model and index
         const existingBrand = await Brand.findOne({
-            where: { 
-                name: params.name, 
-                brandCategoryId: params.brandCategoryId, 
-                companyId: params.companyId 
+            where: {
+                brandCategoryId: params.brandCategoryId,
+                companyId: params.companyId
             },
-        }) as Brand; // Fix: Add as Brand
+        });
         if (existingBrand) {
-            throw new HttpError("A brand with this name, category, and company already exists.", 400);
+            // Updated error message to reflect the new unique constraint
+            throw new HttpError("A brand with this category and company already exists.", 400);
         }
 
         const newBrand = await Brand.create({
-            name: params.name,
+            // Removed 'name: params.name'
             contents: params.contents || [],
             brandCategoryId: params.brandCategoryId,
             companyId: params.companyId,
@@ -48,7 +48,7 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
 
 export const getBrandByIdService = async (id: string) => {
     try {
-        // Explicitly cast the result to Brand
+        // Removed 'as Brand' cast
         const brand = await Brand.findByPk(id, {
             include: [
                 {
@@ -62,7 +62,7 @@ export const getBrandByIdService = async (id: string) => {
                     attributes: ['id', 'name', 'website', 'logoUrl']
                 }
             ]
-        }) as Brand; // Fix: Add as Brand
+        });
 
         if (!brand) {
             throw new HttpError("Brand not found", 404);
@@ -80,9 +80,12 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
         if (params.id) {
             whereClause.id = params.id;
         }
+        // Removed 'name' from whereClause
+        /*
         if (params.name) {
             whereClause.name = params.name;
         }
+        */
         if (params.brandCategoryId) {
             whereClause.brandCategoryId = params.brandCategoryId;
         }
@@ -124,8 +127,8 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
 
 export const updateBrandService = async (id: string, params: UpdateBrandServiceParams) => {
     try {
-        // Explicitly cast the result to Brand
-        const brand = await Brand.findByPk(id) as Brand; // Fix: Add as Brand
+        // Removed 'as Brand' cast
+        const brand = await Brand.findByPk(id);
         if (!brand) {
             throw new HttpError('Brand not found', 404);
         }
@@ -142,36 +145,36 @@ export const updateBrandService = async (id: string, params: UpdateBrandServiceP
                 throw new HttpError(`Company with ID ${params.companyId} not found.`, 404);
             }
         }
-        
-        // Fix: brand is now typed as Brand, so 'name' is accessible
-        const targetName = params.name !== undefined ? params.name : brand.name;
-        const targetBrandCategoryId = params.brandCategoryId !== undefined ? params.brandCategoryId : brand.brandCategoryId; // Fix: Direct access
-        const targetCompanyId = params.companyId !== undefined ? params.companyId : brand.companyId; // Fix: Direct access
 
-        // Fix: brand is now typed as Brand, so 'name' is accessible
-        if (targetName !== brand.name || targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
-            // Explicitly cast the result to Brand
+        // Removed 'targetName' and its usage, as 'name' is no longer a field
+        // const targetName = params.name !== undefined ? params.name : brand.name; // This line is now incorrect
+        const targetBrandCategoryId = params.brandCategoryId !== undefined ? params.brandCategoryId : brand.brandCategoryId;
+        const targetCompanyId = params.companyId !== undefined ? params.companyId : brand.companyId;
+
+        // Adjusted the unique check condition
+        // If brandCategoryId or companyId is changing, we need to check for existing combinations
+        if (targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
+            // Removed 'as Brand' cast
             const existingBrand = await Brand.findOne({
-                where: { 
-                    name: targetName, 
-                    brandCategoryId: targetBrandCategoryId, 
-                    companyId: targetCompanyId 
+                where: {
+                    brandCategoryId: targetBrandCategoryId,
+                    companyId: targetCompanyId
                 },
-            }) as Brand; // Fix: Add as Brand
-            // Fix: existingBrand is now typed as Brand, so 'id' is accessible
+            });
+            // If an existing brand with the new (category, company) combo is found AND it's not the current brand
             if (existingBrand && existingBrand.id !== id) {
-                throw new HttpError("A brand with this name, category, and company already exists.", 400);
+                throw new HttpError("A brand with this category and company already exists.", 400);
             }
         }
 
         await brand.update(params);
-        // Explicitly cast the result to Brand
+        // Removed 'as Brand' cast
         const updatedBrand = await Brand.findByPk(id, {
             include: [
                 { model: BrandCategory, as: 'brandCategory', attributes: ['id', 'name'] },
                 { model: Company, as: 'company', attributes: ['id', 'name', 'website', 'logoUrl'] }
             ]
-        }) as Brand; // Fix: Add as Brand
+        });
         return updatedBrand;
     } catch (error) {
         throw error;

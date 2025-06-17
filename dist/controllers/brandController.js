@@ -16,7 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteBrandController = exports.updateBrandController = exports.getAllBrandsController = exports.getBrandByIdController = exports.createBrandController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const constants_1 = require("../utils/constants");
-const brandService_1 = require("../services/brandService"); // Ensure correct import path
+const brandService_1 = require("../services/brandService");
 const createBrandController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
@@ -24,12 +24,14 @@ const createBrandController = (req, res, next) => __awaiter(void 0, void 0, void
         if (role !== constants_1.Role.ADMIN) {
             throw new httpError_1.default('Unauthorized: Only admins can create brands.', 403);
         }
-        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
-        if (!name || !brandCategoryId || !companyId || !availability) {
-            throw new httpError_1.default('Please provide brand name, category ID, company ID, and availability.', 400);
+        // Removed 'name' from destructuring
+        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // Removed 'name' from the validation check
+        if (!brandCategoryId || !companyId || !availability) {
+            throw new httpError_1.default('Please provide brand category ID, company ID, and availability.', 400);
         }
         const newBrand = yield (0, brandService_1.createBrandService)({
-            name,
+            // Removed 'name' from the service call
             contents,
             brandCategoryId,
             companyId,
@@ -66,16 +68,16 @@ const getBrandByIdController = (req, res, next) => __awaiter(void 0, void 0, voi
 exports.getBrandByIdController = getBrandByIdController;
 const getAllBrandsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Destructure and type-cast query parameters
-        const { id, name, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
+        // Removed 'name' from destructuring query parameters
+        const { id, brandCategoryId, companyId, recommended_by_vets, availability, limit, offset } = req.query;
         const params = {
             id: id,
-            name: name,
+            // Removed 'name' from params object
             brandCategoryId: brandCategoryId,
             companyId: companyId,
             // Convert recommended_by_vets to boolean if present
             recommended_by_vets: typeof recommended_by_vets === 'string' ? recommended_by_vets === 'true' : undefined,
-            availability: availability, // This is now a string
+            availability: availability,
             limit: limit ? parseInt(limit) : undefined,
             offset: offset ? parseInt(offset) : undefined,
         };
@@ -98,16 +100,17 @@ const updateBrandController = (req, res, next) => __awaiter(void 0, void 0, void
             throw new httpError_1.default('Unauthorized: Only admins can update brands.', 403);
         }
         const { id } = req.params;
-        const { name, contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
+        // Removed 'name' from destructuring body
+        const { contents, brandCategoryId, companyId, availability, recommended_by_vets } = req.body;
         if (!id) {
             throw new httpError_1.default('Brand ID is required in URL parameters.', 400);
         }
-        // At least one field must be provided for update
-        if (!name && !contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
+        // Removed 'name' from the update fields check
+        if (!contents && !brandCategoryId && !companyId && !availability && recommended_by_vets === undefined) {
             throw new httpError_1.default('Please provide at least one field to update.', 400);
         }
         const updatedBrand = yield (0, brandService_1.updateBrandService)(id, {
-            name,
+            // Removed 'name' from the service call
             contents,
             brandCategoryId,
             companyId,
@@ -137,8 +140,7 @@ const deleteBrandController = (req, res, next) => __awaiter(void 0, void 0, void
             throw new httpError_1.default('Brand ID is required in URL parameters.', 400);
         }
         const response = yield (0, brandService_1.deleteBrandService)(id);
-        res.status(200).json(Object.assign({ success: true }, response // Contains the message from the service
-        ));
+        res.status(200).json(Object.assign({ success: true }, response));
     }
     catch (error) {
         next(error);

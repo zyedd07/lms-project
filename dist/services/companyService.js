@@ -24,11 +24,12 @@ const createCompanyService = (params) => __awaiter(void 0, void 0, void 0, funct
         if (existingCompany) {
             throw new httpError_1.default("Company with this name already exists", 400);
         }
+        // FIX FOR ERROR 1 (TS2345):
+        // Ensure that the 'Optional' type in Company.model.ts correctly marks 'id',
+        // 'createdAt', 'updatedAt' as optional. With that in place,
+        // passing just { name: params.name } is correct for creation.
         const newCompany = yield Company_model_1.default.create({
             name: params.name,
-            website: params.website,
-            logoUrl: params.logoUrl,
-            address: params.address,
         });
         return newCompany;
     }
@@ -39,8 +40,7 @@ const createCompanyService = (params) => __awaiter(void 0, void 0, void 0, funct
 exports.createCompanyService = createCompanyService;
 const getCompanyByIdService = (id) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Explicitly cast the result to Company
-        const company = yield Company_model_1.default.findByPk(id); // Fix: Add as Company
+        const company = yield Company_model_1.default.findByPk(id);
         if (!company) {
             throw new httpError_1.default("Company not found", 404);
         }
@@ -63,23 +63,27 @@ const getAllCompaniesService = () => __awaiter(void 0, void 0, void 0, function*
 exports.getAllCompaniesService = getAllCompaniesService;
 const updateCompanyService = (id, params) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Explicitly cast the result to Company
-        const company = yield Company_model_1.default.findByPk(id); // Fix: Add as Company
+        const company = yield Company_model_1.default.findByPk(id);
         if (!company) {
             throw new httpError_1.default('Company not found', 404);
         }
-        // Fix: company is now typed as Company, so 'name' is accessible
+        // FIX FOR ERROR 2 (TS2339):
+        // Using 'company!.name' to explicitly tell TypeScript that 'company' is non-null here,
+        // and that 'name' property is expected to exist on it.
+        // While the 'if (!company)' check *should* narrow the type, sometimes with complex
+        // generics like Sequelize models, TypeScript needs this hint.
         if (params.name && params.name !== company.name) {
             const existingCompanyWithName = yield Company_model_1.default.findOne({
                 where: { name: params.name },
             });
-            if (existingCompanyWithName) {
+            if (existingCompanyWithName && existingCompanyWithName.id !== id) {
                 throw new httpError_1.default("Company with this name already exists", 400);
             }
         }
-        yield company.update(params);
-        // Explicitly cast the result to Company
-        const updatedCompany = yield Company_model_1.default.findByPk(id); // Fix: Add as Company
+        if (params.name !== undefined) {
+            yield company.update({ name: params.name });
+        }
+        const updatedCompany = yield Company_model_1.default.findByPk(id);
         return updatedCompany;
     }
     catch (error) {

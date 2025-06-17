@@ -10,7 +10,7 @@ import {
     getAllCompaniesService,
     updateCompanyService,
     deleteCompanyService
-} from "../services/companyService"; // Ensure correct import path
+} from "../services/companyService";
 
 export const createCompanyController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -19,12 +19,18 @@ export const createCompanyController = async (req: AuthenticatedRequest, res: Re
             throw new HttpError('Unauthorized: Only admins can create companies.', 403);
         }
 
-        const { name, website, logoUrl, address } = req.body;
+        // Only destructure 'name'
+        const { name } = req.body;
+
         if (!name) {
-            throw new HttpError('Please provide the company name.', 400);
+            throw new HttpError('Please provide company name.', 400);
         }
 
-        const newCompany = await createCompanyService({ name, website, logoUrl, address });
+        const newCompany = await createCompanyService({
+            name,
+            // REMOVED: website, logoUrl, address
+        });
+
         res.status(201).json({
             success: true,
             message: "Company created successfully.",
@@ -54,6 +60,7 @@ export const getCompanyByIdController = async (req: Request, res: Response, next
 
 export const getAllCompaniesController = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // If you had query parameters for website, logoUrl, address, they'd be removed here
         const companies = await getAllCompaniesService();
         res.status(200).json({
             success: true,
@@ -72,17 +79,23 @@ export const updateCompanyController = async (req: AuthenticatedRequest, res: Re
         }
 
         const { id } = req.params;
-        const { name, website, logoUrl, address } = req.body;
+        // Only destructure 'name' for update
+        const { name } = req.body;
+
         if (!id) {
             throw new HttpError('Company ID is required in URL parameters.', 400);
         }
-        
-        // At least one field must be provided for update
-        if (!name && !website && !logoUrl && !address) {
-            throw new HttpError('Please provide at least one field to update (name, website, logoUrl, or address).', 400);
+
+        // Check if 'name' is provided for update
+        if (!name) {
+            throw new HttpError('Please provide company name to update.', 400);
         }
 
-        const updatedCompany = await updateCompanyService(id, { name, website, logoUrl, address });
+        const updatedCompany = await updateCompanyService(id, {
+            name,
+            // REMOVED: website, logoUrl, address
+        });
+
         res.status(200).json({
             success: true,
             message: "Company updated successfully.",
@@ -108,7 +121,7 @@ export const deleteCompanyController = async (req: AuthenticatedRequest, res: Re
         const response = await deleteCompanyService(id);
         res.status(200).json({
             success: true,
-            ...response // Contains the message from the service
+            ...response
         });
     } catch (error) {
         next(error);

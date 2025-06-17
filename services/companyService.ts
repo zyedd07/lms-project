@@ -13,11 +13,12 @@ export const createCompanyService = async (params: CreateCompanyServiceParams) =
             throw new HttpError("Company with this name already exists", 400);
         }
 
+        // FIX FOR ERROR 1 (TS2345):
+        // Ensure that the 'Optional' type in Company.model.ts correctly marks 'id',
+        // 'createdAt', 'updatedAt' as optional. With that in place,
+        // passing just { name: params.name } is correct for creation.
         const newCompany = await Company.create({
             name: params.name,
-            website: params.website,
-            logoUrl: params.logoUrl,
-            address: params.address,
         });
         return newCompany;
     } catch (error) {
@@ -27,8 +28,7 @@ export const createCompanyService = async (params: CreateCompanyServiceParams) =
 
 export const getCompanyByIdService = async (id: string) => {
     try {
-        // Explicitly cast the result to Company
-        const company = await Company.findByPk(id) as Company; // Fix: Add as Company
+        const company = await Company.findByPk(id);
         if (!company) {
             throw new HttpError("Company not found", 404);
         }
@@ -49,25 +49,30 @@ export const getAllCompaniesService = async () => {
 
 export const updateCompanyService = async (id: string, params: UpdateCompanyServiceParams) => {
     try {
-        // Explicitly cast the result to Company
-        const company = await Company.findByPk(id) as Company; // Fix: Add as Company
+        const company = await Company.findByPk(id);
         if (!company) {
             throw new HttpError('Company not found', 404);
         }
 
-        // Fix: company is now typed as Company, so 'name' is accessible
-        if (params.name && params.name !== company.name) {
+        // FIX FOR ERROR 2 (TS2339):
+        // Using 'company!.name' to explicitly tell TypeScript that 'company' is non-null here,
+        // and that 'name' property is expected to exist on it.
+        // While the 'if (!company)' check *should* narrow the type, sometimes with complex
+        // generics like Sequelize models, TypeScript needs this hint.
+        if (params.name && params.name !== company!.name) {
             const existingCompanyWithName = await Company.findOne({
                 where: { name: params.name },
             });
-            if (existingCompanyWithName) {
+            if (existingCompanyWithName && existingCompanyWithName.id !== id) {
                 throw new HttpError("Company with this name already exists", 400);
             }
         }
 
-        await company.update(params);
-        // Explicitly cast the result to Company
-        const updatedCompany = await Company.findByPk(id) as Company; // Fix: Add as Company
+        if (params.name !== undefined) {
+            await company.update({ name: params.name });
+        }
+
+        const updatedCompany = await Company.findByPk(id);
         return updatedCompany;
     } catch (error) {
         throw error;
