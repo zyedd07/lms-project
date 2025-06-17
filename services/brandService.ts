@@ -20,7 +20,6 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
             throw new HttpError(`Company with ID ${params.companyId} not found.`, 404);
         }
 
-        // Removed 'name' from the unique check, as per the updated model and index
         const existingBrand = await Brand.findOne({
             where: {
                 brandCategoryId: params.brandCategoryId,
@@ -28,12 +27,10 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
             },
         });
         if (existingBrand) {
-            // Updated error message to reflect the new unique constraint
             throw new HttpError("A brand with this category and company already exists.", 400);
         }
 
         const newBrand = await Brand.create({
-            // Removed 'name: params.name'
             contents: params.contents || [],
             brandCategoryId: params.brandCategoryId,
             companyId: params.companyId,
@@ -48,7 +45,6 @@ export const createBrandService = async (params: CreateBrandServiceParams) => {
 
 export const getBrandByIdService = async (id: string) => {
     try {
-        // Removed 'as Brand' cast
         const brand = await Brand.findByPk(id, {
             include: [
                 {
@@ -59,7 +55,8 @@ export const getBrandByIdService = async (id: string) => {
                 {
                     model: Company,
                     as: 'company',
-                    attributes: ['id', 'name', 'website', 'logoUrl']
+                    // FIX: Removed 'website' and 'logoUrl' from attributes
+                    attributes: ['id', 'name']
                 }
             ]
         });
@@ -80,12 +77,6 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
         if (params.id) {
             whereClause.id = params.id;
         }
-        // Removed 'name' from whereClause
-        /*
-        if (params.name) {
-            whereClause.name = params.name;
-        }
-        */
         if (params.brandCategoryId) {
             whereClause.brandCategoryId = params.brandCategoryId;
         }
@@ -111,7 +102,8 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
                 {
                     model: Company,
                     as: 'company',
-                    attributes: ['id', 'name', 'website', 'logoUrl'],
+                    // FIX: Removed 'website' and 'logoUrl' from attributes
+                    attributes: ['id', 'name'],
                     required: false
                 }
             ],
@@ -127,7 +119,6 @@ export const getAllBrandsService = async (params: GetAllBrandServiceParams) => {
 
 export const updateBrandService = async (id: string, params: UpdateBrandServiceParams) => {
     try {
-        // Removed 'as Brand' cast
         const brand = await Brand.findByPk(id);
         if (!brand) {
             throw new HttpError('Brand not found', 404);
@@ -146,33 +137,31 @@ export const updateBrandService = async (id: string, params: UpdateBrandServiceP
             }
         }
 
-        // Removed 'targetName' and its usage, as 'name' is no longer a field
-        // const targetName = params.name !== undefined ? params.name : brand.name; // This line is now incorrect
         const targetBrandCategoryId = params.brandCategoryId !== undefined ? params.brandCategoryId : brand.brandCategoryId;
         const targetCompanyId = params.companyId !== undefined ? params.companyId : brand.companyId;
 
-        // Adjusted the unique check condition
-        // If brandCategoryId or companyId is changing, we need to check for existing combinations
         if (targetBrandCategoryId !== brand.brandCategoryId || targetCompanyId !== brand.companyId) {
-            // Removed 'as Brand' cast
             const existingBrand = await Brand.findOne({
                 where: {
                     brandCategoryId: targetBrandCategoryId,
                     companyId: targetCompanyId
                 },
             });
-            // If an existing brand with the new (category, company) combo is found AND it's not the current brand
             if (existingBrand && existingBrand.id !== id) {
                 throw new HttpError("A brand with this category and company already exists.", 400);
             }
         }
 
         await brand.update(params);
-        // Removed 'as Brand' cast
         const updatedBrand = await Brand.findByPk(id, {
             include: [
                 { model: BrandCategory, as: 'brandCategory', attributes: ['id', 'name'] },
-                { model: Company, as: 'company', attributes: ['id', 'name', 'website', 'logoUrl'] }
+                {
+                    model: Company,
+                    as: 'company',
+                    // FIX: Removed 'website' and 'logoUrl' from attributes
+                    attributes: ['id', 'name']
+                }
             ]
         });
         return updatedBrand;
