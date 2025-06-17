@@ -1,21 +1,21 @@
-import Categories from "./Categories.model";
-import Course from "./Course.model";
-import CourseLiveLecture from "./CourseLiveLecture.model";
-import CourseTeacher from "./CourseTeacher.model";
-import CourseTestSeries from "./CourseTestSeries.model";
-import Enrollment from "./Enrollment.model";
-import Lecture from "./Lecture.model";
-import LiveLecture from "./LiveLecture.model";
-import Payment from "./Payment.model";
-import Teacher from "./Teacher.model";
-import TestSeries from "./TestSeries.model";
-import User from "./User.model";
-import Test from "./Test.model";
-import Question from "./Question.model";
+import Categories from "../Categories.model";
+import Course from "../Course.model";
+import CourseLiveLecture from "../CourseLiveLecture.model";
+import CourseTeacher from "../CourseTeacher.model";
+import CourseTestSeries from "../CourseTestSeries.model";
+import Enrollment from "../Enrollment.model";
+import Lecture from "../Lecture.model";
+import LiveLecture from "../LiveLecture.model";
+import Payment from "../Payment.model";
+import Teacher from "../Teacher.model";
+import TestSeries from "../TestSeries.model";
+import User from "../User.model"e;
+import Test from "../Test.model";
+import Question from "../Question.model";
 // Import Brand, BrandCategory, and Company models
-import Brand from './Brand.model';
-import BrandCategory from './BrandCategory.model';
-import Company from './Company.model';
+import Brand from '../Brand.model';
+import BrandCategory from '../BrandCategory.model';
+import Company from '../Company.model';
 
 const initAssociation = () => {
     // Relationships
