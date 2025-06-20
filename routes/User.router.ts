@@ -1,27 +1,23 @@
 // User.router.ts
 import express from 'express';
 import * as UserController from '../controllers/User.controller';
-import isAuth, { authorizeAdmin } from '../middleware/auth';
+import isAuth, { authorizeAdmin } from '../middleware/auth'; // Ensure authorizeAdmin is imported
 
 const router = express.Router();
 
+// Public routes (no authentication required)
 router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
 
-// NEW: Endpoint to get the currently logged-in user's profile based on their token
-router.get('/me', isAuth, UserController.getLoggedInUser); // <--- ADD THIS LINE
+// Authenticated user's own profile routes
+router.get('/me', isAuth, UserController.getLoggedInUser);
+router.put('/me', isAuth, UserController.updateMyProfile); // For user to update their OWN profile
 
-router.get('/:email', UserController.getUser);
-// Consider if this route should be authenticated,
-// e.g., router.get('/:email', isAuth, UserController.getUser);
-// or if only admins can view other user profiles:
-// router.get('/:email', isAuth, authorizeAdmin, UserController.getUser);
-
-
-router.get('/', isAuth, authorizeAdmin, UserController.getAllUsers);
-
-router.put('/:id', isAuth, UserController.updateUser);
-
-router.delete('/:id', isAuth, authorizeAdmin, UserController.deleteUser);
+// Admin-only routes (requires authentication AND admin role)
+// IMPORTANT: Apply authorizeAdmin to routes that modify/view other users
+router.get('/', isAuth, authorizeAdmin, UserController.getAllUsers); // Get all users
+router.get('/:email', isAuth, authorizeAdmin, UserController.getUser); // Get a specific user by email (only for admins)
+router.put('/:id', isAuth, authorizeAdmin, UserController.updateUser); // Update any user by ID (only for admins)
+router.delete('/:id', isAuth, authorizeAdmin, UserController.deleteUser); // Delete any user by ID (only for admins)
 
 export default router;

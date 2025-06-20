@@ -82,6 +82,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
             id: user.get("id"),
             name: user.get("name"),
             email: user.get("email"),
+            phone: user.get("phone"),
             role: userRole,
         };
 
