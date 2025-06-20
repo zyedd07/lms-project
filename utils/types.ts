@@ -1,29 +1,23 @@
 // src/utils/types.ts
-
+import { Request } from 'express';
 // --- General Utility Types ---
-import { Request } from 'express'; // Import Request from Express
-
 export type GetFilters = {
     limit?: number;
     offset?: number;
 };
-
-// --- Authentication & User Payload Types ---
-// Define the shape of the user payload that your JWT will contain
 export interface JwtUserPayload {
     id: string;
     name: string; // Added from previous discussion
     email: string;
     phone: string; // Added from previous discussion
     role: string;
+    // ...any other fields you put in your JWT
 }
 
 // Extend the Express Request type to include the 'user' property
 export interface AuthenticatedRequest extends Request {
     user?: JwtUserPayload; // The 'user' property might be undefined if not authenticated
 }
-
-
 // --- User Types ---
 export type CreateUserServiceParams = {
     name: string;
@@ -51,7 +45,7 @@ export type LoginTeacherServiceParams = {
     password: string;
 }
 
-export type GetTeacherFilterType = GetFilters & { // Applied consistency for filters
+export type GetTeacherFilterType = {
     name?: string;
     email?: string;
     expertise?: string;
@@ -67,7 +61,7 @@ export type CreateCategoriesServiceParams = {
     imageUrl?: string;
 }
 
-export type GetCategorySearchCriteria = GetFilters & { // Applied consistency for filters
+export type GetCategorySearchCriteria = {
     name?: string;
     id?: string;
 }
@@ -124,18 +118,17 @@ export type UpdateCourseServiceParams = {
     contents?: CourseContentModule[];
 }
 
-export type GetAllCourseServiceParams = GetFilters & { // Applied consistency for filters
+export type GetAllCourseServiceParams = {
     categoryId?: string;
     id?: string;
     active?: boolean;
     teacherId?: string;
 }
 
-// Removed as GetAllCourseServiceParams now extends GetFilters
-// export type GetCourseFilters = {
-//     limit?: number;
-//     offset?: number;
-// }
+export type GetCourseFilters = {
+    limit?: number;
+    offset?: number;
+}
 
 export type CourseTeacherServiceOperationType = 'assign' | 'unassign';
 
@@ -241,15 +234,14 @@ export type WebinarInput = {
     price: number;
 };
 
-export type GetAllWebinarServiceParams = GetFilters & { // Applied consistency for filters
+export type GetAllWebinarServiceParams = {
     status?: WebinarStatus; // Allow filtering by status
 };
 
-// Removed as GetAllWebinarServiceParams now extends GetFilters
-// export type GetWebinarFilters = {
-//     limit?: number;
-//     offset?: number;
-// };
+export type GetWebinarFilters = {
+    limit?: number;
+    offset?: number;
+};
 
 export type CreateBrandCategoryServiceParams = {
     name: string;
@@ -264,17 +256,17 @@ export type UpdateBrandCategoryServiceParams = {
 // --- Company Types ---
 export type CreateCompanyServiceParams = {
     name: string;
-
+   
 }
 
 export type UpdateCompanyServiceParams = {
     name?: string;
-
+    
 }
 
 // --- Brand Types ---
 export type CreateBrandServiceParams = {
-    name: string; // RE-ADDED
+        name: string; // RE-ADDED
 
     contents?: any[]; // JSON type, typically an array of objects
     brandCategoryId: string; // UUID
@@ -284,7 +276,7 @@ export type CreateBrandServiceParams = {
 }
 
 export type UpdateBrandServiceParams = {
-    name?: string; // RE-ADDED
+        name?: string; // RE-ADDED
 
     contents?: any[];
     brandCategoryId?: string;
@@ -295,7 +287,7 @@ export type UpdateBrandServiceParams = {
 
 export type GetAllBrandServiceParams = GetFilters & {
     id?: string;
-    name?: string; // RE-ADDED
+        name?: string; // RE-ADDED
 
     brandCategoryId?: string;
     companyId?: string;
