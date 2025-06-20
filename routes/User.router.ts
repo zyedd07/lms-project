@@ -20,7 +20,7 @@ router.get('/:email', UserController.getUser);
 
 router.get('/', isAuth, authorizeAdmin, UserController.getAllUsers);
 
-router.put('/:id', isAuth, authorizeAdmin, UserController.updateUser);
+router.put('/:id', isAuth, UserController.updateUser);
 
 router.delete('/:id', isAuth, authorizeAdmin, UserController.deleteUser);
 
