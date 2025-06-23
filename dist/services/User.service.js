@@ -54,7 +54,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const supabase_js_1 = require("@supabase/supabase-js"); // Import createClient
-// --- Supabase client setup using environment variables (NEW BLOCK) ---
+// --- Supabase client setup using environment variables ---
 let supabaseClient; // Declare a mutable variable for the client
 try {
     console.log("[SUPABASE INIT] Attempting to initialize Supabase client...");
@@ -94,7 +94,7 @@ catch (error) {
 // Make sure the rest of your file uses this 'supabaseClient' variable where needed
 // (e.g., uploadProfilePictureService, deleteUserService)
 const supabase = supabaseClient; // Use this const for consistency with prior examples
-const uuid_1 = require("uuid"); // NEW: Import uuid for unique file names
+const uuid_1 = require("uuid"); // Import uuid
 // Define the path to your Jitsi private key file.
 // In production on Render, it will be in /etc/secrets/.
 // For local development, you might place it in your project root or configure it via .env.
@@ -150,7 +150,7 @@ const loginUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ em
         console.log(`[LOGIN SERVICE DEBUG] Starting login attempt for email: ${email}`);
         const user = yield User_model_1.default.findOne({
             where: { email },
-            // --- CRUCIAL FIX: ENSURE profilePicture AND password ARE INCLUDED HERE ---
+            // --- CRUCIAL: ENSURE profilePicture AND password ARE INCLUDED HERE ---
             attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password']
         });
         if (!user) {
@@ -166,14 +166,14 @@ const loginUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ em
         console.log(`[LOGIN SERVICE DEBUG] Password matched. Generating JWT for email: ${user.get("email")}`);
         const APP_SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
         const userRole = user.get("role");
-        const profilePictureUrl = user.get("profilePicture"); // CRUCIAL FIX: Get profile picture
+        const profilePictureUrl = user.get("profilePicture"); // Get profile picture
         const userSessionData = {
             id: user.get("id"),
             name: user.get("name"),
             email: user.get("email"),
             phone: user.get("phone"),
             role: userRole,
-            profilePicture: profilePictureUrl, // CRUCIAL FIX: Include profile picture in session data
+            profilePicture: profilePictureUrl, // Include profile picture
         };
         const jwtOptions = {
             expiresIn: 604800 // 7 days in seconds
@@ -196,7 +196,7 @@ const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* (
         if (email) {
             const user = yield User_model_1.default.findOne({
                 where: { email },
-                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
+                // --- CRUCIAL: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             if (!user) {
@@ -206,7 +206,7 @@ const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* (
         }
         else {
             const users = yield User_model_1.default.findAll({
-                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
+                // --- CRUCIAL: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             return users;
@@ -217,13 +217,6 @@ const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.getUsersService = getUsersService;
-/**
- * Updates a user's profile based on their ID.
- * @param id The ID of the user to update.
- * @param updates An object containing the fields to update (e.g., name, email, phone, role, profilePicture).
- * @returns The updated user object.
- * @throws HttpError if the user is not found or if there's a validation error.
- */
 const updateUserService = (id, updates) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = yield User_model_1.default.findByPk(id);
@@ -238,7 +231,7 @@ const updateUserService = (id, updates) => __awaiter(void 0, void 0, void 0, fun
             user.phone = updates.phone;
         if (updates.role !== undefined)
             user.role = updates.role;
-        // NEW: Allow updating profilePicture if provided
+        // Allow updating profilePicture if provided
         if (updates.profilePicture !== undefined)
             user.profilePicture = updates.profilePicture;
         yield user.save();
@@ -343,7 +336,7 @@ exports.uploadProfilePictureService = uploadProfilePictureService;
  * @throws HttpError if the user is not found.
  */
 const deleteUserService = (id) => __awaiter(void 0, void 0, void 0, function* () {
-    const PROFILE_PICTURE_BUCKET = 'profile-pictures';
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name
     try {
         // --- Added check for supabase client initialization here ---
         if (!supabase) {

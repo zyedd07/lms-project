@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js'; // Import createClient
 
-// --- Supabase client setup using environment variables (NEW BLOCK) ---
+// --- Supabase client setup using environment variables ---
 let supabaseClient; // Declare a mutable variable for the client
 
 try {
@@ -52,7 +52,7 @@ try {
 const supabase = supabaseClient; // Use this const for consistency with prior examples
 
 
-import { v4 as uuidv4 } from 'uuid'; // NEW: Import uuid for unique file names
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 
 // Define the path to your Jitsi private key file.
@@ -111,7 +111,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
 
         const user = await User.findOne({
             where: { email },
-            // --- CRUCIAL FIX: ENSURE profilePicture AND password ARE INCLUDED HERE ---
+            // --- CRUCIAL: ENSURE profilePicture AND password ARE INCLUDED HERE ---
             attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password']
         });
 
@@ -132,7 +132,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
         const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean';
 
         const userRole: string = user.get("role") as string;
-        const profilePictureUrl: string | null = user.get("profilePicture") as string | null; // CRUCIAL FIX: Get profile picture
+        const profilePictureUrl: string | null = user.get("profilePicture") as string | null; // Get profile picture
 
         const userSessionData = {
             id: user.get("id"),
@@ -140,7 +140,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
             email: user.get("email"),
             phone: user.get("phone"),
             role: userRole,
-            profilePicture: profilePictureUrl, // CRUCIAL FIX: Include profile picture in session data
+            profilePicture: profilePictureUrl, // Include profile picture
         };
 
         const jwtOptions: SignOptions = {
@@ -164,7 +164,7 @@ export const getUsersService = async (email?: string) => {
         if (email) {
             const user = await User.findOne({
                 where: { email },
-                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
+                // --- CRUCIAL: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             if (!user) {
@@ -173,7 +173,7 @@ export const getUsersService = async (email?: string) => {
             return user;
         } else {
             const users = await User.findAll({
-                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
+                // --- CRUCIAL: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             return users;
@@ -183,14 +183,7 @@ export const getUsersService = async (email?: string) => {
     }
 }
 
-/**
- * Updates a user's profile based on their ID.
- * @param id The ID of the user to update.
- * @param updates An object containing the fields to update (e.g., name, email, phone, role, profilePicture).
- * @returns The updated user object.
- * @throws HttpError if the user is not found or if there's a validation error.
- */
-export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; profilePicture?: string; }) => { // NEW: Added profilePicture to updates type
+export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; profilePicture?: string; }) => {
     try {
         const user = await User.findByPk(id) as any;
 
@@ -202,7 +195,7 @@ export const updateUserService = async (id: string, updates: { name?: string; em
         if (updates.email !== undefined) user.email = updates.email;
         if (updates.phone !== undefined) user.phone = updates.phone;
         if (updates.role !== undefined) user.role = updates.role;
-        // NEW: Allow updating profilePicture if provided
+        // Allow updating profilePicture if provided
         if (updates.profilePicture !== undefined) user.profilePicture = updates.profilePicture;
 
 
@@ -322,7 +315,7 @@ export const uploadProfilePictureService = async (
  * @throws HttpError if the user is not found.
  */
 export const deleteUserService = async (id: string) => {
-    const PROFILE_PICTURE_BUCKET = 'profile-pictures';
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name
 
     try {
         // --- Added check for supabase client initialization here ---
