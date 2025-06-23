@@ -1,5 +1,4 @@
 "use strict";
-// src/utils/types.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebinarStatus = void 0;
 // --- Webinar Types ---

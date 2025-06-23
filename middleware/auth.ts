@@ -12,6 +12,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: string; // The role is crucial for authorization
     phone: string;
+    profilePicture:string;
   };
   file?: File; // Multer file properties
   files?: File[] | { [fieldname: string]: File[] }; // Multer files properties
@@ -37,6 +38,7 @@ export const isAuth = async (req: AuthenticatedRequest, res: Response, next: Nex
       email: string;
       role: string;
       phone: string;
+      profilePicture:string;
     };
 
     req.user = decoded; // Attach the decoded user payload to the request

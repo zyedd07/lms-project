@@ -30,6 +30,12 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
         defaultValue: 'student'
+    },
+    // --- New field for profile picture ---
+    profilePicture: {
+        type: sequelize_1.DataTypes.STRING, // Store the URL of the profile picture
+        allowNull: true, // It's optional, so allow null
+        defaultValue: null, // Default value is null
     }
 }, { timestamps: true });
 exports.default = User;

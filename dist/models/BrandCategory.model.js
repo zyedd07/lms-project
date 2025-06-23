@@ -15,7 +15,6 @@ BrandCategory.init({
     name: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
-        unique: true,
     },
     // FIX: Add createdAt and updatedAt explicitly here
     createdAt: {

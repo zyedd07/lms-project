@@ -5,12 +5,15 @@ export type GetFilters = {
     limit?: number;
     offset?: number;
 };
+
+// --- IMPORTANT: Update JwtUserPayload to include profilePicture ---
 export interface JwtUserPayload {
     id: string;
-    name: string; // Added from previous discussion
+    name: string;
     email: string;
-    phone: string; // Added from previous discussion
+    phone: string;
     role: string;
+    profilePicture?: string | null; // Add profilePicture here, optional and can be null
     // ...any other fields you put in your JWT
 }
 
@@ -18,17 +21,28 @@ export interface JwtUserPayload {
 export interface AuthenticatedRequest extends Request {
     user?: JwtUserPayload; // The 'user' property might be undefined if not authenticated
 }
+
 // --- User Types ---
 export type CreateUserServiceParams = {
     name: string;
     email: string;
     phone: string;
     password: string;
+    profilePicture?: string; // Add profilePicture here for creation (optional)
 }
 
 export type LoginUserServiceParams = {
     email: string;
     password: string;
+}
+
+// --- Update type for updateUserService (already done in my previous response, but confirming here) ---
+export type UpdateUserServiceParams = {
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    profilePicture?: string; // Add profilePicture here
 }
 
 // --- Teacher Types ---
@@ -256,17 +270,15 @@ export type UpdateBrandCategoryServiceParams = {
 // --- Company Types ---
 export type CreateCompanyServiceParams = {
     name: string;
-   
 }
 
 export type UpdateCompanyServiceParams = {
     name?: string;
-    
 }
 
 // --- Brand Types ---
 export type CreateBrandServiceParams = {
-        name: string; // RE-ADDED
+    name: string; // RE-ADDED
 
     contents?: any[]; // JSON type, typically an array of objects
     brandCategoryId: string; // UUID
@@ -276,7 +288,7 @@ export type CreateBrandServiceParams = {
 }
 
 export type UpdateBrandServiceParams = {
-        name?: string; // RE-ADDED
+    name?: string; // RE-ADDED
 
     contents?: any[];
     brandCategoryId?: string;
@@ -287,7 +299,7 @@ export type UpdateBrandServiceParams = {
 
 export type GetAllBrandServiceParams = GetFilters & {
     id?: string;
-        name?: string; // RE-ADDED
+    name?: string; // RE-ADDED
 
     brandCategoryId?: string;
     companyId?: string;

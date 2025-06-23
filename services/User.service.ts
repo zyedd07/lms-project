@@ -5,8 +5,30 @@ import bcrypt from 'bcryptjs';
 import { CreateUserServiceParams, LoginUserServiceParams } from "../utils/types";
 import HttpError from "../utils/httpError";
 import jwt, { SignOptions } from 'jsonwebtoken';
-import * as fs from 'fs'; // Import Node.js File System module
-import * as path from 'path'; // Import Node.js Path module
+import * as fs from 'fs';
+import * as path from 'path';
+import { createClient } from '@supabase/supabase-js'; // Import createClient directly
+
+// --- Supabase client setup using environment variables ---
+// This block is moved here from a separate config file or directly used in controllers/services.
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Using SERVICE_ROLE_KEY for server-side
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Environment variables SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined.');
+  // In a real application, you might want to throw an error or exit the process if these are critical
+  // For now, we'll proceed, but operations requiring Supabase will fail.
+}
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false, // No need for session persistence on the server
+  },
+});
+console.log("Supabase client initialized directly in User.service.ts");
+
+
+import { v4 as uuidv4 } from 'uuid'; // To generate unique filenames
+
 
 // Define the path to your Jitsi private key file.
 // In production on Render, it will be in /etc/secrets/.
@@ -20,8 +42,6 @@ let jitsiPrivateKey: string;
 // Load the Jitsi Private Key once when the service file is imported
 try {
     if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
-        // Fallback for local development if the file isn't present,
-        // or if you want to use a direct environment variable for it locally.
         jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a specific env var for Jitsi if needed locally
         if (!jitsiPrivateKey) {
             console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
@@ -33,14 +53,13 @@ try {
         console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
     }
     if (!jitsiPrivateKey) {
-        // Only throw error if the key is absolutely critical for this service.
-        // For services that *always* need to sign Jitsi JWTs, this is appropriate.
         throw new Error("Jitsi Private Key is not loaded. Ensure it's configured in Render's Secret Files or as an environment variable.");
     }
 } catch (error) {
     console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
     throw error;
 }
+
 
 export const createUserService = async ({ name, email, phone, password }: CreateUserServiceParams) => {
     try {
@@ -51,7 +70,8 @@ export const createUserService = async ({ name, email, phone, password }: Create
             email,
             password: passwordHash,
             phone,
-            role: 'student', // Default role for new sign-ups
+            role: 'student',
+            // profilePicture will default to null/undefined if not provided, which is fine
         });
         return newUser;
     } catch (error) {
@@ -63,34 +83,35 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     try {
         const user = await User.findOne({
             where: { email },
+            attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password']
         });
         if (!user) {
             throw new HttpError("User does not exist", 400);
         }
-        // Casting user.get("password") to string as bcrypt.compare expects string
         const isPasswordMatch = await bcrypt.compare(password, user.get("password") as string);
         if (!isPasswordMatch) {
             throw new HttpError("Invalid password", 400);
         }
-        // Assuming SECRET_KEY is for *your app's* JWTs, and `jitsiPrivateKey` is for *Jitsi's* JWTs.
-        // If this token is *only* for Jitsi authentication, you would use `jitsiPrivateKey` here.
-        const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean'; 
-        
-        const userRole: string = user.get("role") as string; 
-        
+
+        const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean';
+
+        const userRole: string = user.get("role") as string;
+        const profilePictureUrl: string | null = user.get("profilePicture") as string | null;
+
         const userSessionData = {
             id: user.get("id"),
             name: user.get("name"),
             email: user.get("email"),
             phone: user.get("phone"),
             role: userRole,
+            profilePicture: profilePictureUrl,
         };
 
         const jwtOptions: SignOptions = {
-            expiresIn: 604800 // 7 days in seconds (7 * 24 * 60 * 60)
+            expiresIn: 604800
         };
 
-        const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions); // Use APP_SECRET_KEY for app-internal JWT
+        const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions);
         return {
             user: userSessionData,
             token,
@@ -105,13 +126,16 @@ export const getUsersService = async (email?: string) => {
         if (email) {
             const user = await User.findOne({
                 where: { email },
+                attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             if (!user) {
                 throw new HttpError("User does not exist", 400);
             }
             return user;
         } else {
-            const users = await User.findAll(); // This fetches all users
+            const users = await User.findAll({
+                attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
+            });
             return users;
         }
     } catch (error) {
@@ -119,19 +143,10 @@ export const getUsersService = async (email?: string) => {
     }
 }
 
-/**
- * Updates a user's profile based on their ID.
- * @param id The ID of the user to update.
- * @param updates An object containing the fields to update (e.g., name, email, phone, role).
- * @returns The updated user object.
- * @throws HttpError if the user is not found or if there's a validation error.
- */
-export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; }) => {
+export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; profilePicture?: string; }) => {
     try {
-        // User.findByPk(id) as any; // Temporary 'any' until User.model.ts is fixed
-        // Once User.model.ts is updated to extend Model<any, any>, you might not need this casting.
-        const user = await User.findByPk(id) as any; // Assuming User.model.ts extends Model<any, any> now
-        
+        const user = await User.findByPk(id) as any;
+
         if (!user) {
             throw new HttpError("User not found", 404);
         }
@@ -140,6 +155,9 @@ export const updateUserService = async (id: string, updates: { name?: string; em
         if (updates.email !== undefined) user.email = updates.email;
         if (updates.phone !== undefined) user.phone = updates.phone;
         if (updates.role !== undefined) user.role = updates.role;
+        // profilePicture will be handled by uploadProfilePictureService,
+        // but keeping this here for flexibility if other controllers use it
+        if (updates.profilePicture !== undefined) user.profilePicture = updates.profilePicture;
 
         await user.save();
         return user;
@@ -150,18 +168,157 @@ export const updateUserService = async (id: string, updates: { name?: string; em
 };
 
 /**
+ * Service to upload a profile picture to Supabase Storage and update the user's record.
+ * @param userId The ID of the user.
+ * @param fileBuffer The buffer of the image file.
+ * @param mimetype The MIME type of the file (e.g., 'image/jpeg').
+ * @param originalFileName The original name of the file.
+ * @returns The updated user object with the new profile picture URL.
+ * @throws HttpError if the user is not found or upload/deletion fails.
+ */
+export const uploadProfilePictureService = async (
+    userId: string,
+    fileBuffer: Buffer, // File buffer from multer
+    mimetype: string,   // File mimetype from multer
+    originalFileName: string // Original file name from multer
+) => {
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name for profile pictures
+
+    try {
+        const user = await User.findByPk(userId) as any;
+
+        if (!user) {
+            throw new HttpError("User not found", 404);
+        }
+
+        // --- Step 1: Delete old profile picture from Supabase Storage (if exists) ---
+        if (user.profilePicture) {
+            // Extract the path within the bucket from the full public URL
+            // This relies on the structure: .../public/<bucket_name>/<path_in_bucket>
+            const urlParts = user.profilePicture.split('/');
+            const publicIndex = urlParts.indexOf('public');
+
+            if (publicIndex !== -1 && urlParts.length > publicIndex + 1) {
+                const bucketNameInUrl = urlParts[publicIndex - 1]; // Should be 'profile-pictures'
+                const oldFilePathInBucket = urlParts.slice(publicIndex + 1).join('/');
+
+                if (bucketNameInUrl === PROFILE_PICTURE_BUCKET) {
+                    console.log(`Attempting to delete old profile picture: ${oldFilePathInBucket} from bucket: ${bucketNameInUrl}`);
+                    const { error: deleteError } = await supabase.storage
+                        .from(PROFILE_PICTURE_BUCKET)
+                        .remove([oldFilePathInBucket]);
+
+                    if (deleteError) {
+                        console.error(`Supabase Delete Old Profile Picture Error for ${oldFilePathInBucket}:`, deleteError);
+                        throw new HttpError(`Failed to delete old profile picture from storage: ${deleteError.message}`, 500);
+                    }
+                    console.log(`Successfully deleted old profile picture: ${oldFilePathInBucket}`);
+                } else {
+                    console.warn(`Old profile picture URL's bucket '${bucketNameInUrl}' does not match expected bucket '${PROFILE_PICTURE_BUCKET}'. Skipping deletion: ${user.profilePicture}`);
+                }
+            } else {
+                console.warn(`Could not parse old profile picture URL for deletion: ${user.profilePicture}`);
+            }
+        }
+
+        // --- Step 2: Upload the new profile picture to Supabase Storage ---
+        // Create a unique file name to avoid collisions
+        const uniqueFileName = `${uuidv4()}-${originalFileName}`;
+        // Define the path within your Supabase bucket (e.g., profile-pictures/user-id/unique-file-name.jpg)
+        const supabaseFilePath = `${userId}/${uniqueFileName}`; // Store directly under user ID in the bucket
+
+        console.log(`Attempting to upload new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(PROFILE_PICTURE_BUCKET)
+            .upload(supabaseFilePath, fileBuffer, {
+                contentType: mimetype,
+                upsert: false, // Prevents accidental overwrites if a file with exact same name is uploaded
+            });
+
+        if (uploadError) {
+            console.error("Supabase Upload Profile Picture Error:", uploadError);
+            throw new HttpError(`Failed to upload profile picture to storage: ${uploadError.message}`, 500);
+        }
+        console.log(`Successfully uploaded new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
+
+
+        // --- Step 3: Get the public URL for the newly uploaded file ---
+        const { data: publicUrlData } = supabase.storage
+            .from(PROFILE_PICTURE_BUCKET)
+            .getPublicUrl(supabaseFilePath);
+
+        const newProfilePictureUrl = publicUrlData?.publicUrl;
+
+        if (!newProfilePictureUrl) {
+            throw new HttpError("Failed to get public URL for new profile picture.", 500);
+        }
+        console.log(`New profile picture public URL: ${newProfilePictureUrl}`);
+
+        // --- Step 4: Update the user's profilePicture field in the database ---
+        user.profilePicture = newProfilePictureUrl;
+        await user.save();
+        console.log(`User ${userId} profile picture updated in DB to: ${newProfilePictureUrl}`);
+
+        return user;
+    } catch (error) {
+        console.error("Error in uploadProfilePictureService:", error);
+        throw error;
+    }
+};
+
+
+/**
  * Deletes a user from the database by their ID.
+ * Also deletes their associated profile picture from Supabase Storage.
  * @param id The ID of the user to delete.
  * @returns true if the user was successfully deleted.
  * @throws HttpError if the user is not found.
  */
 export const deleteUserService = async (id: string) => {
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name
+
     try {
+        const user = await User.findByPk(id) as any;
+        if (!user) {
+            throw new HttpError("User not found", 404);
+        }
+
+        // --- Delete profile picture from Supabase Storage upon user deletion ---
+        if (user.profilePicture) {
+            const urlParts = user.profilePicture.split('/');
+            const publicIndex = urlParts.indexOf('public');
+
+            if (publicIndex !== -1 && urlParts.length > publicIndex + 1) {
+                const bucketNameInUrl = urlParts[publicIndex - 1];
+                const filePathInBucket = urlParts.slice(publicIndex + 1).join('/');
+
+                if (bucketNameInUrl === PROFILE_PICTURE_BUCKET) {
+                    console.log(`Attempting to delete user ${id}'s profile picture: ${filePathInBucket}`);
+                    const { error: deleteError } = await supabase.storage
+                        .from(PROFILE_PICTURE_BUCKET)
+                        .remove([filePathInBucket]);
+
+                    if (deleteError) {
+                        console.error(`Supabase Delete User Profile Picture Error for ${filePathInBucket}:`, deleteError);
+                        // Log the error but don't prevent user deletion if storage delete fails
+                        // You might want a more robust error handling strategy here (e.g., retry, dead-letter queue)
+                    } else {
+                        console.log(`Successfully deleted user ${id}'s profile picture: ${filePathInBucket}`);
+                    }
+                } else {
+                    console.warn(`User ${id}'s profile picture URL's bucket '${bucketNameInUrl}' does not match expected bucket '${PROFILE_PICTURE_BUCKET}'. Skipping deletion: ${user.profilePicture}`);
+                }
+            } else {
+                console.warn(`Could not parse user ${id}'s old profile picture URL for deletion: ${user.profilePicture}`);
+            }
+        }
+
         const result = await User.destroy({
             where: { id },
         });
 
         if (result === 0) {
+            // This case should ideally be caught by findByPk check above, but as a fallback
             throw new HttpError("User not found", 404);
         }
         return true;

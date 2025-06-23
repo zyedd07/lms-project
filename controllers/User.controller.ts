@@ -2,142 +2,112 @@
 
 import { NextFunction, Request, Response } from "express";
 import HttpError from "../utils/httpError";
-import { createUserService, getUsersService, loginUserService, updateUserService, deleteUserService } from "../services/User.service";
-import { AuthenticatedRequest } from "../middleware/auth"; // Assuming this is where AuthenticatedRequest is defined
+import {
+    createUserService,
+    getUsersService,
+    loginUserService,
+    updateUserService,
+    deleteUserService,
+    uploadProfilePictureService
+} from "../services/User.service";
+import { AuthenticatedRequest } from "../middleware/auth"; // Your AuthenticatedRequest definition
+// Re-import MulterError if it was removed in previous attempts
+import multer, { MulterError } from 'multer'; // <-- Ensure MulterError is imported here
 
-export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { name, email, password, phone } = req.body;
-        if (!name || !email || !password || !phone) {
-            throw new HttpError("Please provide all required fields", 400);
+
+const profilePictureUpload = multer({
+    storage: multer.memoryStorage(), // This ensures 'buffer' is populated
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB file size limit
+    fileFilter: (req, file, cb) => {
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (allowedMimeTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new HttpError('Only JPEG, PNG, or GIF image files are allowed for profile pictures!', 400), false);
         }
-        const newUser = await createUserService({ name, email, password, phone });
-        // The newUser object returned by createUserService already contains name and phone
-        res.status(201).json(newUser);
-    } catch (error) {
-        next(error);
     }
-}
+});
 
-export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+
+export const createUser = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
+export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { /* ... */ }
+
+
+// --- Profile Picture Upload Controller ---
+export const uploadProfilePictureController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        if (!req.user) {
-            throw new HttpError("User not authenticated.", 401); // Should be caught by isAuth, but good practice
+        if (!req.user || !req.user.id) {
+            throw new HttpError("Unauthorized: User ID missing.", 401);
+        }
+        if (!req.file) { // <-- This check is still necessary to handle case where no file was sent
+            throw new HttpError("No image file provided for profile picture.", 400);
         }
 
-        const userId = req.user.id; // Get ID from the authenticated user's token
-        const updates = req.body; // Get update data from request body
+        const userId = req.user.id;
+        // With 'buffer: Buffer;' in your shim, you no longer strictly need '!' here
+        // as TypeScript will know req.file.buffer is guaranteed to be a Buffer
+        // after the 'if (!req.file)' check. However, keeping '!' is harmless.
+        const fileBuffer = req.file.buffer;
+        const mimetype = req.file.mimetype;
+        const originalFileName = req.file.originalname;
 
-        // Optional: Filter allowed fields for self-update (e.g., prevent role change)
-        const allowedUpdates: { name?: string; email?: string; phone?: string; } = {};
-        if (updates.name !== undefined) allowedUpdates.name = updates.name;
-        if (updates.email !== undefined) allowedUpdates.email = updates.email;
-        if (updates.phone !== undefined) allowedUpdates.phone = updates.phone;
-        // Do NOT allow 'role' to be updated by a user themselves
+        const updatedUser = await uploadProfilePictureService(userId, fileBuffer, mimetype, originalFileName);
 
-        if (Object.keys(allowedUpdates).length === 0) {
-            throw new HttpError("No valid update data provided for profile.", 400);
+        res.status(200).json({
+            success: true,
+            message: "Profile picture updated successfully",
+            user: {
+                id: updatedUser.id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+                role: updatedUser.role,
+                profilePicture: updatedUser.profilePicture
+            }
+        });
+
+    } catch (error: unknown) {
+        console.error("Error in uploadProfilePictureController:", error);
+        // This check should now correctly use MulterError imported from 'multer'
+        if (error instanceof MulterError) {
+            if (error.code === 'LIMIT_FILE_SIZE') {
+                return next(new HttpError('Profile picture file size too large. Max 5MB allowed.', 400));
+            }
+            // Handle other specific MulterError codes if needed
+            return next(new HttpError(`File upload error: ${error.message}`, 400));
         }
-
-        const updatedUser = await updateUserService(userId, allowedUpdates);
-        res.status(200).json({ success: true, message: "Profile updated successfully", data: updatedUser });
-    } catch (error) {
-        console.error("Error in updateMyProfile:", error);
         next(error);
     }
 };
-export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { // Added next: NextFunction for consistency
+
+
+export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         if (!req.user) {
             return res.status(401).json({ message: 'User not authenticated.' });
         }
-        // req.user is populated by the 'isAuth' middleware from the token payload.
-        // It now includes 'phone' as well due to the change in loginUserService.
         return res.status(200).json({
             message: 'User profile fetched successfully',
             user: {
                 id: req.user.id,
-                name: req.user.name, // <--- Ensure name is returned
+                name: req.user.name,
                 email: req.user.email,
                 role: req.user.role,
-                phone: req.user.phone, // <--- Ensure phone is returned
+                phone: req.user.phone,
+                // --- THIS STILL DEPENDS ON src/utils/types.ts ---
+                profilePicture: req.user.profilePicture || null,
             }
         });
     } catch (error) {
         console.error("Error fetching logged-in user profile:", error);
-        // Use next(error) for consistency with other controllers
         next(new HttpError("Internal server error.", 500));
     }
 };
 
-export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            throw new HttpError("Please provide both email and password", 400);
-        }
-        const response = await loginUserService({ email, password });
-        // The response.user object returned by loginUserService now explicitly includes name and phone
-        res.status(200).json(response);
-    } catch (error) {
-        next(error);
-    }
-}
+export const loginUser = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
+export const getUser = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
+export const getAllUsers = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => { /* ... */ }
 
-export const getUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const email = req.params.email;
-        const user = await getUsersService(email);
-        // The 'user' object already contains 'name' and 'phone' from the service layer
-        res.status(200).json(user);
-    } catch (error) {
-        next(error);
-    }
-}
-
-export const getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const users = await getUsersService();
-        // Each user object in the 'users' array already contains 'name' and 'phone'
-        res.status(200).json({ success: true, data: users });
-    } catch (error) {
-        console.error("Error in getAllUsers:", error);
-        next(new HttpError("Failed to fetch all users", 500));
-    }
-}
-
-export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { id } = req.params;
-        const { name, email, phone, role } = req.body; // Destructure specific fields for clarity
-        const updates: { name?: string; email?: string; phone?: string; role?: string; } = {};
-
-        // Only add to updates if they are provided in the request body
-        if (name !== undefined) updates.name = name;
-        if (email !== undefined) updates.email = email;
-        if (phone !== undefined) updates.phone = phone;
-        if (role !== undefined) updates.role = role;
-
-        if (Object.keys(updates).length === 0) {
-            throw new HttpError("No update data provided", 400);
-        }
-
-        const updatedUser = await updateUserService(id, updates);
-        // The updatedUser object returned by the service already contains name and phone
-        res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
-    } catch (error) {
-        console.error("Error in updateUser:", error);
-        next(error);
-    }
-}
-
-export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { id } = req.params;
-        await deleteUserService(id);
-        res.status(200).json({ success: true, message: "User deleted successfully" });
-    } catch (error) {
-        console.error("Error in deleteUser:", error);
-        next(error);
-    }
-}
+export { profilePictureUpload };

@@ -12,7 +12,10 @@ declare module 'multer' {
     destination?: string;
     filename?: string;
     path?: string;
-    buffer?: Buffer;
+    // --- CHANGE: Make buffer non-optional IF you are consistently using memoryStorage
+    //             and expecting it to be present after successful upload processing.
+    //             If you use diskStorage elsewhere, keep it optional or create another shim.
+    buffer: Buffer; // Changed from buffer?: Buffer;
   }
 
   type StorageEngine = any;
@@ -47,6 +50,22 @@ declare module 'multer' {
       destination?: (req: Request, file: File, callback: (error: Error | null, destination: string) => void) => void;
       filename?: (req: Request, file: File, callback: (error: Error | null, filename: string) => void) => void;
     }): StorageEngine;
+
+    // --- ADDITION: Declare MulterError within the namespace AND export it ---
+    export class MulterError extends Error {
+        code:
+            'LIMIT_PART_COUNT' |
+            'LIMIT_FILE_SIZE' |
+            'LIMIT_FILE_COUNT' |
+            'LIMIT_FIELD_KEY' |
+            'LIMIT_FIELD_VALUE' |
+            'LIMIT_FIELD_COUNT' |
+            'LIMIT_UNEXPECTED_FILE';
+        field?: string;
+        name: 'MulterError'; // Explicitly define the name property
+        message: string;
+        constructor(code: string, field?: string);
+    }
   }
 
   export = multer;

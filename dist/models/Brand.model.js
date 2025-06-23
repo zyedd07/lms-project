@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 // src/models/Brand.model.ts
 const sequelize_1 = require("sequelize");
-const _1 = require("."); // Assuming your sequelize instance is exported from index.ts
+const _1 = require(".");
 class Brand extends sequelize_1.Model {
 }
 Brand.init({
@@ -14,7 +14,7 @@ Brand.init({
     name: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
-        unique: false, // Part of a composite unique index
+        // unique: false is fine here, or can be removed if no other unique constraint relies on it
     },
     contents: {
         type: sequelize_1.DataTypes.JSON,
@@ -50,13 +50,14 @@ Brand.init({
     sequelize: _1.sequelize,
     timestamps: true,
     modelName: 'Brand',
-    indexes: [
-        {
-            unique: true,
-            // REVERTED: Unique index to include 'name'
-            fields: ['name', 'brandCategoryId', 'companyId'],
-            name: 'brands_name_brand_category_id_company_id_unique_index',
-        },
-    ],
+    // --- REMOVE THE ENTIRE 'indexes' BLOCK HERE ---
+    // indexes: [
+    //     {
+    //         unique: true,
+    //         fields: ['name', 'brandCategoryId', 'companyId'],
+    //         name: 'brands_name_brand_category_id_company_id_unique_index',
+    //     },
+    // ],
+    // ---------------------------------------------
 });
 exports.default = Brand;

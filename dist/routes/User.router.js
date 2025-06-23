@@ -39,18 +39,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // User.router.ts
 const express_1 = __importDefault(require("express"));
 const UserController = __importStar(require("../controllers/User.controller"));
-const auth_1 = __importStar(require("../middleware/auth"));
+const auth_1 = __importStar(require("../middleware/auth")); // Ensure authorizeAdmin is imported
 const router = express_1.default.Router();
+// Public routes (no authentication required)
 router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
-// NEW: Endpoint to get the currently logged-in user's profile based on their token
-router.get('/me', auth_1.default, UserController.getLoggedInUser); // <--- ADD THIS LINE
-router.get('/:email', UserController.getUser);
-// Consider if this route should be authenticated,
-// e.g., router.get('/:email', isAuth, UserController.getUser);
-// or if only admins can view other user profiles:
-// router.get('/:email', isAuth, authorizeAdmin, UserController.getUser);
-router.get('/', auth_1.default, auth_1.authorizeAdmin, UserController.getAllUsers);
-router.put('/:id', auth_1.default, auth_1.authorizeAdmin, UserController.updateUser);
-router.delete('/:id', auth_1.default, auth_1.authorizeAdmin, UserController.deleteUser);
+// Authenticated user's own profile routes
+router.get('/me', auth_1.default, UserController.getLoggedInUser);
+router.put('/me', auth_1.default, UserController.updateMyProfile); // For user to update their OWN profile
+// --- New route for profile picture upload ---
+// This route needs authentication and the multer middleware
+// `profilePictureUpload.single('profilePicture')` is the multer middleware
+// The string 'profilePicture' must match the key used in formData.append('profilePicture', ...) on the frontend.
+router.put('/profile-picture', // Endpoint will be something like /api/user/profile-picture (depending on your app.use setup)
+auth_1.default, UserController.profilePictureUpload.single('profilePicture'), // Apply multer middleware
+UserController.uploadProfilePictureController // Your controller to handle the upload
+);
+// Admin-only routes (requires authentication AND admin role)
+// IMPORTANT: Apply authorizeAdmin to routes that modify/view other users
+router.get('/', auth_1.default, auth_1.authorizeAdmin, UserController.getAllUsers); // Get all users
+router.get('/:email', auth_1.default, auth_1.authorizeAdmin, UserController.getUser); // Get a specific user by email (only for admins)
+router.put('/:id', auth_1.default, auth_1.authorizeAdmin, UserController.updateUser); // Update any user by ID (only for admins)
+router.delete('/:id', auth_1.default, auth_1.authorizeAdmin, UserController.deleteUser); // Delete any user by ID (only for admins)
 exports.default = router;

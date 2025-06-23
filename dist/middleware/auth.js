@@ -16,11 +16,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authorizeAdmin = exports.isAuth = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 /**
-
  * Middleware to authenticate a user using a JWT token.
-
  * It verifies the token and attaches the decoded user payload to req.user.
-
  */
 const isAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -43,11 +40,8 @@ const isAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function* (
 });
 exports.isAuth = isAuth;
 /**
-
  * Middleware to authorize access only to users with the 'admin' role.
-
  * This middleware should be used AFTER the isAuth middleware.
-
  */
 const authorizeAdmin = (req, res, next) => {
     // Check if user information is available from the authentication middleware
@@ -65,7 +59,4 @@ const authorizeAdmin = (req, res, next) => {
     next(); // User is an admin, proceed
 };
 exports.authorizeAdmin = authorizeAdmin;
-// You can export both as named exports, or keep isAuth as default and export authorizeAdmin as named
 exports.default = exports.isAuth; // Export isAuth as the default
-// And export authorizeAdmin as a named export
-// This allows you to import it as: import isAuth, { authorizeAdmin } from '../middleware/auth';
