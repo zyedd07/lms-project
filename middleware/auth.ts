@@ -1,75 +1,74 @@
 // middleware/auth.ts
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { File } from 'multer'; // Assuming you use Multer, otherwise this import can be removed
+import { JwtUserPayload, AuthenticatedRequest } from '../utils/types'; // Import AuthenticatedRequest directly from utils/types
+import HttpError from '../utils/httpError';
 
-// Define the shape of the request object after authentication
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    name: string; // Added 'name' here
-    email: string;
-    role: string; // The role is crucial for authorization
-    phone: string;
-    profilePicture:string;
-  };
-  file?: File; // Multer file properties
-  files?: File[] | { [fieldname: string]: File[] }; // Multer files properties
+// If you use Multer's File type here for req.file/files, import it locally
+// This import is *not* for re-defining AuthenticatedRequest.
+import { File } from 'multer';
+
+// This 'declare module' block is only needed IF your AuthenticatedRequest
+// in src/utils/types.ts does NOT already include 'file' and 'files' properties.
+// If it does, you can remove this block.
+declare module '../utils/types' {
+    interface AuthenticatedRequest {
+        file?: File;
+        files?: File[] | { [fieldname: string]: File[] };
+    }
 }
+
 
 /**
  * Middleware to authenticate a user using a JWT token.
  * It verifies the token and attaches the decoded user payload to req.user.
  */
 export const isAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Extract token from "Bearer <token>"
+    const token = req.headers.authorization?.split(' ')[1];
 
-  if (!token) {
-    console.log("isAuth: No token provided."); // Log for debugging
-    return res.status(401).json({ message: 'No token provided, authorization denied.' });
-  }
+    if (!token) {
+        console.log("isAuth: No token provided.");
+        return next(new HttpError('No token provided, authorization denied.', 401));
+    }
 
-  try {
-    // Verify the token using the SECRET_KEY from environment variables
-    const decoded = jwt.verify(token, process.env.SECRET_KEY as string) as {
-      id: string;
-      name: string; // Added 'name' to the expected decoded type
-      email: string;
-      role: string;
-      phone: string;
-      profilePicture:string;
-    };
-
-    req.user = decoded; // Attach the decoded user payload to the request
-    console.log("isAuth: Token successfully verified. User:", req.user.email, "Role:", req.user.role); // Log success
-    next(); // Proceed to the next middleware or route handler
-  } catch (err) {
-    console.error("isAuth: Token verification failed:", err); // Log the specific error
-    return res.status(401).json({ message: 'Invalid or expired token.' });
-  }
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY as string) as JwtUserPayload;
+        req.user = decoded;
+        console.log("isAuth: Token successfully verified. User:", req.user.email, "Role:", req.user.role);
+        next();
+    } catch (err) {
+        console.error("isAuth: Token verification failed:", err);
+        if (err instanceof jwt.TokenExpiredError) {
+            return next(new HttpError('Token expired.', 401));
+        }
+        if (err instanceof jwt.JsonWebTokenError) {
+            return next(new HttpError('Invalid token.', 401));
+        }
+        return next(new HttpError('Authentication failed.', 401));
+    }
 };
 
 /**
  * Middleware to authorize access only to users with the 'admin' role.
  * This middleware should be used AFTER the isAuth middleware.
  */
+// Already directly exported via 'export const authorizeAdmin'
 export const authorizeAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // Check if user information is available from the authentication middleware
-  if (!req.user) {
-    console.log("authorizeAdmin: User not authenticated (req.user is missing).");
-    // This case should ideally be caught by isAuth, but good for robustness
-    return res.status(401).json({ message: 'Authentication required for this action.' });
-  }
+    if (!req.user) {
+        console.log("authorizeAdmin: User not authenticated (req.user is missing).");
+        return next(new HttpError('Authentication required for this action.', 401));
+    }
 
-  // Check if the authenticated user has the 'admin' role
-  if (req.user.role !== 'admin') {
-    console.log(`authorizeAdmin: Access denied for user ${req.user.email} with role ${req.user.role}.`);
-    return res.status(403).json({ message: 'Access denied: Administrator role required.' });
-  }
+    if (req.user.role !== 'admin') {
+        console.log(`authorizeAdmin: Access denied for user ${req.user.email} with role ${req.user.role}.`);
+        return next(new HttpError('Access denied: Administrator role required.', 403));
+    }
 
-  console.log(`authorizeAdmin: Admin access granted for ${req.user.email}.`); // Log success
-  next(); // User is an admin, proceed
+    console.log(`authorizeAdmin: Admin access granted for ${req.user.email}.`);
+    next();
 };
 
 export default isAuth; // Export isAuth as the default
+// REMOVED authorizeAdmin from this line, as it's already exported above
+export { AuthenticatedRequest }; // Only re-export AuthenticatedRequest
