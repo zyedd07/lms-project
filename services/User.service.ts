@@ -7,27 +7,52 @@ import HttpError from "../utils/httpError";
 import jwt, { SignOptions } from 'jsonwebtoken';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createClient } from '@supabase/supabase-js'; // Import createClient directly
+import { createClient } from '@supabase/supabase-js'; // Import createClient
 
-// --- Supabase client setup using environment variables ---
-// This block is moved here from a separate config file or directly used in controllers/services.
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Using SERVICE_ROLE_KEY for server-side
+// --- Supabase client setup using environment variables (NEW BLOCK) ---
+let supabaseClient; // Declare a mutable variable for the client
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Environment variables SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined.');
-  // In a real application, you might want to throw an error or exit the process if these are critical
-  // For now, we'll proceed, but operations requiring Supabase will fail.
+try {
+  console.log("[SUPABASE INIT] Attempting to initialize Supabase client...");
+  const supabaseUrl = process.env.SUPABASE_URL; // Get URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Get Service Role Key
+
+  if (!supabaseUrl) {
+    console.error("[SUPABASE INIT ERROR] SUPABASE_URL is UNDEFINED. Please check your Codespace environment variables/secrets.");
+  } else {
+    console.log(`[SUPABASE INIT] SUPABASE_URL: ${supabaseUrl.substring(0, 30)}...`); // Log partial URL for safety
+  }
+
+  if (!supabaseKey) {
+    console.error("[SUPABASE INIT ERROR] SUPABASE_SERVICE_ROLE_KEY is UNDEFINED. Please check your Codespace environment variables/secrets.");
+  } else {
+    console.log("[SUPABASE INIT] SUPABASE_SERVICE_ROLE_KEY is present.");
+  }
+
+  if (supabaseUrl && supabaseKey) {
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+      },
+    });
+    console.log("[SUPABASE INIT] Supabase client initialized SUCCESSFULLY.");
+  } else {
+    console.error("[SUPABASE INIT ERROR] Supabase client NOT initialized due to missing environment variables. Supabase-dependent features (like profile picture upload/deletion) will fail.");
+    // Do NOT throw here immediately unless Supabase is critical for server startup itself,
+    // to allow other parts of the server to potentially run.
+  }
+} catch (error) {
+  console.error("[SUPABASE INIT ERROR] Unexpected error during Supabase client initialization:", error);
+  // Re-throw if this is a fatal error that should prevent server startup
+  throw error;
 }
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false, // No need for session persistence on the server
-  },
-});
-console.log("Supabase client initialized directly in User.service.ts");
+
+// Make sure the rest of your file uses this 'supabaseClient' variable where needed
+// (e.g., uploadProfilePictureService, deleteUserService)
+const supabase = supabaseClient; // Use this const for consistency with prior examples
 
 
-import { v4 as uuidv4 } from 'uuid'; // To generate unique filenames
+import { v4 as uuidv4 } from 'uuid'; // NEW: Import uuid for unique file names
 
 
 // Define the path to your Jitsi private key file.
@@ -70,7 +95,7 @@ export const createUserService = async ({ name, email, phone, password }: Create
             email,
             password: passwordHash,
             phone,
-            role: 'student',
+            role: 'student', // Default role for new sign-ups
             // profilePicture will default to null/undefined if not provided, which is fine
         });
         return newUser;
@@ -81,22 +106,33 @@ export const createUserService = async ({ name, email, phone, password }: Create
 
 export const loginUserService = async ({ email, password }: LoginUserServiceParams) => {
     try {
+        // --- ADDED LOGGING FOR DEBUGGING ---
+        console.log(`[LOGIN SERVICE DEBUG] Starting login attempt for email: ${email}`);
+
         const user = await User.findOne({
             where: { email },
+            // --- CRUCIAL FIX: ENSURE profilePicture AND password ARE INCLUDED HERE ---
             attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password']
         });
+
         if (!user) {
+            console.log(`[LOGIN SERVICE DEBUG] User not found for email: ${email}`);
             throw new HttpError("User does not exist", 400);
         }
+
+        console.log(`[LOGIN SERVICE DEBUG] User found. Email: ${user.get("email")}. Proceeding to password comparison.`);
         const isPasswordMatch = await bcrypt.compare(password, user.get("password") as string);
+
         if (!isPasswordMatch) {
+            console.log(`[LOGIN SERVICE DEBUG] Password mismatch for email: ${user.get("email")}`);
             throw new HttpError("Invalid password", 400);
         }
 
+        console.log(`[LOGIN SERVICE DEBUG] Password matched. Generating JWT for email: ${user.get("email")}`);
         const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'cleanclean';
 
         const userRole: string = user.get("role") as string;
-        const profilePictureUrl: string | null = user.get("profilePicture") as string | null;
+        const profilePictureUrl: string | null = user.get("profilePicture") as string | null; // CRUCIAL FIX: Get profile picture
 
         const userSessionData = {
             id: user.get("id"),
@@ -104,19 +140,21 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
             email: user.get("email"),
             phone: user.get("phone"),
             role: userRole,
-            profilePicture: profilePictureUrl,
+            profilePicture: profilePictureUrl, // CRUCIAL FIX: Include profile picture in session data
         };
 
         const jwtOptions: SignOptions = {
-            expiresIn: 604800
+            expiresIn: 604800 // 7 days in seconds
         };
 
         const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions);
+        console.log(`[LOGIN SERVICE DEBUG] JWT generated. Login successful for email: ${user.get("email")}`);
         return {
             user: userSessionData,
             token,
         };
     } catch (error) {
+        console.error(`[LOGIN SERVICE ERROR] Failed login for email: ${email}. Error:`, error);
         throw error;
     }
 };
@@ -126,6 +164,7 @@ export const getUsersService = async (email?: string) => {
         if (email) {
             const user = await User.findOne({
                 where: { email },
+                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             if (!user) {
@@ -134,6 +173,7 @@ export const getUsersService = async (email?: string) => {
             return user;
         } else {
             const users = await User.findAll({
+                // --- CRUCIAL FIX: Ensure profilePicture is included here ---
                 attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
             });
             return users;
@@ -143,7 +183,14 @@ export const getUsersService = async (email?: string) => {
     }
 }
 
-export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; profilePicture?: string; }) => {
+/**
+ * Updates a user's profile based on their ID.
+ * @param id The ID of the user to update.
+ * @param updates An object containing the fields to update (e.g., name, email, phone, role, profilePicture).
+ * @returns The updated user object.
+ * @throws HttpError if the user is not found or if there's a validation error.
+ */
+export const updateUserService = async (id: string, updates: { name?: string; email?: string; phone?: string; role?: string; profilePicture?: string; }) => { // NEW: Added profilePicture to updates type
     try {
         const user = await User.findByPk(id) as any;
 
@@ -155,9 +202,9 @@ export const updateUserService = async (id: string, updates: { name?: string; em
         if (updates.email !== undefined) user.email = updates.email;
         if (updates.phone !== undefined) user.phone = updates.phone;
         if (updates.role !== undefined) user.role = updates.role;
-        // profilePicture will be handled by uploadProfilePictureService,
-        // but keeping this here for flexibility if other controllers use it
+        // NEW: Allow updating profilePicture if provided
         if (updates.profilePicture !== undefined) user.profilePicture = updates.profilePicture;
+
 
         await user.save();
         return user;
@@ -185,6 +232,11 @@ export const uploadProfilePictureService = async (
     const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name for profile pictures
 
     try {
+        // --- Added check for supabase client initialization here ---
+        if (!supabase) {
+          throw new HttpError("Supabase client is not initialized. Cannot upload profile picture.", 500);
+        }
+
         const user = await User.findByPk(userId) as any;
 
         if (!user) {
@@ -193,13 +245,11 @@ export const uploadProfilePictureService = async (
 
         // --- Step 1: Delete old profile picture from Supabase Storage (if exists) ---
         if (user.profilePicture) {
-            // Extract the path within the bucket from the full public URL
-            // This relies on the structure: .../public/<bucket_name>/<path_in_bucket>
             const urlParts = user.profilePicture.split('/');
             const publicIndex = urlParts.indexOf('public');
 
             if (publicIndex !== -1 && urlParts.length > publicIndex + 1) {
-                const bucketNameInUrl = urlParts[publicIndex - 1]; // Should be 'profile-pictures'
+                const bucketNameInUrl = urlParts[publicIndex - 1];
                 const oldFilePathInBucket = urlParts.slice(publicIndex + 1).join('/');
 
                 if (bucketNameInUrl === PROFILE_PICTURE_BUCKET) {
@@ -222,17 +272,15 @@ export const uploadProfilePictureService = async (
         }
 
         // --- Step 2: Upload the new profile picture to Supabase Storage ---
-        // Create a unique file name to avoid collisions
         const uniqueFileName = `${uuidv4()}-${originalFileName}`;
-        // Define the path within your Supabase bucket (e.g., profile-pictures/user-id/unique-file-name.jpg)
-        const supabaseFilePath = `${userId}/${uniqueFileName}`; // Store directly under user ID in the bucket
+        const supabaseFilePath = `${userId}/${uniqueFileName}`;
 
         console.log(`Attempting to upload new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from(PROFILE_PICTURE_BUCKET)
             .upload(supabaseFilePath, fileBuffer, {
                 contentType: mimetype,
-                upsert: false, // Prevents accidental overwrites if a file with exact same name is uploaded
+                upsert: false,
             });
 
         if (uploadError) {
@@ -240,7 +288,6 @@ export const uploadProfilePictureService = async (
             throw new HttpError(`Failed to upload profile picture to storage: ${uploadError.message}`, 500);
         }
         console.log(`Successfully uploaded new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
-
 
         // --- Step 3: Get the public URL for the newly uploaded file ---
         const { data: publicUrlData } = supabase.storage
@@ -275,16 +322,21 @@ export const uploadProfilePictureService = async (
  * @throws HttpError if the user is not found.
  */
 export const deleteUserService = async (id: string) => {
-    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures';
 
     try {
+        // --- Added check for supabase client initialization here ---
+        if (!supabase) {
+          console.warn("[DELETE SERVICE WARNING] Supabase client not initialized. Skipping profile picture deletion from storage.");
+        }
+
         const user = await User.findByPk(id) as any;
         if (!user) {
             throw new HttpError("User not found", 404);
         }
 
         // --- Delete profile picture from Supabase Storage upon user deletion ---
-        if (user.profilePicture) {
+        if (user.profilePicture && supabase) { // Only attempt if supabase client is available
             const urlParts = user.profilePicture.split('/');
             const publicIndex = urlParts.indexOf('public');
 
@@ -300,8 +352,6 @@ export const deleteUserService = async (id: string) => {
 
                     if (deleteError) {
                         console.error(`Supabase Delete User Profile Picture Error for ${filePathInBucket}:`, deleteError);
-                        // Log the error but don't prevent user deletion if storage delete fails
-                        // You might want a more robust error handling strategy here (e.g., retry, dead-letter queue)
                     } else {
                         console.log(`Successfully deleted user ${id}'s profile picture: ${filePathInBucket}`);
                     }
@@ -318,7 +368,6 @@ export const deleteUserService = async (id: string) => {
         });
 
         if (result === 0) {
-            // This case should ideally be caught by findByPk check above, but as a fallback
             throw new HttpError("User not found", 404);
         }
         return true;
