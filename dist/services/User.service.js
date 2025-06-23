@@ -54,6 +54,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const supabase_js_1 = require("@supabase/supabase-js"); // Import createClient
+const uuid_1 = require("uuid"); // Import uuid
 // --- Supabase client setup using environment variables ---
 let supabaseClient; // Declare a mutable variable for the client
 try {
@@ -82,35 +83,26 @@ try {
     }
     else {
         console.error("[SUPABASE INIT ERROR] Supabase client NOT initialized due to missing environment variables. Supabase-dependent features (like profile picture upload/deletion) will fail.");
-        // Do NOT throw here immediately unless Supabase is critical for server startup itself,
-        // to allow other parts of the server to potentially run.
     }
 }
 catch (error) {
     console.error("[SUPABASE INIT ERROR] Unexpected error during Supabase client initialization:", error);
-    // Re-throw if this is a fatal error that should prevent server startup
     throw error;
 }
-// Make sure the rest of your file uses this 'supabaseClient' variable where needed
-// (e.g., uploadProfilePictureService, deleteUserService)
-const supabase = supabaseClient; // Use this const for consistency with prior examples
-const uuid_1 = require("uuid"); // Import uuid
-// Define the path to your Jitsi private key file.
-// In production on Render, it will be in /etc/secrets/.
-// For local development, you might place it in your project root or configure it via .env.
+const supabase = supabaseClient; // Use this const for consistency
+// --- Jitsi Private Key Setup ---
 const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
     ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
-    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Common local dev path (e.g., if .pem is in project root)
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Local dev path
 let jitsiPrivateKey;
-// Load the Jitsi Private Key once when the service file is imported
 try {
     if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
-        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || ''; // Use a specific env var for Jitsi if needed locally
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || '';
         if (!jitsiPrivateKey) {
             console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
         }
         else {
-            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable (fallback).");
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable.");
         }
     }
     else {
@@ -118,14 +110,17 @@ try {
         console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
     }
     if (!jitsiPrivateKey) {
-        throw new Error("Jitsi Private Key is not loaded. Ensure it's configured in Render's Secret Files or as an environment variable.");
+        throw new Error("Jitsi Private Key is not loaded. Configure it in Render's Secret Files or as an environment variable.");
     }
 }
 catch (error) {
     console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
     throw error;
 }
-const createUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ name, email, phone, password }) {
+/**
+ * Creates a new user in the database with all fields from the registration form.
+ */
+const createUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ name, email, phone, password, dateOfBirth, address, rollNo, collegeName, university, country, designation, }) {
     try {
         const salt = yield bcryptjs_1.default.genSalt(10);
         const passwordHash = yield bcryptjs_1.default.hash(password, salt);
@@ -134,8 +129,13 @@ const createUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ n
             email,
             password: passwordHash,
             phone,
-            role: 'student', // Default role for new sign-ups
-            // profilePicture will default to null/undefined if not provided, which is fine
+            role: designation, // Map designation from form to the role field
+            dateOfBirth,
+            address,
+            rollNo,
+            collegeName,
+            university,
+            country,
         });
         return newUser;
     }
@@ -144,46 +144,50 @@ const createUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ n
     }
 });
 exports.createUserService = createUserService;
+/**
+ * Authenticates a user and returns their complete data profile and a JWT.
+ */
 const loginUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ email, password }) {
     try {
-        // --- ADDED LOGGING FOR DEBUGGING ---
         console.log(`[LOGIN SERVICE DEBUG] Starting login attempt for email: ${email}`);
         const user = yield User_model_1.default.findOne({
             where: { email },
-            // --- CRUCIAL: ENSURE profilePicture AND password ARE INCLUDED HERE ---
-            attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password']
+            // Ensure all new and existing attributes are fetched
+            attributes: [
+                'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password',
+                'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+            ]
         });
         if (!user) {
             console.log(`[LOGIN SERVICE DEBUG] User not found for email: ${email}`);
             throw new httpError_1.default("User does not exist", 400);
         }
-        console.log(`[LOGIN SERVICE DEBUG] User found. Email: ${user.get("email")}. Proceeding to password comparison.`);
         const isPasswordMatch = yield bcryptjs_1.default.compare(password, user.get("password"));
         if (!isPasswordMatch) {
             console.log(`[LOGIN SERVICE DEBUG] Password mismatch for email: ${user.get("email")}`);
             throw new httpError_1.default("Invalid password", 400);
         }
-        console.log(`[LOGIN SERVICE DEBUG] Password matched. Generating JWT for email: ${user.get("email")}`);
         const APP_SECRET_KEY = process.env.SECRET_KEY || 'cleanclean';
-        const userRole = user.get("role");
-        const profilePictureUrl = user.get("profilePicture"); // Get profile picture
+        // Prepare the complete user data object for the session and response
         const userSessionData = {
             id: user.get("id"),
             name: user.get("name"),
             email: user.get("email"),
             phone: user.get("phone"),
-            role: userRole,
-            profilePicture: profilePictureUrl, // Include profile picture
+            role: user.get("role"),
+            profilePicture: user.get("profilePicture"),
+            dateOfBirth: user.get("dateOfBirth"),
+            address: user.get("address"),
+            rollNo: user.get("rollNo"),
+            collegeName: user.get("collegeName"),
+            university: user.get("university"),
+            country: user.get("country"),
         };
         const jwtOptions = {
-            expiresIn: 604800 // 7 days in seconds
+            expiresIn: 604800 // 7 days
         };
         const token = jsonwebtoken_1.default.sign(userSessionData, APP_SECRET_KEY, jwtOptions);
-        console.log(`[LOGIN SERVICE DEBUG] JWT generated. Login successful for email: ${user.get("email")}`);
-        return {
-            user: userSessionData,
-            token,
-        };
+        return { user: userSessionData, token };
     }
     catch (error) {
         console.error(`[LOGIN SERVICE ERROR] Failed login for email: ${email}. Error:`, error);
@@ -191,25 +195,24 @@ const loginUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ em
     }
 });
 exports.loginUserService = loginUserService;
+/**
+ * Retrieves one or all users from the database, including all detailed fields.
+ */
 const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        const attributes = [
+            'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+        ];
         if (email) {
-            const user = yield User_model_1.default.findOne({
-                where: { email },
-                // --- CRUCIAL: Ensure profilePicture is included here ---
-                attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
-            });
+            const user = yield User_model_1.default.findOne({ where: { email }, attributes });
             if (!user) {
-                throw new httpError_1.default("User does not exist", 400);
+                throw new httpError_1.default("User does not exist", 404);
             }
             return user;
         }
         else {
-            const users = yield User_model_1.default.findAll({
-                // --- CRUCIAL: Ensure profilePicture is included here ---
-                attributes: ['id', 'name', 'email', 'phone', 'role', 'profilePicture']
-            });
-            return users;
+            return yield User_model_1.default.findAll({ attributes });
         }
     }
     catch (error) {
@@ -217,173 +220,98 @@ const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.getUsersService = getUsersService;
+/**
+ * Updates a user's information.
+ */
 const updateUserService = (id, updates) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = yield User_model_1.default.findByPk(id);
         if (!user) {
             throw new httpError_1.default("User not found", 404);
         }
-        if (updates.name !== undefined)
-            user.name = updates.name;
-        if (updates.email !== undefined)
-            user.email = updates.email;
-        if (updates.phone !== undefined)
-            user.phone = updates.phone;
-        if (updates.role !== undefined)
-            user.role = updates.role;
-        // Allow updating profilePicture if provided
-        if (updates.profilePicture !== undefined)
-            user.profilePicture = updates.profilePicture;
+        // Dynamically assign updates to the user model instance
+        Object.assign(user, updates);
         yield user.save();
         return user;
     }
     catch (error) {
-        console.error("Error in updateUserService:", error);
         throw error;
     }
 });
 exports.updateUserService = updateUserService;
 /**
- * Service to upload a profile picture to Supabase Storage and update the user's record.
- * @param userId The ID of the user.
- * @param fileBuffer The buffer of the image file.
- * @param mimetype The MIME type of the file (e.g., 'image/jpeg').
- * @param originalFileName The original name of the file.
- * @returns The updated user object with the new profile picture URL.
- * @throws HttpError if the user is not found or upload/deletion fails.
+ * Uploads a profile picture to Supabase Storage and updates the user record.
  */
-const uploadProfilePictureService = (userId, fileBuffer, // File buffer from multer
-mimetype, // File mimetype from multer
-originalFileName // Original file name from multer
-) => __awaiter(void 0, void 0, void 0, function* () {
-    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name for profile pictures
-    try {
-        // --- Added check for supabase client initialization here ---
-        if (!supabase) {
-            throw new httpError_1.default("Supabase client is not initialized. Cannot upload profile picture.", 500);
-        }
-        const user = yield User_model_1.default.findByPk(userId);
-        if (!user) {
-            throw new httpError_1.default("User not found", 404);
-        }
-        // --- Step 1: Delete old profile picture from Supabase Storage (if exists) ---
-        if (user.profilePicture) {
-            const urlParts = user.profilePicture.split('/');
-            const publicIndex = urlParts.indexOf('public');
-            if (publicIndex !== -1 && urlParts.length > publicIndex + 1) {
-                const bucketNameInUrl = urlParts[publicIndex - 1];
-                const oldFilePathInBucket = urlParts.slice(publicIndex + 1).join('/');
-                if (bucketNameInUrl === PROFILE_PICTURE_BUCKET) {
-                    console.log(`Attempting to delete old profile picture: ${oldFilePathInBucket} from bucket: ${bucketNameInUrl}`);
-                    const { error: deleteError } = yield supabase.storage
-                        .from(PROFILE_PICTURE_BUCKET)
-                        .remove([oldFilePathInBucket]);
-                    if (deleteError) {
-                        console.error(`Supabase Delete Old Profile Picture Error for ${oldFilePathInBucket}:`, deleteError);
-                        throw new httpError_1.default(`Failed to delete old profile picture from storage: ${deleteError.message}`, 500);
-                    }
-                    console.log(`Successfully deleted old profile picture: ${oldFilePathInBucket}`);
-                }
-                else {
-                    console.warn(`Old profile picture URL's bucket '${bucketNameInUrl}' does not match expected bucket '${PROFILE_PICTURE_BUCKET}'. Skipping deletion: ${user.profilePicture}`);
-                }
-            }
-            else {
-                console.warn(`Could not parse old profile picture URL for deletion: ${user.profilePicture}`);
+const uploadProfilePictureService = (userId, fileBuffer, mimetype, originalFileName) => __awaiter(void 0, void 0, void 0, function* () {
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures';
+    if (!supabase) {
+        throw new httpError_1.default("Supabase client is not initialized. Cannot upload profile picture.", 500);
+    }
+    const user = yield User_model_1.default.findByPk(userId);
+    if (!user) {
+        throw new httpError_1.default("User not found", 404);
+    }
+    // Delete old picture if it exists
+    const oldPicture = user.get('profilePicture');
+    if (oldPicture) {
+        try {
+            const urlParts = oldPicture.split('/');
+            const oldFilePath = urlParts.slice(urlParts.indexOf(PROFILE_PICTURE_BUCKET) + 1).join('/');
+            if (oldFilePath) {
+                yield supabase.storage.from(PROFILE_PICTURE_BUCKET).remove([oldFilePath]);
             }
         }
-        // --- Step 2: Upload the new profile picture to Supabase Storage ---
-        const uniqueFileName = `${(0, uuid_1.v4)()}-${originalFileName}`;
-        const supabaseFilePath = `${userId}/${uniqueFileName}`;
-        console.log(`Attempting to upload new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
-        const { data: uploadData, error: uploadError } = yield supabase.storage
-            .from(PROFILE_PICTURE_BUCKET)
-            .upload(supabaseFilePath, fileBuffer, {
-            contentType: mimetype,
-            upsert: false,
-        });
-        if (uploadError) {
-            console.error("Supabase Upload Profile Picture Error:", uploadError);
-            throw new httpError_1.default(`Failed to upload profile picture to storage: ${uploadError.message}`, 500);
+        catch (e) {
+            console.error("Failed to delete old profile picture, continuing upload...", e);
         }
-        console.log(`Successfully uploaded new profile picture to ${PROFILE_PICTURE_BUCKET}/${supabaseFilePath}`);
-        // --- Step 3: Get the public URL for the newly uploaded file ---
-        const { data: publicUrlData } = supabase.storage
-            .from(PROFILE_PICTURE_BUCKET)
-            .getPublicUrl(supabaseFilePath);
-        const newProfilePictureUrl = publicUrlData === null || publicUrlData === void 0 ? void 0 : publicUrlData.publicUrl;
-        if (!newProfilePictureUrl) {
-            throw new httpError_1.default("Failed to get public URL for new profile picture.", 500);
-        }
-        console.log(`New profile picture public URL: ${newProfilePictureUrl}`);
-        // --- Step 4: Update the user's profilePicture field in the database ---
-        user.profilePicture = newProfilePictureUrl;
-        yield user.save();
-        console.log(`User ${userId} profile picture updated in DB to: ${newProfilePictureUrl}`);
-        return user;
     }
-    catch (error) {
-        console.error("Error in uploadProfilePictureService:", error);
-        throw error;
+    // Upload new picture
+    const uniqueFileName = `${(0, uuid_1.v4)()}-${originalFileName}`;
+    const supabaseFilePath = `${userId}/${uniqueFileName}`;
+    const { error: uploadError } = yield supabase.storage
+        .from(PROFILE_PICTURE_BUCKET)
+        .upload(supabaseFilePath, fileBuffer, { contentType: mimetype, upsert: false });
+    if (uploadError) {
+        throw new httpError_1.default(`Failed to upload profile picture: ${uploadError.message}`, 500);
     }
+    // Get public URL and update user record
+    const { data: publicUrlData } = supabase.storage.from(PROFILE_PICTURE_BUCKET).getPublicUrl(supabaseFilePath);
+    const newProfilePictureUrl = publicUrlData === null || publicUrlData === void 0 ? void 0 : publicUrlData.publicUrl;
+    if (!newProfilePictureUrl) {
+        throw new httpError_1.default("Failed to get public URL for the new profile picture.", 500);
+    }
+    user.profilePicture = newProfilePictureUrl;
+    yield user.save();
+    return user;
 });
 exports.uploadProfilePictureService = uploadProfilePictureService;
 /**
- * Deletes a user from the database by their ID.
- * Also deletes their associated profile picture from Supabase Storage.
- * @param id The ID of the user to delete.
- * @returns true if the user was successfully deleted.
- * @throws HttpError if the user is not found.
+ * Deletes a user and their profile picture from Supabase Storage.
  */
 const deleteUserService = (id) => __awaiter(void 0, void 0, void 0, function* () {
-    const PROFILE_PICTURE_BUCKET = 'profile-pictures'; // Define your Supabase bucket name
-    try {
-        // --- Added check for supabase client initialization here ---
-        if (!supabase) {
-            console.warn("[DELETE SERVICE WARNING] Supabase client not initialized. Skipping profile picture deletion from storage.");
-        }
-        const user = yield User_model_1.default.findByPk(id);
-        if (!user) {
-            throw new httpError_1.default("User not found", 404);
-        }
-        // --- Delete profile picture from Supabase Storage upon user deletion ---
-        if (user.profilePicture && supabase) { // Only attempt if supabase client is available
-            const urlParts = user.profilePicture.split('/');
-            const publicIndex = urlParts.indexOf('public');
-            if (publicIndex !== -1 && urlParts.length > publicIndex + 1) {
-                const bucketNameInUrl = urlParts[publicIndex - 1];
-                const filePathInBucket = urlParts.slice(publicIndex + 1).join('/');
-                if (bucketNameInUrl === PROFILE_PICTURE_BUCKET) {
-                    console.log(`Attempting to delete user ${id}'s profile picture: ${filePathInBucket}`);
-                    const { error: deleteError } = yield supabase.storage
-                        .from(PROFILE_PICTURE_BUCKET)
-                        .remove([filePathInBucket]);
-                    if (deleteError) {
-                        console.error(`Supabase Delete User Profile Picture Error for ${filePathInBucket}:`, deleteError);
-                    }
-                    else {
-                        console.log(`Successfully deleted user ${id}'s profile picture: ${filePathInBucket}`);
-                    }
-                }
-                else {
-                    console.warn(`User ${id}'s profile picture URL's bucket '${bucketNameInUrl}' does not match expected bucket '${PROFILE_PICTURE_BUCKET}'. Skipping deletion: ${user.profilePicture}`);
-                }
-            }
-            else {
-                console.warn(`Could not parse user ${id}'s old profile picture URL for deletion: ${user.profilePicture}`);
+    const PROFILE_PICTURE_BUCKET = 'profile-pictures';
+    const user = yield User_model_1.default.findByPk(id);
+    if (!user) {
+        throw new httpError_1.default("User not found", 404);
+    }
+    // Delete profile picture from Supabase if it exists and the client is available
+    const pictureToDelete = user.get('profilePicture');
+    if (pictureToDelete && supabase) {
+        try {
+            const urlParts = pictureToDelete.split('/');
+            const filePath = urlParts.slice(urlParts.indexOf(PROFILE_PICTURE_BUCKET) + 1).join('/');
+            if (filePath) {
+                yield supabase.storage.from(PROFILE_PICTURE_BUCKET).remove([filePath]);
             }
         }
-        const result = yield User_model_1.default.destroy({
-            where: { id },
-        });
-        if (result === 0) {
-            throw new httpError_1.default("User not found", 404);
+        catch (e) {
+            console.error("Failed to delete profile picture from storage, continuing user deletion...", e);
         }
-        return true;
     }
-    catch (error) {
-        console.error("Error in deleteUserService:", error);
-        throw error;
+    const result = yield User_model_1.default.destroy({ where: { id } });
+    if (result === 0) {
+        throw new httpError_1.default("User not found during deletion", 404);
     }
+    return true;
 });
 exports.deleteUserService = deleteUserService;

@@ -1,34 +1,56 @@
 // src/utils/types.ts
 import { Request } from 'express';
+
 // --- General Utility Types ---
 export type GetFilters = {
     limit?: number;
     offset?: number;
 };
 
-// --- IMPORTANT: Update JwtUserPayload to include profilePicture ---
+// --- User Types ---
+
+/**
+ * Defines the user data that is encoded into the JWT and attached to authenticated requests.
+ * Includes all fields from the registration form.
+ */
 export interface JwtUserPayload {
     id: string;
     name: string;
     email: string;
     phone: string;
     role: string;
-    profilePicture?: string | null; // Add profilePicture here, optional and can be null
-    // ...any other fields you put in your JWT
+    profilePicture?: string | null;
+    // --- New fields for the JWT payload ---
+    dateOfBirth?: string;
+    address?: string;
+    rollNo?: string;
+    collegeName?: string;
+    university?: string;
+    country?: string;
 }
 
-// Extend the Express Request type to include the 'user' property
+// Extend the Express Request type to include the 'user' property from the JWT
 export interface AuthenticatedRequest extends Request {
-    user?: JwtUserPayload; // The 'user' property might be undefined if not authenticated
+    user?: JwtUserPayload; 
 }
 
-// --- User Types ---
+/**
+ * Defines the parameters required to create a new user.
+ * This should match the data sent from the frontend registration form.
+ */
 export type CreateUserServiceParams = {
     name: string;
     email: string;
     phone: string;
     password: string;
-    profilePicture?: string; // Add profilePicture here for creation (optional)
+    // --- New fields for user creation ---
+    dateOfBirth: string;
+    address: string;
+    rollNo: string;
+    collegeName: string;
+    university: string;
+    country: string;
+    designation: string; // This will map to the 'role' field in the backend
 }
 
 export type LoginUserServiceParams = {
@@ -36,13 +58,22 @@ export type LoginUserServiceParams = {
     password: string;
 }
 
-// --- Update type for updateUserService (already done in my previous response, but confirming here) ---
+/**
+ * Defines the parameters for updating a user. All fields are optional.
+ */
 export type UpdateUserServiceParams = {
     name?: string;
     email?: string;
     phone?: string;
     role?: string;
-    profilePicture?: string; // Add profilePicture here
+    profilePicture?: string;
+    // --- New fields that can be updated ---
+    dateOfBirth?: string;
+    address?: string;
+    rollNo?: string;
+    collegeName?: string;
+    university?: string;
+    country?: string;
 }
 
 // --- Teacher Types ---
@@ -67,8 +98,7 @@ export type GetTeacherFilterType = {
     id?: string;
 }
 
-// --- Old Categories (Course Categories) Types ---
-// These types are assumed to be for your Course model's categories.
+// --- Categories (Course Categories) Types ---
 export type CreateCategoriesServiceParams = {
     name: string;
     description?: string;
@@ -95,25 +125,25 @@ export type LoginAdminServiceParams = {
 // --- Course Types ---
 export type SyllabusSection = {
     title: string;
-    content: string; // Or a more complex type if you have rich content
+    content: string;
 };
 
 export type CourseContentModule = {
-    id?: string; // Optional, for client-side keying
+    id?: string;
     title: string;
-    videoUrl?: string; // The URL to the video content
-    description?: string; // A description for this specific content module
-    order?: number; // To define the sequence of modules
+    videoUrl?: string;
+    description?: string;
+    order?: number;
 };
 
 export type CreateCourseServiceParams = {
     name: string;
     description?: string;
     imageUrl?: string;
-    categoryId: string; // This categoryId likely refers to your 'Categories' model
+    categoryId: string;
     price?: number;
     demoVideoUrl?: string;
-    courseType: string; // e.g., 'live' | 'recorded'
+    courseType: string;
     active?: boolean;
     syllabus?: SyllabusSection[];
     contents?: CourseContentModule[];
@@ -152,7 +182,7 @@ export type CreateTestSeriesServiceParams = {
     name: string;
     description?: string;
     price: number;
-    createdBy: string; // The ID of the user/admin who created this series
+    createdBy: string;
 }
 
 export type UpdateTestSeriesServiceParams = {
@@ -163,13 +193,13 @@ export type UpdateTestSeriesServiceParams = {
 
 // --- Test Types ---
 export type CreateTestServiceParams = {
-    testSeriesId: string; // Links to the parent TestSeries
-    name: string; // Name of this specific test (e.g., "Chapter 1 Quiz")
+    testSeriesId: string;
+    name: string;
     description?: string;
     durationMinutes: number;
     numberOfQuestions: number;
     passMarkPercentage: number;
-    createdBy: string; // The ID of the user/admin who created this test
+    createdBy: string;
 }
 
 export type UpdateTestServiceParams = {
@@ -183,10 +213,10 @@ export type UpdateTestServiceParams = {
 
 // --- Question Types ---
 export type CreateQuestionServiceParams = {
-    testId: string; // Foreign key to the Test model
+    testId: string;
     questionText: string;
-    options: string[]; // Array of strings for MCQ options
-    correctAnswerIndex: number; // 0-based index of the correct option
+    options: string[];
+    correctAnswerIndex: number;
     points: number;
     negativePoints: number;
 }
@@ -205,15 +235,15 @@ export type CreateQuestionBankServiceParams = {
     description?: string;
     filePath: string;
     fileName: string;
-    uploadedBy?: string; // Optional, if you're tracking the uploader (UUID)
+    uploadedBy?: string;
     price: number;
 }
 
 export type UpdateQuestionBankServiceParams = {
     name?: string;
     description?: string;
-    filePath?: string; // Only if you're replacing the file
-    fileName?: string; // Only if you're replacing the file
+    filePath?: string;
+    fileName?: string;
     uploadedBy?: string;
     price?: number;
 }
@@ -240,16 +270,16 @@ export enum WebinarStatus {
 export type WebinarInput = {
     title: string;
     speaker: string;
-    date: string; // Storing date as string
-    time: string; // Storing time as string
-    imageUrl?: string; // URL for the webinar image, optional
-    status?: WebinarStatus; // Use the new status enum, optional for creation (defaults to 'upcoming')
-    jitsiRoomName?: string; // Unique name for Jitsi meeting room
+    date: string;
+    time: string;
+    imageUrl?: string;
+    status?: WebinarStatus;
+    jitsiRoomName?: string;
     price: number;
 };
 
 export type GetAllWebinarServiceParams = {
-    status?: WebinarStatus; // Allow filtering by status
+    status?: WebinarStatus;
 };
 
 export type GetWebinarFilters = {
@@ -257,17 +287,16 @@ export type GetWebinarFilters = {
     offset?: number;
 };
 
+// --- Brand and Company Types ---
+
 export type CreateBrandCategoryServiceParams = {
     name: string;
-    // description field is intentionally absent as per your updated model
 }
 
 export type UpdateBrandCategoryServiceParams = {
     name?: string;
-    // description field is intentionally absent
 }
 
-// --- Company Types ---
 export type CreateCompanyServiceParams = {
     name: string;
 }
@@ -276,33 +305,29 @@ export type UpdateCompanyServiceParams = {
     name?: string;
 }
 
-// --- Brand Types ---
 export type CreateBrandServiceParams = {
-    name: string; // RE-ADDED
-
-    contents?: any[]; // JSON type, typically an array of objects
-    brandCategoryId: string; // UUID
-    companyId: string;       // UUID
-    availability: string; // Updated: Now a string for quantities (e.g., "225ml", "12mcg")
+    name: string;
+    contents?: any[];
+    brandCategoryId: string;
+    companyId: string;
+    availability: string;
     recommended_by_vets: boolean;
 }
 
 export type UpdateBrandServiceParams = {
-    name?: string; // RE-ADDED
-
+    name?: string;
     contents?: any[];
     brandCategoryId?: string;
     companyId?: string;
-    availability?: string; // Updated: Now a string
+    availability?: string;
     recommended_by_vets?: boolean;
 }
 
 export type GetAllBrandServiceParams = GetFilters & {
     id?: string;
-    name?: string; // RE-ADDED
-
+    name?: string;
     brandCategoryId?: string;
     companyId?: string;
     recommended_by_vets?: boolean;
-    availability?: string; // Updated: Now a string
+    availability?: string;
 }
