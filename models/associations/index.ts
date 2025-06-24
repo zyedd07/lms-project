@@ -15,7 +15,7 @@ import Question from "../Question.model";
 import Brand from '../Brand.model';
 import BrandCategory from '../BrandCategory.model';
 import Company from '../Company.model';
-import Notification from "models/Notification.model";
+import Notification from "../Notification.model";
 
 const initAssociation = () => {
     // Relationships
