@@ -21,6 +21,7 @@ import brandCategoryRouter from './routes/brandCategory.router';
 import companyRouter from './routes/company.router';
 import brandRouter from './routes/brand.router';
 import notificationRouter from './routes/Notification.router'; // --- NEW: Notification Router Import ---
+import articleRouter from './routes/Article.router';
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/brand-categories', brandCategoryRouter);
 app.use('/companies', companyRouter);
 app.use('/brands', brandRouter);
 app.use('/notifications', notificationRouter); // --- NEW: Notification Route Mounting ---
+app.use('/articles', articleRouter);
 
 
 // Error handling middleware

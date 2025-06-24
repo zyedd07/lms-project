@@ -33,6 +33,7 @@ const brandCategory_router_1 = __importDefault(require("./routes/brandCategory.r
 const company_router_1 = __importDefault(require("./routes/company.router"));
 const brand_router_1 = __importDefault(require("./routes/brand.router"));
 const Notification_router_1 = __importDefault(require("./routes/Notification.router")); // --- NEW: Notification Router Import ---
+const Article_router_1 = __importDefault(require("./routes/Article.router"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -77,6 +78,7 @@ app.use('/brand-categories', brandCategory_router_1.default);
 app.use('/companies', company_router_1.default);
 app.use('/brands', brand_router_1.default);
 app.use('/notifications', Notification_router_1.default); // --- NEW: Notification Route Mounting ---
+app.use('/article', Article_router_1.default);
 // Error handling middleware
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;

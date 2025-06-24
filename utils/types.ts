@@ -345,3 +345,20 @@ export type UpdateNotificationServiceParams = {
     link?: string;
 };
 export type CreateBroadcastNotificationParams = Omit<CreateNotificationServiceParams, 'userId'>;
+
+export type CreateArticleParams = {
+    imageUrl: string;
+    title: string;
+    content: string;
+    doctorName: string;
+    batchYear?: string;
+};
+
+export type UpdateArticleParams = {
+    imageUrl?: string;
+    title?: string;
+    content?: string;
+    doctorName?: string;
+    batchYear?: string;
+};
+
