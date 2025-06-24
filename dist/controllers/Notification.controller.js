@@ -45,10 +45,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAllAsRead = exports.markAsRead = exports.getMyNotifications = exports.deleteNotification = exports.updateNotification = exports.createBroadcastNotification = exports.createNotificationForUser = void 0;
+exports.markAllAsRead = exports.markAsRead = exports.getMyNotifications = exports.deleteNotification = exports.updateNotification = exports.createBroadcastNotification = exports.createNotificationForUser = exports.getAllNotifications = void 0;
 const notificationService = __importStar(require("../services/Notification.service"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 // --- Admin Controllers ---
+/**
+ * @description Controller for an admin to get all notifications.
+ */
+const getAllNotifications = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notifications = yield notificationService.getAllNotificationsService();
+        res.status(200).json({
+            success: true,
+            message: "All notifications fetched successfully.",
+            data: notifications
+        });
+    }
+    catch (error) {
+        console.error("Error in getAllNotifications:", error);
+        next(error);
+    }
+});
+exports.getAllNotifications = getAllNotifications;
 /**
  * @description Controller for an admin to create a notification for a specific user.
  */

@@ -42,6 +42,12 @@ const auth_1 = __importStar(require("../middleware/auth"));
 const router = express_1.default.Router();
 // --- Admin-only CRUD Routes ---
 /**
+ * @route   GET /api/notifications/admin/all
+ * @desc    Admin gets a list of all notifications
+ * @access  Private (Admin)
+ */
+router.get('/admin/all', auth_1.default, auth_1.authorizeAdmin, notificationController.getAllNotifications);
+/**
  * @route   POST /api/notifications/admin/create
  * @desc    Admin creates a notification for a specific user
  * @access  Private (Admin)

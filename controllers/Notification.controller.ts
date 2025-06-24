@@ -6,6 +6,23 @@ import HttpError from '../utils/httpError';
 // --- Admin Controllers ---
 
 /**
+ * @description Controller for an admin to get all notifications.
+ */
+export const getAllNotifications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const notifications = await notificationService.getAllNotificationsService();
+        res.status(200).json({
+            success: true,
+            message: "All notifications fetched successfully.",
+            data: notifications
+        });
+    } catch (error) {
+        console.error("Error in getAllNotifications:", error);
+        next(error);
+    }
+};
+
+/**
  * @description Controller for an admin to create a notification for a specific user.
  */
 export const createNotificationForUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

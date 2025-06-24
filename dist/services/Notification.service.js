@@ -12,10 +12,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteNotificationService = exports.updateNotificationService = exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getUnreadNotificationsByUserService = exports.createBroadcastNotificationService = exports.createNotificationService = void 0;
+exports.deleteNotificationService = exports.updateNotificationService = exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getUnreadNotificationsByUserService = exports.createBroadcastNotificationService = exports.createNotificationService = exports.getAllNotificationsService = void 0;
 const Notification_model_1 = __importDefault(require("../models/Notification.model"));
-const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for broadcast
+const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for broadcast and associations
 const httpError_1 = __importDefault(require("../utils/httpError"));
+/**
+ * @description Get all notifications for the admin panel, including user details.
+ * @returns {Promise<Notification[]>} A list of all notifications.
+ */
+const getAllNotificationsService = () => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notifications = yield Notification_model_1.default.findAll({
+            order: [['createdAt', 'DESC']],
+            include: [{
+                    model: User_model_1.default,
+                    as: 'user', // This alias must match your association definition
+                    attributes: ['name', 'email'] // Fetches associated user's name and email
+                }]
+        });
+        return notifications;
+    }
+    catch (error) {
+        throw error;
+    }
+});
+exports.getAllNotificationsService = getAllNotificationsService;
 /**
  * @description Create a new notification for a specific user.
  * @param {CreateNotificationServiceParams} params - Data for the new notification.

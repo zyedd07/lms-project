@@ -1,7 +1,27 @@
 import Notification from '../models/Notification.model';
-import User from '../models/User.model'; // Import User model for broadcast
+import User from '../models/User.model'; // Import User model for broadcast and associations
 import HttpError from '../utils/httpError';
 import { CreateNotificationServiceParams, UpdateNotificationServiceParams, CreateBroadcastNotificationParams } from '../utils/types';
+
+/**
+ * @description Get all notifications for the admin panel, including user details.
+ * @returns {Promise<Notification[]>} A list of all notifications.
+ */
+export const getAllNotificationsService = async () => {
+    try {
+        const notifications = await Notification.findAll({
+            order: [['createdAt', 'DESC']],
+            include: [{
+                model: User,
+                as: 'user', // This alias must match your association definition
+                attributes: ['name', 'email'] // Fetches associated user's name and email
+            }]
+        });
+        return notifications;
+    } catch (error) {
+        throw error;
+    }
+};
 
 /**
  * @description Create a new notification for a specific user.

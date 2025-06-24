@@ -7,6 +7,18 @@ const router = express.Router();
 // --- Admin-only CRUD Routes ---
 
 /**
+ * @route   GET /api/notifications/admin/all
+ * @desc    Admin gets a list of all notifications
+ * @access  Private (Admin)
+ */
+router.get(
+    '/admin/all',
+    isAuth,
+    authorizeAdmin,
+    notificationController.getAllNotifications
+);
+
+/**
  * @route   POST /api/notifications/admin/create
  * @desc    Admin creates a notification for a specific user
  * @access  Private (Admin)
