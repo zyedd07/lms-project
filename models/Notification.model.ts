@@ -1,15 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
-import { sequelize } from '.'; // Assuming sequelize instance is exported from the models index file
-import User from './User.model'; // Assuming a User model exists in the same directory
+import { sequelize } from '.'; 
 
-/**
- * Note: Using <any, any> for Model generics sacrifices some compile-time type safety.
- * This approach is simpler but less robust than using explicit interfaces for model attributes.
- */
 class Notification extends Model<any, any> {
-  // --- Public Class Properties ---
-  // These properties are declared to be accessible on the model instances.
-  // The '!' asserts that these will be definitely assigned by Sequelize.
   public id!: string;
   public userId!: string;
   public type!: 'message' | 'file' | 'update' | 'webinar' | 'system';
@@ -34,8 +26,9 @@ Notification.init(
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
+      // The 'references' key is still important for defining the foreign key constraint at the database level.
       references: {
-        model: User, // This creates a foreign key relationship to the 'users' table
+        model: 'Users', // Reference the table name directly as a string.
         key: 'id',
       },
       onUpdate: 'CASCADE',
@@ -66,8 +59,5 @@ Notification.init(
     modelName: 'Notification',
   }
 );
-
-Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 
 export default Notification;
