@@ -12,26 +12,53 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getUnreadNotificationsByUserService = exports.createNotificationService = void 0;
+exports.deleteNotificationService = exports.updateNotificationService = exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getUnreadNotificationsByUserService = exports.createBroadcastNotificationService = exports.createNotificationService = void 0;
 const Notification_model_1 = __importDefault(require("../models/Notification.model"));
-const httpError_1 = __importDefault(require("../utils/httpError")); // Assuming you have a custom HttpError utility
+const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for broadcast
+const httpError_1 = __importDefault(require("../utils/httpError"));
 /**
- * @description Create a new notification.
+ * @description Create a new notification for a specific user.
  * @param {CreateNotificationServiceParams} params - Data for the new notification.
  * @returns {Promise<Notification>} The created notification.
  */
 const createNotificationService = (params) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // You could add a check here to ensure the user ID is valid before creating.
         const newNotification = yield Notification_model_1.default.create(params);
         return newNotification;
     }
     catch (error) {
-        // Throw the error to be handled by the controller or a global error handler.
         throw error;
     }
 });
 exports.createNotificationService = createNotificationService;
+/**
+ * @description Create a notification for every user (broadcast).
+ * @param {CreateBroadcastNotificationParams} params - Data for the broadcast.
+ * @returns {Promise<{ message: string, count: number }>} Success message and count.
+ */
+const createBroadcastNotificationService = (params) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const users = yield User_model_1.default.findAll({ attributes: ['id'], raw: true });
+        if (users.length === 0) {
+            return { message: "No users found to send notifications to.", count: 0 };
+        }
+        const notificationsToCreate = users.map(user => ({
+            userId: user.id,
+            type: params.type,
+            text: params.text,
+            link: params.link,
+        }));
+        yield Notification_model_1.default.bulkCreate(notificationsToCreate);
+        return {
+            message: "Broadcast notification sent successfully to all users.",
+            count: notificationsToCreate.length
+        };
+    }
+    catch (error) {
+        throw error;
+    }
+});
+exports.createBroadcastNotificationService = createBroadcastNotificationService;
 /**
  * @description Get all unread notifications for a specific user.
  * @param {string} userId - The ID of the user.
@@ -85,7 +112,6 @@ exports.markNotificationAsReadService = markNotificationAsReadService;
  */
 const markAllNotificationsAsReadService = (userId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // The update method returns an array with the number of affected rows.
         yield Notification_model_1.default.update({ isRead: true }, {
             where: {
                 userId,
@@ -99,3 +125,42 @@ const markAllNotificationsAsReadService = (userId) => __awaiter(void 0, void 0, 
     }
 });
 exports.markAllNotificationsAsReadService = markAllNotificationsAsReadService;
+/**
+ * @description Update an existing notification (Admin only).
+ * @param {string} notificationId - The ID of the notification to update.
+ * @param {UpdateNotificationServiceParams} params - The fields to update.
+ * @returns {Promise<Notification>} The updated notification instance.
+ */
+const updateNotificationService = (notificationId, params) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notification = yield Notification_model_1.default.findByPk(notificationId);
+        if (!notification) {
+            throw new httpError_1.default("Notification not found", 404);
+        }
+        const updatedNotification = yield notification.update(params);
+        return updatedNotification;
+    }
+    catch (error) {
+        throw error;
+    }
+});
+exports.updateNotificationService = updateNotificationService;
+/**
+ * @description Delete a notification (Admin only).
+ * @param {string} notificationId - The ID of the notification to delete.
+ * @returns {Promise<{ message: string }>} Success message.
+ */
+const deleteNotificationService = (notificationId) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notification = yield Notification_model_1.default.findByPk(notificationId);
+        if (!notification) {
+            throw new httpError_1.default("Notification not found", 404);
+        }
+        yield notification.destroy();
+        return { message: "Notification deleted successfully" };
+    }
+    catch (error) {
+        throw error;
+    }
+});
+exports.deleteNotificationService = deleteNotificationService;

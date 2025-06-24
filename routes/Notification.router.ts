@@ -1,11 +1,61 @@
 import express from 'express';
 import * as notificationController from '../controllers/Notification.controller';
-import isAuth from '../middleware/auth'; // Using auth middleware as per your example
+import isAuth, { authorizeAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
-// --- Notification Routes ---
-// All routes require an authenticated user.
+// --- Admin-only CRUD Routes ---
+
+/**
+ * @route   POST /api/notifications/admin/create
+ * @desc    Admin creates a notification for a specific user
+ * @access  Private (Admin)
+ */
+router.post(
+    '/admin/create',
+    isAuth,
+    authorizeAdmin,
+    notificationController.createNotificationForUser
+);
+
+/**
+ * @route   POST /api/notifications/admin/broadcast
+ * @desc    Admin creates a broadcast notification for all users
+ * @access  Private (Admin)
+ */
+router.post(
+    '/admin/broadcast',
+    isAuth,
+    authorizeAdmin,
+    notificationController.createBroadcastNotification
+);
+
+/**
+ * @route   PUT /api/notifications/admin/:notificationId
+ * @desc    Admin updates an existing notification
+ * @access  Private (Admin)
+ */
+router.put(
+    '/admin/:notificationId',
+    isAuth,
+    authorizeAdmin,
+    notificationController.updateNotification
+);
+
+/**
+ * @route   DELETE /api/notifications/admin/:notificationId
+ * @desc    Admin deletes a notification
+ * @access  Private (Admin)
+ */
+router.delete(
+    '/admin/:notificationId',
+    isAuth,
+    authorizeAdmin,
+    notificationController.deleteNotification
+);
+
+
+// --- Authenticated User Routes ---
 
 /**
  * @route   GET /api/notifications

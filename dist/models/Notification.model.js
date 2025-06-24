@@ -1,15 +1,7 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const sequelize_1 = require("sequelize");
-const _1 = require("."); // Assuming sequelize instance is exported from the models index file
-const User_model_1 = __importDefault(require("./User.model")); // Assuming a User model exists in the same directory
-/**
- * Note: Using <any, any> for Model generics sacrifices some compile-time type safety.
- * This approach is simpler but less robust than using explicit interfaces for model attributes.
- */
+const _1 = require(".");
 class Notification extends sequelize_1.Model {
 }
 // --- Initialize the Model ---
@@ -23,8 +15,9 @@ Notification.init({
     userId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: false,
+        // The 'references' key is still important for defining the foreign key constraint at the database level.
         references: {
-            model: User_model_1.default, // This creates a foreign key relationship to the 'users' table
+            model: 'Users', // Reference the table name directly as a string.
             key: 'id',
         },
         onUpdate: 'CASCADE',
@@ -53,6 +46,4 @@ Notification.init({
     timestamps: true,
     modelName: 'Notification',
 });
-Notification.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
-User_model_1.default.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 exports.default = Notification;

@@ -338,3 +338,10 @@ export type CreateNotificationServiceParams = {
     text: string;
     link?: string;
 };
+
+export type UpdateNotificationServiceParams = {
+    type?: 'message' | 'file' | 'update' | 'webinar' | 'system';
+    text?: string;
+    link?: string;
+};
+export type CreateBroadcastNotificationParams = Omit<CreateNotificationServiceParams, 'userId'>;
