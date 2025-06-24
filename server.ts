@@ -9,23 +9,18 @@ console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL)
 // Routers
 import userRouter from './routes/User.router';
 import teacherRouter from './routes/Teacher.router';
-import categoryRouter from './routes/Category.router'; // This is likely for Course Categories
+import categoryRouter from './routes/Category.router';
 import adminRouter from './routes/Admin.router';
 import courseRouter from './routes/Course.router';
 import testSeriesRouter from './routes/TestSeries.router';
 import questionRouter from './routes/Question.router';
 import testRouter from "./routes/Test.router";
 import questionBankRouter from './routes/questionBank.router';
-
-// --- ADDED: Webinar Router Import ---
 import webinarRouter from './routes/webinar.router';
-// --- END ADDED ---
-
-// --- NEW: Brand, BrandCategory, Company Router Imports ---
-import brandCategoryRouter from './routes/brandCategory.router'; // New Brand Category router
-import companyRouter from './routes/company.router';           // New Company router
-import brandRouter from './routes/brand.router';               // New Brand router
-// --- END NEW ---
+import brandCategoryRouter from './routes/brandCategory.router';
+import companyRouter from './routes/company.router';
+import brandRouter from './routes/brand.router';
+import notificationRouter from './routes/Notification.router'; // --- NEW: Notification Router Import ---
 
 const app = express();
 
@@ -34,17 +29,11 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
     'http://localhost:3000', // Your React Admin Panel's local development URL
-    // Add other local development origins if needed, e.g., for mobile device testing:
-    // 'http://192.168.x.x:3000',
-
-    // IMPORTANT: When your React Admin Panel is deployed to a live domain,
-    // add that domain here. E.g.: 'https://admin.yourlms.com'
+   
 ];
 
 const corsOptions: CorsOptions = {
     origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-        // Allow requests with no origin (like React Native app or Postman)
-        // OR if the origin is in our allowed list.
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -70,25 +59,21 @@ app.get('/', (req: Request, res: Response) => {
 // Routes
 app.use('/user', userRouter);
 app.use('/teacher', teacherRouter);
-app.use('/categories', categoryRouter); // This is likely for Course Categories
+app.use('/categories', categoryRouter);
 app.use('/admin', adminRouter);
 app.use('/course', courseRouter);
 app.use('/testseries', testSeriesRouter);
 app.use('/question' , questionRouter);
 app.use('/test', testRouter);
 app.use('/question-banks', questionBankRouter);
+app.use('/webinars', webinarRouter);
+app.use('/brand-categories', brandCategoryRouter);
+app.use('/companies', companyRouter);
+app.use('/brands', brandRouter);
+app.use('/notifications', notificationRouter); // --- NEW: Notification Route Mounting ---
 
-// --- ADDED: Webinar Route Mounting ---
-app.use('/webinars', webinarRouter); // Mount your webinar router here
-// --- END ADDED ---
 
-// --- NEW: Brand, BrandCategory, Company Route Mounting ---
-app.use('/brand-categories', brandCategoryRouter); // API path for brand categories
-app.use('/companies', companyRouter);             // API path for companies
-app.use('/brands', brandRouter);                 // API path for brands
-// --- END NEW ---
-
-// Error handling middleware (ensure AuthenticatedRequest is correctly defined if used)
+// Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     let statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
@@ -110,29 +95,22 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     });
 });
 
-// Ensure these imports are correctly resolved in your project structure
-import './models/associations/index'; // Example: Path to your association setup
-import { AuthenticatedRequest } from './middleware/auth'; // Example: Path to your AuthenticatedRequest type definition
-import initAssociation from './models/associations/index'; // Example: Path to your association initialization function
-import Webinar from './models/webinar.model'; // Ensure Webinar model is imported for Sequelize to recognize it
+import './models/associations/index';
+import { AuthenticatedRequest } from './middleware/auth';
+import initAssociation from './models/associations/index';
+import Webinar from './models/webinar.model';
 import Brand from './models/Brand.model';
 import BrandCategory from './models/BrandCategory.model';
 import Company from './models/Company.model';
+import Notification from './models/Notification.model'; // --- NEW: Import Notification model ---
 
-
-initAssociation(); // Call the association initialization
+initAssociation();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        // IMPORTANT: Since you created the 'Webinars' table manually in Supabase,
-        // we generally don't use `sequelize.sync({ alter: true })` in production.
-        // `alter: false` is safer if you manage schema manually or with migrations.
-        // If you are using `sequelize.define` without the `initialize` method,
-        // simply importing the model (`import Webinar from './models/webinar.model';`)
-        // is enough for Sequelize to register it.
-        await sequelize.sync({ alter: false }); // Syncs models with the database (no schema changes if alter: false)
+        await sequelize.sync({ alter: false });
         return console.log(`Database Connected`);
     } catch (err) {
         console.log(err);

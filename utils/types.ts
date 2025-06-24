@@ -1,4 +1,3 @@
-// src/utils/types.ts
 import { Request } from 'express';
 
 // --- General Utility Types ---
@@ -31,7 +30,7 @@ export interface JwtUserPayload {
 
 // Extend the Express Request type to include the 'user' property from the JWT
 export interface AuthenticatedRequest extends Request {
-    user?: JwtUserPayload; 
+    user?: JwtUserPayload;
 }
 
 /**
@@ -331,3 +330,11 @@ export type GetAllBrandServiceParams = GetFilters & {
     recommended_by_vets?: boolean;
     availability?: string;
 }
+
+// --- Notification Types ---
+export type CreateNotificationServiceParams = {
+    userId: string;
+    type: 'message' | 'file' | 'update' | 'webinar' | 'system';
+    text: string;
+    link?: string;
+};

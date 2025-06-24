@@ -21,35 +21,26 @@ console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL)
 // Routers
 const User_router_1 = __importDefault(require("./routes/User.router"));
 const Teacher_router_1 = __importDefault(require("./routes/Teacher.router"));
-const Category_router_1 = __importDefault(require("./routes/Category.router")); // This is likely for Course Categories
+const Category_router_1 = __importDefault(require("./routes/Category.router"));
 const Admin_router_1 = __importDefault(require("./routes/Admin.router"));
 const Course_router_1 = __importDefault(require("./routes/Course.router"));
 const TestSeries_router_1 = __importDefault(require("./routes/TestSeries.router"));
 const Question_router_1 = __importDefault(require("./routes/Question.router"));
 const Test_router_1 = __importDefault(require("./routes/Test.router"));
 const questionBank_router_1 = __importDefault(require("./routes/questionBank.router"));
-// --- ADDED: Webinar Router Import ---
 const webinar_router_1 = __importDefault(require("./routes/webinar.router"));
-// --- END ADDED ---
-// --- NEW: Brand, BrandCategory, Company Router Imports ---
-const brandCategory_router_1 = __importDefault(require("./routes/brandCategory.router")); // New Brand Category router
-const company_router_1 = __importDefault(require("./routes/company.router")); // New Company router
-const brand_router_1 = __importDefault(require("./routes/brand.router")); // New Brand router
-// --- END NEW ---
+const brandCategory_router_1 = __importDefault(require("./routes/brandCategory.router"));
+const company_router_1 = __importDefault(require("./routes/company.router"));
+const brand_router_1 = __importDefault(require("./routes/brand.router"));
+const Notification_router_1 = __importDefault(require("./routes/Notification.router")); // --- NEW: Notification Router Import ---
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 const allowedOrigins = [
     'http://localhost:3000', // Your React Admin Panel's local development URL
-    // Add other local development origins if needed, e.g., for mobile device testing:
-    // 'http://192.168.x.x:3000',
-    // IMPORTANT: When your React Admin Panel is deployed to a live domain,
-    // add that domain here. E.g.: 'https://admin.yourlms.com'
 ];
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like React Native app or Postman)
-        // OR if the origin is in our allowed list.
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         }
@@ -74,22 +65,19 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/user', User_router_1.default);
 app.use('/teacher', Teacher_router_1.default);
-app.use('/categories', Category_router_1.default); // This is likely for Course Categories
+app.use('/categories', Category_router_1.default);
 app.use('/admin', Admin_router_1.default);
 app.use('/course', Course_router_1.default);
 app.use('/testseries', TestSeries_router_1.default);
 app.use('/question', Question_router_1.default);
 app.use('/test', Test_router_1.default);
 app.use('/question-banks', questionBank_router_1.default);
-// --- ADDED: Webinar Route Mounting ---
-app.use('/webinars', webinar_router_1.default); // Mount your webinar router here
-// --- END ADDED ---
-// --- NEW: Brand, BrandCategory, Company Route Mounting ---
-app.use('/brand-categories', brandCategory_router_1.default); // API path for brand categories
-app.use('/companies', company_router_1.default); // API path for companies
-app.use('/brands', brand_router_1.default); // API path for brands
-// --- END NEW ---
-// Error handling middleware (ensure AuthenticatedRequest is correctly defined if used)
+app.use('/webinars', webinar_router_1.default);
+app.use('/brand-categories', brandCategory_router_1.default);
+app.use('/companies', company_router_1.default);
+app.use('/brands', brand_router_1.default);
+app.use('/notifications', Notification_router_1.default); // --- NEW: Notification Route Mounting ---
+// Error handling middleware
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;
     let statusCode = err.statusCode || 500;
@@ -109,21 +97,14 @@ app.use((err, req, res, next) => {
         message: message,
     });
 });
-// Ensure these imports are correctly resolved in your project structure
-require("./models/associations/index"); // Example: Path to your association setup
-const index_1 = __importDefault(require("./models/associations/index")); // Example: Path to your association initialization function
-(0, index_1.default)(); // Call the association initialization
+require("./models/associations/index");
+const index_1 = __importDefault(require("./models/associations/index"));
+(0, index_1.default)();
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        // IMPORTANT: Since you created the 'Webinars' table manually in Supabase,
-        // we generally don't use `sequelize.sync({ alter: true })` in production.
-        // `alter: false` is safer if you manage schema manually or with migrations.
-        // If you are using `sequelize.define` without the `initialize` method,
-        // simply importing the model (`import Webinar from './models/webinar.model';`)
-        // is enough for Sequelize to register it.
-        yield models_1.sequelize.sync({ alter: false }); // Syncs models with the database (no schema changes if alter: false)
+        yield models_1.sequelize.sync({ alter: false });
         return console.log(`Database Connected`);
     }
     catch (err) {

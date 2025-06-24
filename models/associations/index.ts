@@ -12,10 +12,10 @@ import TestSeries from "../TestSeries.model";
 import User from "../User.model";
 import Test from "../Test.model";
 import Question from "../Question.model";
-// Import Brand, BrandCategory, and Company models
 import Brand from '../Brand.model';
 import BrandCategory from '../BrandCategory.model';
 import Company from '../Company.model';
+import Notification from "models/Notification.model";
 
 const initAssociation = () => {
     // Relationships
@@ -67,7 +67,7 @@ const initAssociation = () => {
     // A Brand belongs to one BrandCategory
     Brand.belongsTo(BrandCategory, {
         foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
-        as: 'brandCategory'           // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
+        as: 'brandCategory'          // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
     });
 
     // A BrandCategory can have many Brands
@@ -88,6 +88,20 @@ const initAssociation = () => {
         as: 'brands'                  // Alias if querying from Company to its Brands
     });
     // --- END NEW ASSOCIATIONS ---
+
+    // --- NOTIFICATION ASSOCIATIONS ---
+    // A user can have many notifications
+    User.hasMany(Notification, {
+        foreignKey: 'userId',
+        as: 'notifications'
+    });
+
+    // A notification belongs to one user
+    Notification.belongsTo(User, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+    // --- END NOTIFICATION ASSOCIATIONS ---
 };
 
 export default initAssociation;

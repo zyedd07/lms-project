@@ -17,10 +17,10 @@ const TestSeries_model_1 = __importDefault(require("../TestSeries.model"));
 const User_model_1 = __importDefault(require("../User.model"));
 const Test_model_1 = __importDefault(require("../Test.model"));
 const Question_model_1 = __importDefault(require("../Question.model"));
-// Import Brand, BrandCategory, and Company models
 const Brand_model_1 = __importDefault(require("../Brand.model"));
 const BrandCategory_model_1 = __importDefault(require("../BrandCategory.model"));
 const Company_model_1 = __importDefault(require("../Company.model"));
+const Notification_model_1 = __importDefault(require("models/Notification.model"));
 const initAssociation = () => {
     // Relationships
     User_model_1.default.hasMany(Enrollment_model_1.default, { foreignKey: 'userId' });
@@ -76,5 +76,17 @@ const initAssociation = () => {
         as: 'brands' // Alias if querying from Company to its Brands
     });
     // --- END NEW ASSOCIATIONS ---
+    // --- NOTIFICATION ASSOCIATIONS ---
+    // A user can have many notifications
+    User_model_1.default.hasMany(Notification_model_1.default, {
+        foreignKey: 'userId',
+        as: 'notifications'
+    });
+    // A notification belongs to one user
+    Notification_model_1.default.belongsTo(User_model_1.default, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+    // --- END NOTIFICATION ASSOCIATIONS ---
 };
 exports.default = initAssociation;
