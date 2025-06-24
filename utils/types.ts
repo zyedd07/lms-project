@@ -362,3 +362,22 @@ export type UpdateArticleParams = {
     batchYear?: string;
 };
 
+export type CreateDrugCategoryParams = {
+    name: string;
+};
+
+export type UpdateDrugCategoryParams = {
+    name?: string;
+};
+
+export type CreateDrugParams = {
+    name: string;
+    categoryId: string;
+    details: object; // e.g., { "Actions": "...", "Dose": "..." }
+};
+
+export type UpdateDrugParams = {
+    name?: string;
+    categoryId?: string;
+    details?: object;
+};

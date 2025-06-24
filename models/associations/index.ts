@@ -16,6 +16,8 @@ import Brand from '../Brand.model';
 import BrandCategory from '../BrandCategory.model';
 import Company from '../Company.model';
 import Notification from "../Notification.model";
+import Drug from "../Drug.model"; // --- NEW: Import Drug model ---
+import DrugCategory from "../DrugCategory.model"; // --- NEW: Import DrugCategory model ---
 
 const initAssociation = () => {
     // Relationships
@@ -64,44 +66,50 @@ const initAssociation = () => {
     Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
 
     // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
-    // A Brand belongs to one BrandCategory
     Brand.belongsTo(BrandCategory, {
-        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
-        as: 'brandCategory'          // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
+        foreignKey: 'brandCategoryId',
+        as: 'brandCategory'
     });
 
-    // A BrandCategory can have many Brands
     BrandCategory.hasMany(Brand, {
-        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
-        as: 'brands'                  // Alias if querying from BrandCategory to its Brands
+        foreignKey: 'brandCategoryId',
+        as: 'brands'
     });
 
-    // A Brand belongs to one Company
     Brand.belongsTo(Company, {
-        foreignKey: 'companyId',      // This must match the column in your 'brands' table
-        as: 'company'                 // Alias used in queries (e.g., include: { model: Company, as: 'company' })
+        foreignKey: 'companyId',
+        as: 'company'
     });
 
-    // A Company can have many Brands
     Company.hasMany(Brand, {
-        foreignKey: 'companyId',      // This must match the column in your 'brands' table
-        as: 'brands'                  // Alias if querying from Company to its Brands
+        foreignKey: 'companyId',
+        as: 'brands'
     });
     // --- END NEW ASSOCIATIONS ---
 
     // --- NOTIFICATION ASSOCIATIONS ---
-    // A user can have many notifications
     User.hasMany(Notification, {
         foreignKey: 'userId',
         as: 'notifications'
     });
 
-    // A notification belongs to one user
     Notification.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
     });
     // --- END NOTIFICATION ASSOCIATIONS ---
+
+    // --- DRUG INDEX ASSOCIATIONS ---
+    Drug.belongsTo(DrugCategory, {
+        foreignKey: 'categoryId',
+        as: 'category'
+    });
+
+    DrugCategory.hasMany(Drug, {
+        foreignKey: 'categoryId',
+        as: 'drugs'
+    });
+    // --- END DRUG INDEX ASSOCIATIONS ---
 };
 
 export default initAssociation;

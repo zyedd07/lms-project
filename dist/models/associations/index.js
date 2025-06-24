@@ -21,6 +21,8 @@ const Brand_model_1 = __importDefault(require("../Brand.model"));
 const BrandCategory_model_1 = __importDefault(require("../BrandCategory.model"));
 const Company_model_1 = __importDefault(require("../Company.model"));
 const Notification_model_1 = __importDefault(require("../Notification.model"));
+const Drug_model_1 = __importDefault(require("../Drug.model")); // --- NEW: Import Drug model ---
+const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model")); // --- NEW: Import DrugCategory model ---
 const initAssociation = () => {
     // Relationships
     User_model_1.default.hasMany(Enrollment_model_1.default, { foreignKey: 'userId' });
@@ -55,38 +57,42 @@ const initAssociation = () => {
     Lecture_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
     Course_model_1.default.hasMany(Lecture_model_1.default, { foreignKey: 'courseId', as: 'lectures' });
     // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
-    // A Brand belongs to one BrandCategory
     Brand_model_1.default.belongsTo(BrandCategory_model_1.default, {
-        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
-        as: 'brandCategory' // Alias used in queries (e.g., include: { model: BrandCategory, as: 'brandCategory' })
+        foreignKey: 'brandCategoryId',
+        as: 'brandCategory'
     });
-    // A BrandCategory can have many Brands
     BrandCategory_model_1.default.hasMany(Brand_model_1.default, {
-        foreignKey: 'brandCategoryId', // This must match the column in your 'brands' table
-        as: 'brands' // Alias if querying from BrandCategory to its Brands
+        foreignKey: 'brandCategoryId',
+        as: 'brands'
     });
-    // A Brand belongs to one Company
     Brand_model_1.default.belongsTo(Company_model_1.default, {
-        foreignKey: 'companyId', // This must match the column in your 'brands' table
-        as: 'company' // Alias used in queries (e.g., include: { model: Company, as: 'company' })
+        foreignKey: 'companyId',
+        as: 'company'
     });
-    // A Company can have many Brands
     Company_model_1.default.hasMany(Brand_model_1.default, {
-        foreignKey: 'companyId', // This must match the column in your 'brands' table
-        as: 'brands' // Alias if querying from Company to its Brands
+        foreignKey: 'companyId',
+        as: 'brands'
     });
     // --- END NEW ASSOCIATIONS ---
     // --- NOTIFICATION ASSOCIATIONS ---
-    // A user can have many notifications
     User_model_1.default.hasMany(Notification_model_1.default, {
         foreignKey: 'userId',
         as: 'notifications'
     });
-    // A notification belongs to one user
     Notification_model_1.default.belongsTo(User_model_1.default, {
         foreignKey: 'userId',
         as: 'user'
     });
     // --- END NOTIFICATION ASSOCIATIONS ---
+    // --- DRUG INDEX ASSOCIATIONS ---
+    Drug_model_1.default.belongsTo(DrugCategory_model_1.default, {
+        foreignKey: 'categoryId',
+        as: 'category'
+    });
+    DrugCategory_model_1.default.hasMany(Drug_model_1.default, {
+        foreignKey: 'categoryId',
+        as: 'drugs'
+    });
+    // --- END DRUG INDEX ASSOCIATIONS ---
 };
 exports.default = initAssociation;

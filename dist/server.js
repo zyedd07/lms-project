@@ -32,8 +32,10 @@ const webinar_router_1 = __importDefault(require("./routes/webinar.router"));
 const brandCategory_router_1 = __importDefault(require("./routes/brandCategory.router"));
 const company_router_1 = __importDefault(require("./routes/company.router"));
 const brand_router_1 = __importDefault(require("./routes/brand.router"));
-const Notification_router_1 = __importDefault(require("./routes/Notification.router")); // --- NEW: Notification Router Import ---
+const Notification_router_1 = __importDefault(require("./routes/Notification.router"));
 const Article_router_1 = __importDefault(require("./routes/Article.router"));
+const Drug_router_1 = __importDefault(require("./routes/Drug.router")); // --- NEW: Drug Router Import ---
+const DrugCategory_router_1 = __importDefault(require("./routes/DrugCategory.router")); // --- NEW: Drug Category Router Import ---
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -77,8 +79,10 @@ app.use('/webinars', webinar_router_1.default);
 app.use('/brand-categories', brandCategory_router_1.default);
 app.use('/companies', company_router_1.default);
 app.use('/brands', brand_router_1.default);
-app.use('/notifications', Notification_router_1.default); // --- NEW: Notification Route Mounting ---
-app.use('/article', Article_router_1.default);
+app.use('/notifications', Notification_router_1.default);
+app.use('/articles', Article_router_1.default);
+app.use('/drugs', Drug_router_1.default); // --- NEW: Drug Route Mounting ---
+app.use('/drug-categories', DrugCategory_router_1.default); // --- NEW: Drug Category Route Mounting ---
 // Error handling middleware
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;

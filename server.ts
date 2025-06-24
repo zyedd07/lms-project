@@ -20,8 +20,10 @@ import webinarRouter from './routes/webinar.router';
 import brandCategoryRouter from './routes/brandCategory.router';
 import companyRouter from './routes/company.router';
 import brandRouter from './routes/brand.router';
-import notificationRouter from './routes/Notification.router'; // --- NEW: Notification Router Import ---
+import notificationRouter from './routes/Notification.router';
 import articleRouter from './routes/Article.router';
+import drugRouter from './routes/Drug.router'; // --- NEW: Drug Router Import ---
+import drugCategoryRouter from './routes/DrugCategory.router'; // --- NEW: Drug Category Router Import ---
 
 const app = express();
 
@@ -30,7 +32,6 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
     'http://localhost:3000', // Your React Admin Panel's local development URL
-   
 ];
 
 const corsOptions: CorsOptions = {
@@ -71,8 +72,10 @@ app.use('/webinars', webinarRouter);
 app.use('/brand-categories', brandCategoryRouter);
 app.use('/companies', companyRouter);
 app.use('/brands', brandRouter);
-app.use('/notifications', notificationRouter); // --- NEW: Notification Route Mounting ---
+app.use('/notifications', notificationRouter);
 app.use('/articles', articleRouter);
+app.use('/drugs', drugRouter); // --- NEW: Drug Route Mounting ---
+app.use('/drug-categories', drugCategoryRouter); // --- NEW: Drug Category Route Mounting ---
 
 
 // Error handling middleware
@@ -104,7 +107,10 @@ import Webinar from './models/webinar.model';
 import Brand from './models/Brand.model';
 import BrandCategory from './models/BrandCategory.model';
 import Company from './models/Company.model';
-import Notification from './models/Notification.model'; // --- NEW: Import Notification model ---
+import Notification from './models/Notification.model';
+import Article from './models/Article.model'; // Import Article model
+import Drug from './models/Drug.model'; // Import Drug model
+import DrugCategory from './models/DrugCategory.model'; // Import DrugCategory model
 
 initAssociation();
 
