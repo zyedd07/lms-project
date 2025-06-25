@@ -15,10 +15,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateHomeContentService = exports.getHomeContentService = exports.uploadSliderImagesService = void 0;
 const HomeContent_model_1 = __importDefault(require("../models/HomeContent.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
-const supabase_js_1 = require("@supabase/supabase-js"); // Import SupabaseClient type
+const supabase_js_1 = require("@supabase/supabase-js");
 const uuid_1 = require("uuid");
 // --- Supabase client setup using environment variables ---
-let supabase; // FIX: Explicitly type the supabase client
+let supabase;
 try {
     console.log("[SUPABASE INIT - HomeContent] Attempting to initialize Supabase client...");
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -32,7 +32,7 @@ try {
         console.log("[SUPABASE INIT - HomeContent] Supabase client initialized SUCCESSFULLY.");
     }
     else {
-        console.error("[SUPABASE INIT ERROR - HomeContent] Supabase client NOT initialized due to missing environment variables. Image upload features will fail.");
+        console.error("[SUPABASE INIT ERROR - HomeContent] Supabase client NOT initialized. Image upload features will fail.");
     }
 }
 catch (error) {
@@ -40,7 +40,7 @@ catch (error) {
 }
 /**
  * @description Uploads slider images and updates the database record with the new URLs.
- * @param {Express.Multer.File[]} files - An array of files from the multipart request.
+ * @param {multer.File[]} files - An array of files from the multipart request, using the type from the declaration shim.
  * @returns {Promise<HomeContent>} The updated home content instance.
  */
 const uploadSliderImagesService = (files) => __awaiter(void 0, void 0, void 0, function* () {
@@ -64,7 +64,6 @@ const uploadSliderImagesService = (files) => __awaiter(void 0, void 0, void 0, f
             if (result.error) {
                 throw new httpError_1.default(`Failed to upload image: ${result.error.message}`, 500);
             }
-            // Construct the public URL for the uploaded file
             const { data } = supabase.storage.from('slider-images').getPublicUrl(result.data.path);
             imageUrls.push(data.publicUrl);
         }

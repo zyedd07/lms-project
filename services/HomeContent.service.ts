@@ -1,10 +1,11 @@
 import HomeContent from '../models/HomeContent.model';
 import HttpError from '../utils/httpError';
-import { createClient, SupabaseClient } from '@supabase/supabase-js'; // Import SupabaseClient type
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer'; // Default import
 
 // --- Supabase client setup using environment variables ---
-let supabase: SupabaseClient; // FIX: Explicitly type the supabase client
+let supabase: SupabaseClient;
 
 try {
   console.log("[SUPABASE INIT - HomeContent] Attempting to initialize Supabase client...");
@@ -19,7 +20,7 @@ try {
     });
     console.log("[SUPABASE INIT - HomeContent] Supabase client initialized SUCCESSFULLY.");
   } else {
-    console.error("[SUPABASE INIT ERROR - HomeContent] Supabase client NOT initialized due to missing environment variables. Image upload features will fail.");
+    console.error("[SUPABASE INIT ERROR - HomeContent] Supabase client NOT initialized. Image upload features will fail.");
   }
 } catch (error) {
   console.error("[SUPABASE INIT ERROR - HomeContent] Unexpected error during Supabase client initialization:", error);
@@ -27,7 +28,6 @@ try {
 
 
 export type UpdateHomeContentParams = {
-    // sliderImages is now optional as it's handled separately
     sliderImages?: string[]; 
     questionOfTheDay?: object;
     aboutUsText?: string;
@@ -36,10 +36,10 @@ export type UpdateHomeContentParams = {
 
 /**
  * @description Uploads slider images and updates the database record with the new URLs.
- * @param {Express.Multer.File[]} files - An array of files from the multipart request.
+ * @param {multer.File[]} files - An array of files from the multipart request, using the type from the declaration shim.
  * @returns {Promise<HomeContent>} The updated home content instance.
  */
-export const uploadSliderImagesService = async (files: Express.Multer.File[]): Promise<HomeContent> => {
+export const uploadSliderImagesService = async (files: multer.File[]): Promise<HomeContent> => {
     if (!supabase) {
         throw new HttpError("Storage service is not initialized. Cannot upload images.", 500);
     }
@@ -63,7 +63,6 @@ export const uploadSliderImagesService = async (files: Express.Multer.File[]): P
             if (result.error) {
                 throw new HttpError(`Failed to upload image: ${result.error.message}`, 500);
             }
-            // Construct the public URL for the uploaded file
             const { data } = supabase.storage.from('slider-images').getPublicUrl(result.data.path);
             imageUrls.push(data.publicUrl);
         }
