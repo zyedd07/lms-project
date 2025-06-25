@@ -8,6 +8,14 @@ export type GetFilters = {
 
 // --- User Types ---
 
+export type UpdateHomeContentParams = {
+    // sliderImages is now optional as it's handled separately
+    sliderImages?: string[]; 
+    questionOfTheDay?: object;
+    aboutUsText?: string;
+    customSections?: object[];
+};
+
 /**
  * Defines the user data that is encoded into the JWT and attached to authenticated requests.
  * Includes all fields from the registration form.

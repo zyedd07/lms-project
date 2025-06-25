@@ -24,6 +24,9 @@ import notificationRouter from './routes/Notification.router';
 import articleRouter from './routes/Article.router';
 import drugRouter from './routes/Drug.router'; // --- NEW: Drug Router Import ---
 import drugCategoryRouter from './routes/DrugCategory.router'; // --- NEW: Drug Category Router Import ---
+import homeContentRouter from './routes/HomeContent.router'; // --- NEW: Drug Category Router Import ---
+
+
 
 const app = express();
 
@@ -76,6 +79,8 @@ app.use('/notifications', notificationRouter);
 app.use('/articles', articleRouter);
 app.use('/drugs', drugRouter); // --- NEW: Drug Route Mounting ---
 app.use('/drug-categories', drugCategoryRouter); // --- NEW: Drug Category Route Mounting ---
+app.use('/home-content', homeContentRouter); // --- NEW: Drug Category Route Mounting ---
+
 
 
 // Error handling middleware

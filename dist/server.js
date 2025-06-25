@@ -36,6 +36,7 @@ const Notification_router_1 = __importDefault(require("./routes/Notification.rou
 const Article_router_1 = __importDefault(require("./routes/Article.router"));
 const Drug_router_1 = __importDefault(require("./routes/Drug.router")); // --- NEW: Drug Router Import ---
 const DrugCategory_router_1 = __importDefault(require("./routes/DrugCategory.router")); // --- NEW: Drug Category Router Import ---
+const HomeContent_router_1 = __importDefault(require("./routes/HomeContent.router")); // --- NEW: Drug Category Router Import ---
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -83,6 +84,7 @@ app.use('/notifications', Notification_router_1.default);
 app.use('/articles', Article_router_1.default);
 app.use('/drugs', Drug_router_1.default); // --- NEW: Drug Route Mounting ---
 app.use('/drug-categories', DrugCategory_router_1.default); // --- NEW: Drug Category Route Mounting ---
+app.use('/home-content', HomeContent_router_1.default); // --- NEW: Drug Category Route Mounting ---
 // Error handling middleware
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;
