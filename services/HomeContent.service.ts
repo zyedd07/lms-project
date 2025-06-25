@@ -89,7 +89,7 @@ export const updateHomeContentService = async (params: UpdateHomeContentParams):
         // Dynamically fetch and structure Top Rated QBanks
         if (params.topRatedQbankNames) {
             const qbankPromises = params.topRatedQbankNames.map(name => 
-                QuestionBank.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price'] })
+                QuestionBank.findOne({ where: { name }, attributes: ['id', 'name', 'description','filePath','fileName', 'price'] })
             );
             const qbanks = await Promise.all(qbankPromises);
             updatePayload.topRatedQbanks = qbanks.filter(q => q !== null);
