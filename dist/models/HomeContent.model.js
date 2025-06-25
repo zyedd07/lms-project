@@ -2,10 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const sequelize_1 = require("sequelize");
 const _1 = require(".");
-/**
- * This model stores dynamic content for the main home screen of the app.
- * It's designed to have only one row, acting as a central configuration point.
- */
 class HomeContent extends sequelize_1.Model {
 }
 HomeContent.init({
@@ -16,24 +12,40 @@ HomeContent.init({
         allowNull: false,
     },
     sliderImages: {
-        type: sequelize_1.DataTypes.ARRAY(sequelize_1.DataTypes.STRING), // Array of strings for image URLs
+        type: sequelize_1.DataTypes.ARRAY(sequelize_1.DataTypes.STRING),
         allowNull: false,
         defaultValue: [],
     },
     questionOfTheDay: {
-        type: sequelize_1.DataTypes.JSONB, // Flexible JSON for the question structure
+        type: sequelize_1.DataTypes.JSONB,
         allowNull: false,
         defaultValue: {},
     },
     aboutUsText: {
-        type: sequelize_1.DataTypes.TEXT, // Dedicated TEXT field for the "About Us" content
+        type: sequelize_1.DataTypes.TEXT,
         allowNull: false,
         defaultValue: 'Welcome! Edit this section from the admin panel.',
     },
     customSections: {
-        type: sequelize_1.DataTypes.JSONB, // Allows for an array of other custom sections
+        type: sequelize_1.DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+    },
+    // --- NEW FIELD DEFINITIONS ---
+    topRatedCourses: {
+        type: sequelize_1.DataTypes.JSONB,
         allowNull: false,
         defaultValue: [], // Default to an empty array
+    },
+    topRatedTests: {
+        type: sequelize_1.DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+    },
+    topRatedQbanks: {
+        type: sequelize_1.DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
     },
 }, {
     sequelize: _1.sequelize,

@@ -48,7 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadSliderImages = exports.updateHomeContent = exports.getHomeContent = exports.upload = void 0;
 const homeContentService = __importStar(require("../services/HomeContent.service"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
-const multer_1 = __importDefault(require("multer")); // Keep the default import for the function
+const multer_1 = __importDefault(require("multer"));
 // --- Multer Configuration for handling image uploads in memory ---
 const storage = multer_1.default.memoryStorage();
 exports.upload = (0, multer_1.default)({
@@ -99,7 +99,6 @@ exports.updateHomeContent = updateHomeContent;
  */
 const uploadSliderImages = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // FIX: Use the namespaced `multer.File` type provided by the declaration shim
         const files = req.files;
         if (!files || files.length === 0) {
             throw new httpError_1.default("No image files were uploaded.", 400);

@@ -1,36 +1,16 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '.'; 
 
-/**
- * This model stores dynamic content for the main home screen of the app.
- * It's designed to have only one row, acting as a central configuration point.
- */
 class HomeContent extends Model<any, any> {
     public id!: string;
-    
-    /**
-     * An array of image URLs for the main slider.
-     * e.g., ["https://example.com/slide1.jpg", "https://example.com/slide2.jpg"]
-     */
     public sliderImages!: string[];
-
-    /**
-     * A JSON object representing the Question of the Day.
-     * This flexible format allows for storing question text, options, correct answers, etc.
-     */
     public questionOfTheDay!: object;
-
-    /**
-     * The text content for the dedicated "About Us" section.
-     */
     public aboutUsText!: string;
-
-    /**
-     * An array of custom content sections for the home page.
-     * Allows admins to add sections like "Our Mission", "Vision", etc.
-     * Example: [{ "title": "Our Mission", "content": "Our mission is..." }]
-     */
     public customSections!: object[];
+    // --- NEW FIELDS ---
+    public topRatedCourses!: object[];
+    public topRatedTests!: object[];
+    public topRatedQbanks!: object[];
 
     // Timestamps
     public readonly createdAt!: Date;
@@ -46,24 +26,40 @@ HomeContent.init(
             allowNull: false,
         },
         sliderImages: {
-            type: DataTypes.ARRAY(DataTypes.STRING), // Array of strings for image URLs
+            type: DataTypes.ARRAY(DataTypes.STRING),
             allowNull: false,
             defaultValue: [],
         },
         questionOfTheDay: {
-            type: DataTypes.JSONB, // Flexible JSON for the question structure
+            type: DataTypes.JSONB,
             allowNull: false,
             defaultValue: {},
         },
         aboutUsText: {
-            type: DataTypes.TEXT, // Dedicated TEXT field for the "About Us" content
+            type: DataTypes.TEXT,
             allowNull: false,
             defaultValue: 'Welcome! Edit this section from the admin panel.',
         },
         customSections: {
-            type: DataTypes.JSONB, // Allows for an array of other custom sections
+            type: DataTypes.JSONB,
+            allowNull: false,
+            defaultValue: [],
+        },
+        // --- NEW FIELD DEFINITIONS ---
+        topRatedCourses: {
+            type: DataTypes.JSONB,
             allowNull: false,
             defaultValue: [], // Default to an empty array
+        },
+        topRatedTests: {
+            type: DataTypes.JSONB,
+            allowNull: false,
+            defaultValue: [],
+        },
+        topRatedQbanks: {
+            type: DataTypes.JSONB,
+            allowNull: false,
+            defaultValue: [],
         },
     },
     {

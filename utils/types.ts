@@ -8,12 +8,16 @@ export type GetFilters = {
 
 // --- User Types ---
 
+// --- Type Definitions for Service Layer ---
 export type UpdateHomeContentParams = {
-    // sliderImages is now optional as it's handled separately
-    sliderImages?: string[]; 
+    sliderImages?: string[];
     questionOfTheDay?: object;
     aboutUsText?: string;
     customSections?: object[];
+    // Admin will provide an array of names for each "top rated" section
+    topRatedCourseNames?: string[];
+    topRatedTestNames?: string[];
+    topRatedQbankNames?: string[];
 };
 
 /**

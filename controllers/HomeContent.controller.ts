@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as homeContentService from '../services/HomeContent.service';
-import { UpdateHomeContentParams } from '../services/HomeContent.service';
+import { UpdateHomeContentParams } from '../utils/types';
 import HttpError from '../utils/httpError';
-import multer from 'multer'; // Keep the default import for the function
+import multer from 'multer';
 
 // --- Multer Configuration for handling image uploads in memory ---
 const storage = multer.memoryStorage();
@@ -54,7 +54,6 @@ export const updateHomeContent = async (req: Request, res: Response, next: NextF
  */
 export const uploadSliderImages = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // FIX: Use the namespaced `multer.File` type provided by the declaration shim
         const files = req.files as multer.File[]; 
         if (!files || files.length === 0) {
             throw new HttpError("No image files were uploaded.", 400);
