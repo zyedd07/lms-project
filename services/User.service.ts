@@ -3,10 +3,10 @@ import bcrypt from 'bcryptjs';
 import { CreateUserServiceParams, LoginUserServiceParams, UpdateUserServiceParams } from "../utils/types";
 import HttpError from "../utils/httpError";
 import jwt, { SignOptions } from 'jsonwebtoken';
+import * as fs from 'fs';
+import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import * as fs from 'fs';
-import *'path';
 
 // --- Supabase client setup ---
 let supabaseClient;
@@ -27,7 +27,50 @@ try {
 const supabase = supabaseClient;
 
 // --- Jitsi Private Key Setup (assuming it's needed elsewhere) ---
-// ... Jitsi setup code ...
+const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
+    ? '/etc/secrets/jitsi_private_key.pem'
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem');
+
+let jitsiPrivateKey: string;
+try {
+    if (fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
+    } else {
+        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || '';
+        if (!jitsiPrivateKey) {
+            console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
+        } else {
+            console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable.");
+        }
+    }
+    if (!jitsiPrivateKey) {
+        // This is a warning, not a fatal error if Jitsi is optional
+        console.warn("Jitsi Private Key is not loaded. Jitsi-related features may not work.");
+    }
+} catch (error) {
+    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
+}
+
+/**
+ * Service to fetch a single user profile by their ID.
+ */
+export const getProfileService = async (userId: string) => {
+    try {
+        const user = await User.findByPk(userId, {
+            attributes: [
+                'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+                'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+            ]
+        });
+        if (!user) {
+            throw new HttpError("User not found", 404);
+        }
+        return user;
+    } catch (error) {
+        throw error;
+    }
+};
 
 /**
  * Creates a new user in the database.
@@ -63,7 +106,6 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
 
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
     
-    // JWT payload should be minimal, only what's needed for authentication/authorization
     const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
@@ -74,25 +116,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
     
-    // Return the full, clean user object (as a plain object) alongside the token
     return { user: user.toJSON(), token };
-};
-
-/**
- * NEW SERVICE: Fetches a single user profile by their ID.
- * This is called by the `getLoggedInUser` controller.
- */
-export const getProfileService = async (userId: string) => {
-    const user = await User.findByPk(userId, {
-        attributes: [
-            'id', 'name', 'email', 'phone', 'role', 'profilePicture',
-            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
-        ]
-    });
-    if (!user) {
-        throw new HttpError("User not found", 404);
-    }
-    return user;
 };
 
 /**
