@@ -71,7 +71,7 @@ export const updateHomeContentService = async (params: UpdateHomeContentParams):
         // Dynamically fetch and structure Top Rated Courses
         if (params.topRatedCourseNames) {
             const coursePromises = params.topRatedCourseNames.map(name => 
-                Course.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price'] })
+                Course.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price', 'demoVideoUrl','categoryId', 'syllabus', 'contents'] })
             );
             const courses = await Promise.all(coursePromises);
             updatePayload.topRatedCourses = courses.filter(c => c !== null); // Filter out any names that weren't found
