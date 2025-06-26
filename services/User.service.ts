@@ -8,69 +8,65 @@ import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
-// --- Supabase client setup ---
+// --- Supabase client setup using environment variables ---
 let supabaseClient;
 try {
+  console.log("[SUPABASE INIT] Attempting to initialize Supabase client...");
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    console.error("[SUPABASE INIT ERROR] SUPABASE_URL is UNDEFINED. Please check your Codespace environment variables/secrets.");
+  } else {
+    console.log(`[SUPABASE INIT] SUPABASE_URL: ${supabaseUrl.substring(0, 30)}...`);
+  }
+
+  if (!supabaseKey) {
+    console.error("[SUPABASE INIT ERROR] SUPABASE_SERVICE_ROLE_KEY is UNDEFINED. Please check your Codespace environment variables/secrets.");
+  } else {
+    console.log("[SUPABASE INIT] SUPABASE_SERVICE_ROLE_KEY is present.");
+  }
+
   if (supabaseUrl && supabaseKey) {
     supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
+      auth: {
+        persistSession: false,
+      },
     });
-    console.log("[SUPABASE INIT] Supabase client initialized successfully.");
+    console.log("[SUPABASE INIT] Supabase client initialized SUCCESSFULLY.");
   } else {
-    console.error("[SUPABASE INIT ERROR] Supabase client not initialized due to missing environment variables.");
+    console.error("[SUPABASE INIT ERROR] Supabase client NOT initialized due to missing environment variables.");
   }
 } catch (error) {
   console.error("[SUPABASE INIT ERROR] Unexpected error during Supabase client initialization:", error);
+  throw error;
 }
 const supabase = supabaseClient;
 
-// --- Jitsi Private Key Setup (assuming it's needed elsewhere) ---
+// --- Jitsi Private Key Setup ---
 const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
-    ? '/etc/secrets/jitsi_private_key.pem'
-    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem');
-
+    ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
+    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem'); // Local dev path
 let jitsiPrivateKey: string;
 try {
-    if (fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
-        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
-        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
-    } else {
+    if (!fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
         jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || '';
         if (!jitsiPrivateKey) {
             console.warn(`[Jitsi Init] Jitsi private key file not found at ${JITSI_PRIVATE_KEY_FILE_PATH} and JITSI_PRIVATE_KEY env var is empty.`);
         } else {
             console.log("[Jitsi Init] Jitsi Private Key loaded from environment variable.");
         }
+    } else {
+        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
+        console.log("[Jitsi Init] Jitsi Private Key loaded successfully from secret file.");
     }
     if (!jitsiPrivateKey) {
-        // This is a warning, not a fatal error if Jitsi is optional
+        // This is not a fatal error if Jitsi features are optional
         console.warn("Jitsi Private Key is not loaded. Jitsi-related features may not work.");
     }
 } catch (error) {
     console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
 }
-
-/**
- * Service to fetch a single user profile by their ID.
- */
-export const getProfileService = async (userId: string) => {
-    try {
-        const user = await User.findByPk(userId, {
-            attributes: [
-                'id', 'name', 'email', 'phone', 'role', 'profilePicture',
-                'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
-            ]
-        });
-        if (!user) {
-            throw new HttpError("User not found", 404);
-        }
-        return user;
-    } catch (error) {
-        throw error;
-    }
-};
 
 /**
  * Creates a new user in the database.
@@ -86,7 +82,7 @@ export const createUserService = async (params: CreateUserServiceParams) => {
 };
 
 /**
- * Authenticates a user and returns their profile and a JWT.
+ * Authenticates a user and returns their complete data profile and a JWT.
  */
 export const loginUserService = async ({ email, password }: LoginUserServiceParams) => {
     const user = await User.findOne({
@@ -106,6 +102,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
 
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
     
+    // JWT payload should be minimal for security and performance
     const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
@@ -117,6 +114,43 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
     
     return { user: user.toJSON(), token };
+};
+
+/**
+ * --- FIX 1: This new service fetches the fresh profile from the DB ---
+ * This is called by the `getLoggedInUser` controller to solve the core bug.
+ */
+export const getProfileService = async (userId: string) => {
+    const user = await User.findByPk(userId, {
+        attributes: [
+            'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+        ]
+    });
+    if (!user) {
+        throw new HttpError("User not found", 404);
+    }
+    return user;
+};
+
+/**
+ * --- FIX 2: This service was accidentally removed and is now restored ---
+ * Retrieves one user (if email is provided) or all users from the database.
+ */
+export const getUsersService = async (email?: string) => {
+    const attributes = [
+        'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+        'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+    ];
+    if (email) {
+        const user = await User.findOne({ where: { email }, attributes });
+        if (!user) {
+            throw new HttpError("User does not exist", 404);
+        }
+        return user;
+    } else {
+        return await User.findAll({ attributes });
+    }
 };
 
 /**
