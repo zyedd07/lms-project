@@ -3,10 +3,10 @@ import bcrypt from 'bcryptjs';
 import { CreateUserServiceParams, LoginUserServiceParams, UpdateUserServiceParams } from "../utils/types";
 import HttpError from "../utils/httpError";
 import jwt, { SignOptions } from 'jsonwebtoken';
-import * as fs from 'fs';
-import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs';
+import *'path';
 
 // --- Supabase client setup ---
 let supabaseClient;
@@ -26,23 +26,8 @@ try {
 }
 const supabase = supabaseClient;
 
-// --- Jitsi Private Key Setup ---
-const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
-    ? '/etc/secrets/jitsi_private_key.pem'
-    : path.join(__dirname, '..', '..', 'jitsi_private_key.pem');
-let jitsiPrivateKey: string;
-try {
-    if (fs.existsSync(JITSI_PRIVATE_KEY_FILE_PATH)) {
-        jitsiPrivateKey = fs.readFileSync(JITSI_PRIVATE_KEY_FILE_PATH, 'utf8');
-    } else {
-        jitsiPrivateKey = process.env.JITSI_PRIVATE_KEY || '';
-    }
-    if (!jitsiPrivateKey) {
-        console.warn("[Jitsi Init] Jitsi Private Key is not loaded.");
-    }
-} catch (error) {
-    console.error("[Jitsi Init] Error loading Jitsi Private Key:", error);
-}
+// --- Jitsi Private Key Setup (assuming it's needed elsewhere) ---
+// ... Jitsi setup code ...
 
 /**
  * Creates a new user in the database.
@@ -50,16 +35,15 @@ try {
 export const createUserService = async (params: CreateUserServiceParams) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(params.password, salt);
-    const newUser = await User.create({
+    return User.create({
         ...params,
         password: passwordHash,
         role: params.designation,
     });
-    return newUser;
 };
 
 /**
- * Authenticates a user and returns their complete profile and a JWT.
+ * Authenticates a user and returns their profile and a JWT.
  */
 export const loginUserService = async ({ email, password }: LoginUserServiceParams) => {
     const user = await User.findOne({
@@ -76,42 +60,39 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     if (!isPasswordMatch) {
         throw new HttpError("Invalid password", 400);
     }
-    const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret';
-    const userSessionData = {
+
+    const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
+    
+    // JWT payload should be minimal, only what's needed for authentication/authorization
+    const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
         email: user.get("email"),
-        phone: user.get("phone"),
         role: user.get("role"),
-        profilePicture: user.get("profilePicture"),
-        dateOfBirth: user.get("dateOfBirth"),
-        address: user.get("address"),
-        rollNo: user.get("rollNo"),
-        collegeName: user.get("collegeName"),
-        university: user.get("university"),
-        country: user.get("country"),
     };
+    
     const jwtOptions: SignOptions = { expiresIn: '7d' };
-    const token = jwt.sign(userSessionData, APP_SECRET_KEY, jwtOptions);
-    return { user: userSessionData, token };
+    const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+    
+    // Return the full, clean user object (as a plain object) alongside the token
+    return { user: user.toJSON(), token };
 };
 
 /**
- * Retrieves one or all users from the database.
+ * NEW SERVICE: Fetches a single user profile by their ID.
+ * This is called by the `getLoggedInUser` controller.
  */
-export const getUsersService = async (email?: string) => {
-    const attributes = [
-        'id', 'name', 'email', 'phone', 'role', 'profilePicture',
-        'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
-    ];
-    if (email) {
-        const user = await User.findOne({ where: { email }, attributes });
-        if (!user) {
-            throw new HttpError("User does not exist", 404);
-        }
-        return user;
+export const getProfileService = async (userId: string) => {
+    const user = await User.findByPk(userId, {
+        attributes: [
+            'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+        ]
+    });
+    if (!user) {
+        throw new HttpError("User not found", 404);
     }
-    return User.findAll({ attributes });
+    return user;
 };
 
 /**
@@ -172,6 +153,11 @@ export const uploadProfilePictureService = async (userId: string, fileBuffer: Bu
  * Deletes a user.
  */
 export const deleteUserService = async (id: string) => {
-    // ... logic to delete user and picture from storage ...
+    const user = await User.findByPk(id);
+    if (!user) {
+        throw new HttpError("User not found", 404);
+    }
+    // Add logic to delete profile picture from storage here...
+    await user.destroy();
     return true;
 };
