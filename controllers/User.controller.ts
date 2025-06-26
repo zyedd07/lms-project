@@ -7,7 +7,8 @@ import {
     updateUserService,
     deleteUserService,
     uploadProfilePictureService,
-    getProfileService // Import the new service
+    getProfileService, // Import the new service for fetching profiles
+    getUsersService
 } from "../services/User.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import multer, { MulterError } from 'multer';
@@ -26,6 +27,43 @@ const profilePictureUpload = multer({
 });
 
 /**
+ * Controller for creating a new user.
+ */
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { name, email, password, phone, dateOfBirth, address, rollNo, collegeName, university, country, designation } = req.body;
+        if (!name || !email || !password || !phone || !dateOfBirth || !address || !rollNo || !collegeName || !university || !country || !designation) {
+            throw new HttpError("Please provide all required fields for registration", 400);
+        }
+        const newUser = await createUserService(req.body);
+        res.status(201).json({
+            id: newUser.get('id'),
+            name: newUser.get('name'),
+            email: newUser.get('email'),
+            message: "User created successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Controller for user login.
+ */
+export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            throw new HttpError("Please provide both email and password", 400);
+        }
+        const response = await loginUserService({ email, password });
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Controller for a logged-in user to fetch their own, up-to-date profile.
  */
 export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -33,8 +71,7 @@ export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, 
         if (!req.user || !req.user.id) {
             return next(new HttpError('User not authenticated.', 401));
         }
-
-        // CORRECT: The controller calls the service layer to get the data.
+        // The controller calls the service layer to get the data.
         // This resolves the bug of sending back stale JWT data.
         const userId = req.user.id;
         const freshUser = await getProfileService(userId);
@@ -114,39 +151,57 @@ export const uploadProfilePictureController = async (req: AuthenticatedRequest, 
 };
 
 /**
- * Controller for user login.
+ * Controller for an admin to get any user's profile by email.
  */
-export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            throw new HttpError("Please provide both email and password", 400);
-        }
-        const response = await loginUserService({ email, password });
-        res.status(200).json(response);
+        const email = req.params.email;
+        const user = await getUsersService(email);
+        res.status(200).json(user);
     } catch (error) {
         next(error);
     }
 };
 
 /**
- * Controller for creating a new user.
+ * Controller for an admin to get all users.
  */
-export const createUser = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const newUser = await createUserService(req.body);
-        res.status(201).json({
-            id: newUser.get('id'),
-            name: newUser.get('name'),
-            email: newUser.get('email'),
-            message: "User created successfully"
-        });
+        const users = await getUsersService();
+        res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        next(new HttpError("Failed to fetch all users", 500));
+    }
+};
+
+/**
+ * Controller for an admin to update any user's details by ID.
+ */
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        // In a real app, you would have more robust validation here
+        const updatedUser = await updateUserService(id, updates);
+        res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
     } catch (error) {
         next(error);
     }
 };
 
-// ... other admin-level controllers like deleteUser, updateUser can be added here ...
+/**
+ * Controller for an admin to delete a user by ID.
+ */
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        await deleteUserService(id);
+        res.status(200).json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+        next(error);
+    }
+};
 
 // Export multer instance for use in routes
 export { profilePictureUpload };
