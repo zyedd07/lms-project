@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAllAsRead = exports.markAsRead = exports.getMyNotifications = exports.deleteNotification = exports.updateNotification = exports.createBroadcastNotification = exports.createNotificationForUser = exports.getAllNotifications = void 0;
+exports.markAllAsRead = exports.markAsRead = exports.getAllMyNotifications = exports.getMyNotifications = exports.deleteNotification = exports.updateNotification = exports.createBroadcastNotification = exports.createNotificationForUser = exports.getAllNotifications = void 0;
 const notificationService = __importStar(require("../services/Notification.service"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 // --- Admin Controllers ---
@@ -145,7 +145,7 @@ const deleteNotification = (req, res, next) => __awaiter(void 0, void 0, void 0,
 exports.deleteNotification = deleteNotification;
 // --- User-facing Controllers ---
 /**
- * @description Controller to get the current user's unread notifications.
+ * @description Controller to get the current user's unread notifications (limit 10).
  */
 const getMyNotifications = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -154,7 +154,7 @@ const getMyNotifications = (req, res, next) => __awaiter(void 0, void 0, void 0,
             throw new httpError_1.default("User not authenticated.", 401);
         }
         const notifications = yield notificationService.getUnreadNotificationsByUserService(req.user.id);
-        res.status(200).json({ success: true, message: "Notifications fetched successfully", data: notifications });
+        res.status(200).json({ success: true, message: "Unread notifications fetched successfully", data: notifications });
     }
     catch (error) {
         console.error("Error in getMyNotifications:", error);
@@ -162,6 +162,24 @@ const getMyNotifications = (req, res, next) => __awaiter(void 0, void 0, void 0,
     }
 });
 exports.getMyNotifications = getMyNotifications;
+/**
+ * @description Controller to get ALL of the current user's notifications.
+ */
+const getAllMyNotifications = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        if (!((_a = req.user) === null || _a === void 0 ? void 0 : _a.id)) {
+            throw new httpError_1.default("User not authenticated.", 401);
+        }
+        const notifications = yield notificationService.getAllNotificationsByUserService(req.user.id);
+        res.status(200).json({ success: true, message: "All notifications fetched successfully", data: notifications });
+    }
+    catch (error) {
+        console.error("Error in getAllMyNotifications:", error);
+        next(error);
+    }
+});
+exports.getAllMyNotifications = getAllMyNotifications;
 /**
  * @description Controller to mark a specific notification as read.
  */

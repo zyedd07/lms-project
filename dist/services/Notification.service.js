@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteNotificationService = exports.updateNotificationService = exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getUnreadNotificationsByUserService = exports.createBroadcastNotificationService = exports.createNotificationService = exports.getAllNotificationsService = void 0;
+exports.deleteNotificationService = exports.updateNotificationService = exports.markAllNotificationsAsReadService = exports.markNotificationAsReadService = exports.getAllNotificationsByUserService = exports.getUnreadNotificationsByUserService = exports.createBroadcastNotificationService = exports.createNotificationService = exports.getAllNotificationsService = void 0;
 const Notification_model_1 = __importDefault(require("../models/Notification.model"));
 const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for broadcast and associations
 const httpError_1 = __importDefault(require("../utils/httpError"));
@@ -93,6 +93,7 @@ const getUnreadNotificationsByUserService = (userId) => __awaiter(void 0, void 0
                 isRead: false,
             },
             order: [['createdAt', 'DESC']],
+            limit: 10 // Return only the last 10 unread notifications for the dropdown
         });
         return notifications;
     }
@@ -101,6 +102,26 @@ const getUnreadNotificationsByUserService = (userId) => __awaiter(void 0, void 0
     }
 });
 exports.getUnreadNotificationsByUserService = getUnreadNotificationsByUserService;
+/**
+ * @description Get ALL notifications for a specific user (read and unread).
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<Notification[]>} A complete list of the user's notifications.
+ */
+const getAllNotificationsByUserService = (userId) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notifications = yield Notification_model_1.default.findAll({
+            where: {
+                userId, // Filter by the user ID
+            },
+            order: [['createdAt', 'DESC']], // Get the newest ones first
+        });
+        return notifications;
+    }
+    catch (error) {
+        throw error;
+    }
+});
+exports.getAllNotificationsByUserService = getAllNotificationsByUserService;
 /**
  * @description Mark a single notification as read.
  * @param {string} notificationId - The ID of the notification.

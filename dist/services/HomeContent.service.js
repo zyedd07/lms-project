@@ -79,7 +79,7 @@ const updateHomeContentService = (params) => __awaiter(void 0, void 0, void 0, f
         };
         // Dynamically fetch and structure Top Rated Courses
         if (params.topRatedCourseNames) {
-            const coursePromises = params.topRatedCourseNames.map(name => Course_model_1.default.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price'] }));
+            const coursePromises = params.topRatedCourseNames.map(name => Course_model_1.default.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price', 'demoVideoUrl', 'categoryId', 'syllabus', 'contents'] }));
             const courses = yield Promise.all(coursePromises);
             updatePayload.topRatedCourses = courses.filter(c => c !== null); // Filter out any names that weren't found
         }
@@ -91,7 +91,7 @@ const updateHomeContentService = (params) => __awaiter(void 0, void 0, void 0, f
         }
         // Dynamically fetch and structure Top Rated QBanks
         if (params.topRatedQbankNames) {
-            const qbankPromises = params.topRatedQbankNames.map(name => QuestionBank_model_1.default.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'price'] }));
+            const qbankPromises = params.topRatedQbankNames.map(name => QuestionBank_model_1.default.findOne({ where: { name }, attributes: ['id', 'name', 'description', 'filePath', 'fileName', 'price'] }));
             const qbanks = yield Promise.all(qbankPromises);
             updatePayload.topRatedQbanks = qbanks.filter(q => q !== null);
         }

@@ -46,7 +46,7 @@ router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
 // Authenticated user's own profile routes
 router.get('/me', auth_1.default, UserController.getLoggedInUser);
-router.put('/me', auth_1.default, UserController.updateMyProfile); // For user to update their OWN profile
+router.put('/meupdate', auth_1.default, UserController.updateMyProfile); // For user to update their OWN profile
 // --- New route for profile picture upload ---
 // This route needs authentication and the multer middleware
 // `profilePictureUpload.single('profilePicture')` is the multer middleware
