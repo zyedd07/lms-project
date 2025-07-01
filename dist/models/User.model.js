@@ -61,6 +61,14 @@ const User = _1.sequelize.define('User', {
     country: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
-    }
+    },
+    passwordResetToken: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true,
+    },
+    passwordResetExpires: {
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: true,
+    },
 }, { timestamps: true });
 exports.default = User;

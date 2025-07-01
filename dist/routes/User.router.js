@@ -36,7 +36,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// User.router.ts
 const express_1 = __importDefault(require("express"));
 const UserController = __importStar(require("../controllers/User.controller"));
 const auth_1 = __importStar(require("../middleware/auth")); // Ensure authorizeAdmin is imported
@@ -44,6 +43,8 @@ const router = express_1.default.Router();
 // Public routes (no authentication required)
 router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
+router.post('/forgot-password', UserController.forgotPassword);
+router.post('/reset-password', UserController.resetPassword);
 // Authenticated user's own profile routes
 router.get('/me', auth_1.default, UserController.getLoggedInUser);
 router.put('/meupdate', auth_1.default, UserController.updateMyProfile); // For user to update their OWN profile

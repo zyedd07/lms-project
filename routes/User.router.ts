@@ -1,4 +1,3 @@
-// User.router.ts
 import express from 'express';
 import * as UserController from '../controllers/User.controller';
 import isAuth, { authorizeAdmin } from '../middleware/auth'; // Ensure authorizeAdmin is imported
@@ -8,6 +7,8 @@ const router = express.Router();
 // Public routes (no authentication required)
 router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
+router.post('/forgot-password', UserController.forgotPassword); 
+router.post('/reset-password', UserController.resetPassword);   
 
 // Authenticated user's own profile routes
 router.get('/me', isAuth, UserController.getLoggedInUser);

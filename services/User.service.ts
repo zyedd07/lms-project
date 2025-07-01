@@ -7,6 +7,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
+import { sendEmail } from '../utils/email'; //  --- IMPORT THE EMAIL SERVICE
 
 // --- Supabase client setup using environment variables ---
 let supabaseClient;
@@ -42,6 +44,7 @@ try {
   throw error;
 }
 const supabase = supabaseClient;
+
 
 // --- Jitsi Private Key Setup ---
 const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
@@ -117,8 +120,82 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
 };
 
 /**
- * --- FIX 1: This new service fetches the fresh profile from the DB ---
- * This is called by the `getLoggedInUser` controller to solve the core bug.
+ * --- UPDATED SERVICE ---
+ * Generates a password reset token and sends it to the user's email via SendGrid.
+ */
+export const forgotPasswordService = async (email: string) => {
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+        console.log(`[PASS RESET] Request for non-existent user: ${email}`);
+        return { message: "If a user with that email exists, a password reset link has been sent." };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const passwordResetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    (user as any).passwordResetToken = passwordResetToken;
+    (user as any).passwordResetExpires = passwordResetExpires;
+    await user.save();
+    
+    // --- 📧 SEND THE EMAIL ---
+    // This URL should point to the page in your frontend application where users can enter their new password.
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    const emailHtml = `
+      <h1>You requested a password reset</h1>
+      <p>Click the link below to set a new password. This link will expire in 1 hour.</p>
+      <a href="${resetUrl}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Your Password</a>
+      <p>If you did not request a password reset, please ignore this email.</p>
+    `;
+
+    try {
+        await sendEmail({
+            to: user.get("email") as string,
+            subject: 'Your Password Reset Request',
+            html: emailHtml,
+        });
+    } catch (error) {
+        console.error(`[PASS RESET] Failed to send email to ${email}. Error:`, error);
+        // Do not throw an error to the client to avoid leaking user information.
+    }
+
+    return { message: "If a user with that email exists, a password reset link has been sent." };
+};
+
+/**
+ * Resets a user's password using a valid reset token.
+ */
+export const resetPasswordService = async (token: string, newPassword: string) => {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+        where: {
+            passwordResetToken: hashedToken,
+        }
+    });
+    
+    const now = new Date();
+    if (!user || (user as any).passwordResetExpires < now) {
+        throw new HttpError("Password reset token is invalid or has expired.", 400);
+    }
+    
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+    
+    user.set('password', passwordHash);
+    user.set('passwordResetToken', null);
+    user.set('passwordResetExpires', null);
+    
+    await user.save();
+
+    return { message: "Password has been successfully reset." };
+};
+
+
+/**
+ * Fetches a user's profile from the database.
  */
 export const getProfileService = async (userId: string) => {
     const user = await User.findByPk(userId, {
@@ -134,7 +211,6 @@ export const getProfileService = async (userId: string) => {
 };
 
 /**
- * --- FIX 2: This service was accidentally removed and is now restored ---
  * Retrieves one user (if email is provided) or all users from the database.
  */
 export const getUsersService = async (email?: string) => {

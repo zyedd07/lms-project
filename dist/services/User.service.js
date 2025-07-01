@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUserService = exports.uploadProfilePictureService = exports.updateUserService = exports.getUsersService = exports.getProfileService = exports.loginUserService = exports.createUserService = void 0;
+exports.deleteUserService = exports.uploadProfilePictureService = exports.updateUserService = exports.getUsersService = exports.getProfileService = exports.resetPasswordService = exports.forgotPasswordService = exports.loginUserService = exports.createUserService = void 0;
 const User_model_1 = __importDefault(require("../models/User.model"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
@@ -54,6 +54,8 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const supabase_js_1 = require("@supabase/supabase-js");
 const uuid_1 = require("uuid");
+const crypto = __importStar(require("crypto"));
+const email_1 = require("../utils/email"); //  --- IMPORT THE EMAIL SERVICE
 // --- Supabase client setup using environment variables ---
 let supabaseClient;
 try {
@@ -157,8 +159,69 @@ const loginUserService = (_a) => __awaiter(void 0, [_a], void 0, function* ({ em
 });
 exports.loginUserService = loginUserService;
 /**
- * --- FIX 1: This new service fetches the fresh profile from the DB ---
- * This is called by the `getLoggedInUser` controller to solve the core bug.
+ * --- UPDATED SERVICE ---
+ * Generates a password reset token and sends it to the user's email via SendGrid.
+ */
+const forgotPasswordService = (email) => __awaiter(void 0, void 0, void 0, function* () {
+    const user = yield User_model_1.default.findOne({ where: { email } });
+    if (!user) {
+        console.log(`[PASS RESET] Request for non-existent user: ${email}`);
+        return { message: "If a user with that email exists, a password reset link has been sent." };
+    }
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const passwordResetExpires = new Date(Date.now() + 3600000); // 1 hour
+    user.passwordResetToken = passwordResetToken;
+    user.passwordResetExpires = passwordResetExpires;
+    yield user.save();
+    // --- 📧 SEND THE EMAIL ---
+    // This URL should point to the page in your frontend application where users can enter their new password.
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const emailHtml = `
+      <h1>You requested a password reset</h1>
+      <p>Click the link below to set a new password. This link will expire in 1 hour.</p>
+      <a href="${resetUrl}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Your Password</a>
+      <p>If you did not request a password reset, please ignore this email.</p>
+    `;
+    try {
+        yield (0, email_1.sendEmail)({
+            to: user.get("email"),
+            subject: 'Your Password Reset Request',
+            html: emailHtml,
+        });
+    }
+    catch (error) {
+        console.error(`[PASS RESET] Failed to send email to ${email}. Error:`, error);
+        // Do not throw an error to the client to avoid leaking user information.
+    }
+    return { message: "If a user with that email exists, a password reset link has been sent." };
+});
+exports.forgotPasswordService = forgotPasswordService;
+/**
+ * Resets a user's password using a valid reset token.
+ */
+const resetPasswordService = (token, newPassword) => __awaiter(void 0, void 0, void 0, function* () {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = yield User_model_1.default.findOne({
+        where: {
+            passwordResetToken: hashedToken,
+        }
+    });
+    const now = new Date();
+    if (!user || user.passwordResetExpires < now) {
+        throw new httpError_1.default("Password reset token is invalid or has expired.", 400);
+    }
+    const salt = yield bcryptjs_1.default.genSalt(10);
+    const passwordHash = yield bcryptjs_1.default.hash(newPassword, salt);
+    user.set('password', passwordHash);
+    user.set('passwordResetToken', null);
+    user.set('passwordResetExpires', null);
+    yield user.save();
+    return { message: "Password has been successfully reset." };
+});
+exports.resetPasswordService = resetPasswordService;
+/**
+ * Fetches a user's profile from the database.
  */
 const getProfileService = (userId) => __awaiter(void 0, void 0, void 0, function* () {
     const user = yield User_model_1.default.findByPk(userId, {
@@ -174,7 +237,6 @@ const getProfileService = (userId) => __awaiter(void 0, void 0, void 0, function
 });
 exports.getProfileService = getProfileService;
 /**
- * --- FIX 2: This service was accidentally removed and is now restored ---
  * Retrieves one user (if email is provided) or all users from the database.
  */
 const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* () {

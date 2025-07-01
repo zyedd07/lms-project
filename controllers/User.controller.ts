@@ -7,8 +7,10 @@ import {
     updateUserService,
     deleteUserService,
     uploadProfilePictureService,
-    getProfileService, // Import the new service for fetching profiles
-    getUsersService
+    getProfileService,
+    getUsersService,
+    forgotPasswordService, //  --- IMPORT
+    resetPasswordService,   //  --- IMPORT
 } from "../services/User.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import multer, { MulterError } from 'multer';
@@ -62,6 +64,41 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
         next(error);
     }
 };
+
+/**
+ * --- NEW CONTROLLER ---
+ * Controller to handle the "forgot password" request.
+ */
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            throw new HttpError("Please provide an email address.", 400);
+        }
+        const response = await forgotPasswordService(email);
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * --- NEW CONTROLLER ---
+ * Controller to handle the actual password reset with a token.
+ */
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) {
+            throw new HttpError("Please provide a token and a new password.", 400);
+        }
+        const response = await resetPasswordService(token, newPassword);
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 /**
  * Controller for a logged-in user to fetch their own, up-to-date profile.
