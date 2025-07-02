@@ -45,6 +45,8 @@ router.post('/create', UserController.createUser);
 router.post('/login', UserController.loginUser);
 router.post('/forgot-password', UserController.forgotPassword);
 router.post('/reset-password', UserController.resetPassword);
+router.post('/google-signin', UserController.googleSignIn); //  --- NEW ROUTE
+router.post('/facebook-signin', UserController.facebookSignIn); //  --- NEW ROUTE
 // Authenticated user's own profile routes
 router.get('/me', auth_1.default, UserController.getLoggedInUser);
 router.put('/meupdate', auth_1.default, UserController.updateMyProfile); // For user to update their OWN profile

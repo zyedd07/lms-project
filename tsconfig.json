@@ -25,7 +25,6 @@
     "skipLibCheck": true,
 
     /* Type Roots (explicitly telling TypeScript where to find @types declaration files) */
-    "typeRoots": ["./node_modules/@types"] // This is crucial and must be correct
   },
   "include": [
     "./**/*.ts",

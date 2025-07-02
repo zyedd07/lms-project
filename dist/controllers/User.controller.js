@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.loginUser = exports.createUser = void 0;
+exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
 // The User model is NOT imported here. Controllers should not directly access models.
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const User_service_1 = require("../services/User.service");
@@ -105,6 +105,41 @@ const loginUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function
 exports.loginUser = loginUser;
 /**
  * --- NEW CONTROLLER ---
+ * Controller to handle Google Sign-In.
+ */
+const googleSignIn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { token } = req.body; // This is the idToken from the client
+        if (!token) {
+            throw new httpError_1.default("Google token is required.", 400);
+        }
+        const response = yield (0, User_service_1.googleSignInService)(token);
+        res.status(200).json(response);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.googleSignIn = googleSignIn;
+/**
+ * --- NEW CONTROLLER ---
+ * Controller to handle Facebook Sign-In.
+ */
+const facebookSignIn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { token } = req.body; // This is the accessToken from the client
+        if (!token) {
+            throw new httpError_1.default("Facebook token is required.", 400);
+        }
+        const response = yield (0, User_service_1.facebookSignInService)(token);
+        res.status(200).json(response);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.facebookSignIn = facebookSignIn;
+/**
  * Controller to handle the "forgot password" request.
  */
 const forgotPassword = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -122,7 +157,6 @@ const forgotPassword = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
 });
 exports.forgotPassword = forgotPassword;
 /**
- * --- NEW CONTROLLER ---
  * Controller to handle the actual password reset with a token.
  */
 const resetPassword = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -147,8 +181,6 @@ const getLoggedInUser = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         if (!req.user || !req.user.id) {
             return next(new httpError_1.default('User not authenticated.', 401));
         }
-        // The controller calls the service layer to get the data.
-        // This resolves the bug of sending back stale JWT data.
         const userId = req.user.id;
         const freshUser = yield (0, User_service_1.getProfileService)(userId);
         return res.status(200).json({
@@ -257,7 +289,6 @@ const updateUser = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
     try {
         const { id } = req.params;
         const updates = req.body;
-        // In a real app, you would have more robust validation here
         const updatedUser = yield (0, User_service_1.updateUserService)(id, updates);
         res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
     }

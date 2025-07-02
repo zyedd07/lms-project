@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUserService = exports.uploadProfilePictureService = exports.updateUserService = exports.getUsersService = exports.getProfileService = exports.resetPasswordService = exports.forgotPasswordService = exports.loginUserService = exports.createUserService = void 0;
+exports.facebookSignInService = exports.googleSignInService = exports.deleteUserService = exports.uploadProfilePictureService = exports.updateUserService = exports.getUsersService = exports.getProfileService = exports.resetPasswordService = exports.forgotPasswordService = exports.loginUserService = exports.createUserService = void 0;
 const User_model_1 = __importDefault(require("../models/User.model"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
@@ -56,6 +56,8 @@ const supabase_js_1 = require("@supabase/supabase-js");
 const uuid_1 = require("uuid");
 const crypto = __importStar(require("crypto"));
 const email_1 = require("../utils/email"); //  --- IMPORT THE EMAIL SERVICE
+const google_auth_library_1 = require("google-auth-library"); //  --- FIX: Import OAuth2Client
+const axios_1 = __importDefault(require("axios"));
 // --- Supabase client setup using environment variables ---
 let supabaseClient;
 try {
@@ -324,3 +326,103 @@ const deleteUserService = (id) => __awaiter(void 0, void 0, void 0, function* ()
     return true;
 });
 exports.deleteUserService = deleteUserService;
+const googleSignInService = (idToken) => __awaiter(void 0, void 0, void 0, function* () {
+    // You must add your Google Client ID to your environment variables
+    const client = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = yield client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+        throw new httpError_1.default("Invalid Google token or email missing.", 401);
+    }
+    const { email, name, picture } = payload;
+    // Check if user already exists
+    let user = yield User_model_1.default.findOne({ where: { email } });
+    if (!user) {
+        // User doesn't exist, create a new one
+        // Note: A random password is created because the field is required in your model,
+        // but it won't be used for login since they'll use Google Sign-In.
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const salt = yield bcryptjs_1.default.genSalt(10);
+        const passwordHash = yield bcryptjs_1.default.hash(randomPassword, salt);
+        user = yield User_model_1.default.create({
+            name,
+            email,
+            password: passwordHash,
+            profilePicture: picture,
+            role: 'Student', // Assign a default role
+            // Fill other required fields with defaults or leave them null if your DB allows
+            phone: '',
+            dateOfBirth: new Date(),
+            address: '',
+            rollNo: '',
+            collegeName: '',
+            university: '',
+            country: '',
+            designation: 'Student', // Ensure all required fields are present
+        });
+    }
+    // User exists or was just created, now issue our app's JWT
+    const APP_SECRET_KEY = process.env.SECRET_KEY || 'default-secret-key';
+    const jwtPayload = {
+        id: user.get("id"),
+        name: user.get("name"),
+        email: user.get("email"),
+        role: user.get("role"),
+    };
+    const jwtOptions = { expiresIn: '7d' };
+    const token = jsonwebtoken_1.default.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+    return { user: user.toJSON(), token };
+});
+exports.googleSignInService = googleSignInService;
+/**
+ * --- NEW SERVICE ---
+ * Handles user sign-in or registration via a Facebook Access Token.
+ * @param accessToken The access token received from the Facebook Login flow on the client.
+ */
+const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    const { data } = yield axios_1.default.get(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`);
+    if (!data || !data.email) {
+        throw new httpError_1.default("Invalid Facebook token or email missing.", 401);
+    }
+    const { email, name } = data;
+    const picture = (_b = (_a = data.picture) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.url;
+    // Check if user already exists
+    let user = yield User_model_1.default.findOne({ where: { email } });
+    if (!user) {
+        // User doesn't exist, create a new one
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const salt = yield bcryptjs_1.default.genSalt(10);
+        const passwordHash = yield bcryptjs_1.default.hash(randomPassword, salt);
+        user = yield User_model_1.default.create({
+            name,
+            email,
+            password: passwordHash,
+            profilePicture: picture,
+            role: 'Student', // Assign a default role
+            phone: '',
+            dateOfBirth: new Date(),
+            address: '',
+            rollNo: '',
+            collegeName: '',
+            university: '',
+            country: '',
+            designation: 'Student', // Ensure all required fields are present
+        });
+    }
+    // User exists or was just created, issue our app's JWT
+    const APP_SECRET_KEY = process.env.SECRET_KEY || 'default-secret-key';
+    const jwtPayload = {
+        id: user.get("id"),
+        name: user.get("name"),
+        email: user.get("email"),
+        role: user.get("role"),
+    };
+    const jwtOptions = { expiresIn: '7d' };
+    const token = jsonwebtoken_1.default.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+    return { user: user.toJSON(), token };
+});
+exports.facebookSignInService = facebookSignInService;

@@ -9,6 +9,8 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import { sendEmail } from '../utils/email'; //  --- IMPORT THE EMAIL SERVICE
+import { OAuth2Client } from 'google-auth-library'; //  --- FIX: Import OAuth2Client
+import axios from 'axios'; 
 
 // --- Supabase client setup using environment variables ---
 let supabaseClient;
@@ -294,4 +296,120 @@ export const deleteUserService = async (id: string) => {
     // Add logic to delete profile picture from storage here...
     await user.destroy();
     return true;
+};
+
+export const googleSignInService = async (idToken: string) => {
+    // You must add your Google Client ID to your environment variables
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.email) {
+        throw new HttpError("Invalid Google token or email missing.", 401);
+    }
+
+    const { email, name, picture } = payload;
+
+    // Check if user already exists
+    let user = await User.findOne({ where: { email } });
+
+    if (!user) {
+        // User doesn't exist, create a new one
+        // Note: A random password is created because the field is required in your model,
+        // but it won't be used for login since they'll use Google Sign-In.
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(randomPassword, salt);
+
+        user = await User.create({
+            name,
+            email,
+            password: passwordHash,
+            profilePicture: picture,
+            role: 'Student', // Assign a default role
+            // Fill other required fields with defaults or leave them null if your DB allows
+            phone: '',
+            dateOfBirth: new Date(),
+            address: '',
+            rollNo: '',
+            collegeName: '',
+            university: '',
+            country: '',
+            designation: 'Student', // Ensure all required fields are present
+        });
+    }
+
+    // User exists or was just created, now issue our app's JWT
+    const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
+    const jwtPayload = {
+        id: user.get("id"),
+        name: user.get("name"),
+        email: user.get("email"),
+        role: user.get("role"),
+    };
+    const jwtOptions: SignOptions = { expiresIn: '7d' };
+    const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+
+    return { user: user.toJSON(), token };
+};
+
+/**
+ * --- NEW SERVICE ---
+ * Handles user sign-in or registration via a Facebook Access Token.
+ * @param accessToken The access token received from the Facebook Login flow on the client.
+ */
+export const facebookSignInService = async (accessToken: string) => {
+    const { data } = await axios.get(
+        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
+    );
+
+    if (!data || !data.email) {
+        throw new HttpError("Invalid Facebook token or email missing.", 401);
+    }
+
+    const { email, name } = data;
+    const picture = data.picture?.data?.url;
+
+    // Check if user already exists
+    let user = await User.findOne({ where: { email } });
+
+    if (!user) {
+        // User doesn't exist, create a new one
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(randomPassword, salt);
+
+        user = await User.create({
+            name,
+            email,
+            password: passwordHash,
+            profilePicture: picture,
+            role: 'Student', // Assign a default role
+            phone: '',
+            dateOfBirth: new Date(),
+            address: '',
+            rollNo: '',
+            collegeName: '',
+            university: '',
+            country: '',
+            designation: 'Student', // Ensure all required fields are present
+        });
+    }
+
+    // User exists or was just created, issue our app's JWT
+    const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
+    const jwtPayload = {
+        id: user.get("id"),
+        name: user.get("name"),
+        email: user.get("email"),
+        role: user.get("role"),
+    };
+    const jwtOptions: SignOptions = { expiresIn: '7d' };
+    const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+
+    return { user: user.toJSON(), token };
 };

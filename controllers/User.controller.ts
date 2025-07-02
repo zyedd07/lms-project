@@ -9,8 +9,10 @@ import {
     uploadProfilePictureService,
     getProfileService,
     getUsersService,
-    forgotPasswordService, //  --- IMPORT
-    resetPasswordService,   //  --- IMPORT
+    forgotPasswordService,
+    resetPasswordService,
+    googleSignInService,   //  --- IMPORT
+    facebookSignInService, //  --- IMPORT
 } from "../services/User.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import multer, { MulterError } from 'multer';
@@ -67,6 +69,40 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
 
 /**
  * --- NEW CONTROLLER ---
+ * Controller to handle Google Sign-In.
+ */
+export const googleSignIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token } = req.body; // This is the idToken from the client
+        if (!token) {
+            throw new HttpError("Google token is required.", 400);
+        }
+        const response = await googleSignInService(token);
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * --- NEW CONTROLLER ---
+ * Controller to handle Facebook Sign-In.
+ */
+export const facebookSignIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token } = req.body; // This is the accessToken from the client
+        if (!token) {
+            throw new HttpError("Facebook token is required.", 400);
+        }
+        const response = await facebookSignInService(token);
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+/**
  * Controller to handle the "forgot password" request.
  */
 export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
@@ -83,7 +119,6 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
 };
 
 /**
- * --- NEW CONTROLLER ---
  * Controller to handle the actual password reset with a token.
  */
 export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
@@ -108,8 +143,6 @@ export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, 
         if (!req.user || !req.user.id) {
             return next(new HttpError('User not authenticated.', 401));
         }
-        // The controller calls the service layer to get the data.
-        // This resolves the bug of sending back stale JWT data.
         const userId = req.user.id;
         const freshUser = await getProfileService(userId);
 
@@ -219,7 +252,6 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     try {
         const { id } = req.params;
         const updates = req.body;
-        // In a real app, you would have more robust validation here
         const updatedUser = await updateUserService(id, updates);
         res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
     } catch (error) {
