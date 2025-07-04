@@ -425,7 +425,7 @@ const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0,
             role: 'Student',
             designation: 'Student',
             // Fill other required fields with defaults
-            phone: '',
+            phone: null,
             dateOfBirth: new Date(),
             address: '',
             rollNo: '',

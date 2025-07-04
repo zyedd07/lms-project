@@ -24,7 +24,7 @@ const User = _1.sequelize.define('User', {
     },
     phone: {
         type: sequelize_1.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         unique: true
     },
     // The 'designation' from the form maps to this 'role' field

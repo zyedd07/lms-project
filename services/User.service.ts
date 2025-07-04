@@ -409,7 +409,7 @@ export const facebookSignInService = async (accessToken: string) => {
             role: 'Student',
             designation: 'Student',
             // Fill other required fields with defaults
-            phone: '',
+            phone: null,
             dateOfBirth: new Date(),
             address: '',
             rollNo: '',
