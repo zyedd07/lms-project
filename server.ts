@@ -22,11 +22,9 @@ import companyRouter from './routes/company.router';
 import brandRouter from './routes/brand.router';
 import notificationRouter from './routes/Notification.router';
 import articleRouter from './routes/Article.router';
-import drugRouter from './routes/Drug.router'; // --- NEW: Drug Router Import ---
-import drugCategoryRouter from './routes/DrugCategory.router'; // --- NEW: Drug Category Router Import ---
-import homeContentRouter from './routes/HomeContent.router'; // --- NEW: Drug Category Router Import ---
-
-
+import drugRouter from './routes/Drug.router'; 
+import drugCategoryRouter from './routes/DrugCategory.router';
+import homeContentRouter from './routes/HomeContent.router';
 
 const app = express();
 
@@ -77,14 +75,30 @@ app.use('/companies', companyRouter);
 app.use('/brands', brandRouter);
 app.use('/notifications', notificationRouter);
 app.use('/articles', articleRouter);
-app.use('/drugs', drugRouter); // --- NEW: Drug Route Mounting ---
-app.use('/drug-categories', drugCategoryRouter); // --- NEW: Drug Category Route Mounting ---
-app.use('/home-content', homeContentRouter); // --- NEW: Drug Category Route Mounting ---
+app.use('/drugs', drugRouter);
+app.use('/drug-categories', drugCategoryRouter);
+app.use('/home-content', homeContentRouter);
 
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('--- UNHANDLED REJECTION ---');
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('--- END UNHANDLED REJECTION ---');
+});
 
-// Error handling middleware
+process.on('uncaughtException', (error) => {
+  console.error('--- UNCAUGHT EXCEPTION ---');
+  console.error('Uncaught Exception:', error.message);
+  console.error('Stack:', error.stack);
+  console.error('--- END UNCAUGHT EXCEPTION ---');
+  process.exit(1);
+});
+
+// --- UPDATED Error handling middleware ---
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    // --- ADD THIS LINE TO LOG THE ERROR ---
+    console.error("[GLOBAL ERROR HANDLER]:", err);
+
     let statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
 
@@ -106,16 +120,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 import './models/associations/index';
-import { AuthenticatedRequest } from './middleware/auth';
 import initAssociation from './models/associations/index';
-import Webinar from './models/webinar.model';
-import Brand from './models/Brand.model';
-import BrandCategory from './models/BrandCategory.model';
-import Company from './models/Company.model';
-import Notification from './models/Notification.model';
-import Article from './models/Article.model'; // Import Article model
-import Drug from './models/Drug.model'; // Import Drug model
-import DrugCategory from './models/DrugCategory.model'; // Import DrugCategory model
 
 initAssociation();
 

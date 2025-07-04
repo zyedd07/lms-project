@@ -34,9 +34,9 @@ const company_router_1 = __importDefault(require("./routes/company.router"));
 const brand_router_1 = __importDefault(require("./routes/brand.router"));
 const Notification_router_1 = __importDefault(require("./routes/Notification.router"));
 const Article_router_1 = __importDefault(require("./routes/Article.router"));
-const Drug_router_1 = __importDefault(require("./routes/Drug.router")); // --- NEW: Drug Router Import ---
-const DrugCategory_router_1 = __importDefault(require("./routes/DrugCategory.router")); // --- NEW: Drug Category Router Import ---
-const HomeContent_router_1 = __importDefault(require("./routes/HomeContent.router")); // --- NEW: Drug Category Router Import ---
+const Drug_router_1 = __importDefault(require("./routes/Drug.router"));
+const DrugCategory_router_1 = __importDefault(require("./routes/DrugCategory.router"));
+const HomeContent_router_1 = __importDefault(require("./routes/HomeContent.router"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -82,12 +82,26 @@ app.use('/companies', company_router_1.default);
 app.use('/brands', brand_router_1.default);
 app.use('/notifications', Notification_router_1.default);
 app.use('/articles', Article_router_1.default);
-app.use('/drugs', Drug_router_1.default); // --- NEW: Drug Route Mounting ---
-app.use('/drug-categories', DrugCategory_router_1.default); // --- NEW: Drug Category Route Mounting ---
-app.use('/home-content', HomeContent_router_1.default); // --- NEW: Drug Category Route Mounting ---
-// Error handling middleware
+app.use('/drugs', Drug_router_1.default);
+app.use('/drug-categories', DrugCategory_router_1.default);
+app.use('/home-content', HomeContent_router_1.default);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('--- UNHANDLED REJECTION ---');
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('--- END UNHANDLED REJECTION ---');
+});
+process.on('uncaughtException', (error) => {
+    console.error('--- UNCAUGHT EXCEPTION ---');
+    console.error('Uncaught Exception:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('--- END UNCAUGHT EXCEPTION ---');
+    process.exit(1);
+});
+// --- UPDATED Error handling middleware ---
 app.use((err, req, res, next) => {
     var _a, _b, _c, _d, _e, _f;
+    // --- ADD THIS LINE TO LOG THE ERROR ---
+    console.error("[GLOBAL ERROR HANDLER]:", err);
     let statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
     if ((err === null || err === void 0 ? void 0 : err.name) === "SequelizeDatabaseError") {
