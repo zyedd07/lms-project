@@ -383,17 +383,37 @@ exports.googleSignInService = googleSignInService;
  * @param accessToken The access token received from the Facebook Login flow on the client.
  */
 const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
-    const { data } = yield axios_1.default.get(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`);
-    if (!data || !data.email) {
-        throw new httpError_1.default("Invalid Facebook token or email missing.", 401);
+    var _a, _b, _c, _d, _e;
+    let facebookUserData;
+    try {
+        // Step 1: Verify the token and get user data from Facebook
+        const { data } = yield axios_1.default.get(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`);
+        facebookUserData = data;
     }
-    const { email, name } = data;
-    const picture = (_b = (_a = data.picture) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.url;
-    // Check if user already exists
+    catch (error) {
+        // This block catches errors from the axios call to Facebook
+        if (axios_1.default.isAxiosError(error)) {
+            // Log the detailed error response from Facebook's server
+            console.error("Axios Error calling Facebook Graph API:", JSON.stringify((_a = error.response) === null || _a === void 0 ? void 0 : _a.data, null, 2));
+            const fbError = (_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.error;
+            const errorMessage = (fbError === null || fbError === void 0 ? void 0 : fbError.message) || "Failed to validate Facebook token with Graph API.";
+            throw new httpError_1.default(errorMessage, 400); // Throw a new error with Facebook's message
+        }
+        else {
+            // Handle other unexpected errors
+            console.error("Non-Axios Error in facebookSignInService:", error);
+            throw new httpError_1.default("An unexpected server error occurred during Facebook validation.", 500);
+        }
+    }
+    // Step 2: Process the user data
+    if (!facebookUserData || !facebookUserData.email) {
+        throw new httpError_1.default("Invalid Facebook token or email permission was not granted.", 401);
+    }
+    const { email, name } = facebookUserData;
+    const picture = (_e = (_d = facebookUserData.picture) === null || _d === void 0 ? void 0 : _d.data) === null || _e === void 0 ? void 0 : _e.url;
+    // Step 3: Find or create the user in your database
     let user = yield User_model_1.default.findOne({ where: { email } });
     if (!user) {
-        // User doesn't exist, create a new one
         const randomPassword = crypto.randomBytes(16).toString('hex');
         const salt = yield bcryptjs_1.default.genSalt(10);
         const passwordHash = yield bcryptjs_1.default.hash(randomPassword, salt);
@@ -402,7 +422,9 @@ const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0,
             email,
             password: passwordHash,
             profilePicture: picture,
-            role: 'Student', // Assign a default role
+            role: 'Student',
+            designation: 'Student',
+            // Fill other required fields with defaults
             phone: '',
             dateOfBirth: new Date(),
             address: '',
@@ -410,10 +432,9 @@ const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0,
             collegeName: '',
             university: '',
             country: '',
-            designation: 'Student', // Ensure all required fields are present
         });
     }
-    // User exists or was just created, issue our app's JWT
+    // Step 4: Issue your app's JWT
     const APP_SECRET_KEY = process.env.SECRET_KEY || 'default-secret-key';
     const jwtPayload = {
         id: user.get("id"),

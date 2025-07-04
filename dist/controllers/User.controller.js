@@ -128,6 +128,7 @@ exports.googleSignIn = googleSignIn;
 const facebookSignIn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { token } = req.body; // This is the accessToken from the client
+        console.log("Received Facebook Access Token:", token); // <-- ADD THIS LINE
         if (!token) {
             throw new httpError_1.default("Facebook token is required.", 400);
         }

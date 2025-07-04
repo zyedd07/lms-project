@@ -363,22 +363,40 @@ export const googleSignInService = async (idToken: string) => {
  * @param accessToken The access token received from the Facebook Login flow on the client.
  */
 export const facebookSignInService = async (accessToken: string) => {
-    const { data } = await axios.get(
-        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
-    );
-
-    if (!data || !data.email) {
-        throw new HttpError("Invalid Facebook token or email missing.", 401);
+    let facebookUserData;
+    try {
+        // Step 1: Verify the token and get user data from Facebook
+        const { data } = await axios.get(
+            `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
+        );
+        facebookUserData = data;
+    } catch (error) {
+        // This block catches errors from the axios call to Facebook
+        if (axios.isAxiosError(error)) {
+            // Log the detailed error response from Facebook's server
+            console.error("Axios Error calling Facebook Graph API:", JSON.stringify(error.response?.data, null, 2));
+            const fbError = error.response?.data?.error;
+            const errorMessage = fbError?.message || "Failed to validate Facebook token with Graph API.";
+            throw new HttpError(errorMessage, 400); // Throw a new error with Facebook's message
+        } else {
+            // Handle other unexpected errors
+            console.error("Non-Axios Error in facebookSignInService:", error);
+            throw new HttpError("An unexpected server error occurred during Facebook validation.", 500);
+        }
     }
 
-    const { email, name } = data;
-    const picture = data.picture?.data?.url;
+    // Step 2: Process the user data
+    if (!facebookUserData || !facebookUserData.email) {
+        throw new HttpError("Invalid Facebook token or email permission was not granted.", 401);
+    }
 
-    // Check if user already exists
+    const { email, name } = facebookUserData;
+    const picture = facebookUserData.picture?.data?.url;
+
+    // Step 3: Find or create the user in your database
     let user = await User.findOne({ where: { email } });
 
     if (!user) {
-        // User doesn't exist, create a new one
         const randomPassword = crypto.randomBytes(16).toString('hex');
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(randomPassword, salt);
@@ -388,7 +406,9 @@ export const facebookSignInService = async (accessToken: string) => {
             email,
             password: passwordHash,
             profilePicture: picture,
-            role: 'Student', // Assign a default role
+            role: 'Student',
+            designation: 'Student',
+            // Fill other required fields with defaults
             phone: '',
             dateOfBirth: new Date(),
             address: '',
@@ -396,11 +416,10 @@ export const facebookSignInService = async (accessToken: string) => {
             collegeName: '',
             university: '',
             country: '',
-            designation: 'Student', // Ensure all required fields are present
         });
     }
 
-    // User exists or was just created, issue our app's JWT
+    // Step 4: Issue your app's JWT
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
     const jwtPayload = {
         id: user.get("id"),
