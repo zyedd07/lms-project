@@ -39,7 +39,7 @@ const User = sequelize.define('User', {
     },
     // --- NEW FIELDS TO ADD ---
     dateOfBirth: {
-        type: DataTypes.STRING, // Storing as a string (e.g., "DD/MM/YYYY")
+        type: DataTypes.DATE, // Storing as a string (e.g., "DD/MM/YYYY")
         allowNull: true, // Set to false if it's a mandatory field
     },
     address: {
