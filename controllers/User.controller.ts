@@ -91,6 +91,8 @@ export const googleSignIn = async (req: Request, res: Response, next: NextFuncti
 export const facebookSignIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { token } = req.body; // This is the accessToken from the client
+        console.log("Received Facebook Access Token:", token); // <-- ADD THIS LINE
+
         if (!token) {
             throw new HttpError("Facebook token is required.", 400);
         }
