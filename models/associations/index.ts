@@ -3,7 +3,8 @@ import Course from "../Course.model";
 import CourseLiveLecture from "../CourseLiveLecture.model";
 import CourseTeacher from "../CourseTeacher.model";
 import CourseTestSeries from "../CourseTestSeries.model";
-import Enrollment from "../Enrollment.model";
+// UserCourse is the new join table, replacing Enrollment
+import UserCourse from "../UserCourse.model"; 
 import Lecture from "../Lecture.model";
 import LiveLecture from "../LiveLecture.model";
 import Payment from "../Payment.model";
@@ -16,16 +17,16 @@ import Brand from '../Brand.model';
 import BrandCategory from '../BrandCategory.model';
 import Company from '../Company.model';
 import Notification from "../Notification.model";
-import Drug from "../Drug.model"; // --- NEW: Import Drug model ---
-import DrugCategory from "../DrugCategory.model"; // --- NEW: Import DrugCategory model ---
+import Drug from "../Drug.model"; 
+import DrugCategory from "../DrugCategory.model"; 
 
 const initAssociation = () => {
-    // Relationships
-    User.hasMany(Enrollment, { foreignKey: 'userId' });
-    Enrollment.belongsTo(User, { foreignKey: 'userId' });
+    // --- NEW: User and Course relationship through UserCourse ---
+    // This replaces the old Enrollment model associations.
+    User.belongsToMany(Course, { through: UserCourse, foreignKey: 'userId', as: 'enrolledCourses' });
+    Course.belongsToMany(User, { through: UserCourse, foreignKey: 'courseId', as: 'enrolledUsers' });
 
-    Course.hasMany(Enrollment, { foreignKey: 'courseId' });
-    Enrollment.belongsTo(Course, { foreignKey: 'courseId' });
+    // --- OLD Enrollment model relationships have been removed ---
 
     User.hasMany(Payment, { foreignKey: 'userId' });
     Payment.belongsTo(User, { foreignKey: 'userId' });

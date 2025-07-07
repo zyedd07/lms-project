@@ -354,8 +354,8 @@ const googleSignInService = (idToken) => __awaiter(void 0, void 0, void 0, funct
             profilePicture: picture,
             role: 'Student', // Assign a default role
             // Fill other required fields with defaults or leave them null if your DB allows
-            phone: '',
-            dateOfBirth: new Date(),
+            phone: null,
+            dateOfBirth: null,
             address: '',
             rollNo: '',
             collegeName: '',
@@ -426,7 +426,7 @@ const facebookSignInService = (accessToken) => __awaiter(void 0, void 0, void 0,
             designation: 'Student',
             // Fill other required fields with defaults
             phone: null,
-            dateOfBirth: new Date(),
+            dateOfBirth: null,
             address: '',
             rollNo: '',
             collegeName: '',

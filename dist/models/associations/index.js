@@ -8,7 +8,8 @@ const Course_model_1 = __importDefault(require("../Course.model"));
 const CourseLiveLecture_model_1 = __importDefault(require("../CourseLiveLecture.model"));
 const CourseTeacher_model_1 = __importDefault(require("../CourseTeacher.model"));
 const CourseTestSeries_model_1 = __importDefault(require("../CourseTestSeries.model"));
-const Enrollment_model_1 = __importDefault(require("../Enrollment.model"));
+// UserCourse is the new join table, replacing Enrollment
+const UserCourse_model_1 = __importDefault(require("../UserCourse.model"));
 const Lecture_model_1 = __importDefault(require("../Lecture.model"));
 const LiveLecture_model_1 = __importDefault(require("../LiveLecture.model"));
 const Payment_model_1 = __importDefault(require("../Payment.model"));
@@ -21,14 +22,14 @@ const Brand_model_1 = __importDefault(require("../Brand.model"));
 const BrandCategory_model_1 = __importDefault(require("../BrandCategory.model"));
 const Company_model_1 = __importDefault(require("../Company.model"));
 const Notification_model_1 = __importDefault(require("../Notification.model"));
-const Drug_model_1 = __importDefault(require("../Drug.model")); // --- NEW: Import Drug model ---
-const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model")); // --- NEW: Import DrugCategory model ---
+const Drug_model_1 = __importDefault(require("../Drug.model"));
+const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model"));
 const initAssociation = () => {
-    // Relationships
-    User_model_1.default.hasMany(Enrollment_model_1.default, { foreignKey: 'userId' });
-    Enrollment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
-    Course_model_1.default.hasMany(Enrollment_model_1.default, { foreignKey: 'courseId' });
-    Enrollment_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId' });
+    // --- NEW: User and Course relationship through UserCourse ---
+    // This replaces the old Enrollment model associations.
+    User_model_1.default.belongsToMany(Course_model_1.default, { through: UserCourse_model_1.default, foreignKey: 'userId', as: 'enrolledCourses' });
+    Course_model_1.default.belongsToMany(User_model_1.default, { through: UserCourse_model_1.default, foreignKey: 'courseId', as: 'enrolledUsers' });
+    // --- OLD Enrollment model relationships have been removed ---
     User_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'userId' });
     Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     Course_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'courseId' });

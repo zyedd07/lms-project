@@ -393,3 +393,24 @@ export type UpdateDrugParams = {
     categoryId?: string;
     details?: object;
 };
+export type EnrollmentStatus = 'active' | 'completed' | 'dropped';
+
+export type EnrollInCourseServiceParams = {
+    userId: string;
+    courseId: string;
+};
+
+export type UnenrollFromCourseServiceParams = {
+    userId: string;
+    courseId: string;
+};
+
+export type GetUserEnrolledCoursesParams = {
+    userId: string;
+};
+
+export type UpdateEnrollmentStatusParams = {
+    userId: string;
+    courseId: string;
+    status: EnrollmentStatus;
+};
