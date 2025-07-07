@@ -452,3 +452,28 @@ export type UpdateQbankEnrollmentParams = {
     qbankId: string;
     status: EnrollmentStatus;
 };
+
+
+export interface CreateHelpSectionParams {
+    title: string;
+    content: string;
+    order?: number;
+}
+
+export interface UpdateHelpSectionParams {
+    title?: string;
+    content?: string;
+    order?: number;
+}
+
+export interface CreateTermsSectionParams {
+    title: string;
+    content: string;
+    order?: number;
+}
+
+export interface UpdateTermsSectionParams {
+    title?: string;
+    content?: string;
+    order?: number;
+}
