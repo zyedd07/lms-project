@@ -24,17 +24,22 @@ import UserQbank from "../UserQbank.model";
 import QuestionBank from "../QuestionBank.model";
 
 const initAssociation = () => {
-    // --- NEW: User and Course relationship through UserCourse ---
-    // This replaces the old Enrollment model associations.
-    User.belongsToMany(Course, { through: UserCourse, foreignKey: 'userId', as: 'enrolledCourses' });
-    Course.belongsToMany(User, { through: UserCourse, foreignKey: 'courseId', as: 'enrolledUsers' });
+        User.hasMany(UserCourse, { foreignKey: 'userId' });
+     UserCourse.belongsTo(User, { foreignKey: 'userId' });
+    Course.hasMany(UserCourse, { foreignKey: 'courseId' });
+    UserCourse.belongsTo(Course, { foreignKey: 'courseId' });
 
-    // --- OLD Enrollment model relationships have been removed ---
-User.belongsToMany(TestSeries, { through: UserTestSeries, foreignKey: 'userId', as: 'enrolledTestSeries' });
-    TestSeries.belongsToMany(User, { through: UserTestSeries, foreignKey: 'testSeriesId', as: 'enrolledTestUsers' });
+    // --- User and Test Series Enrollment ---
+    User.hasMany(UserTestSeries, { foreignKey: 'userId' });
+    UserTestSeries.belongsTo(User, { foreignKey: 'userId' });
+    TestSeries.hasMany(UserTestSeries, { foreignKey: 'testSeriesId' });
+    UserTestSeries.belongsTo(TestSeries, { foreignKey: 'testSeriesId' });
 
- User.belongsToMany(QuestionBank, { through: UserQbank, foreignKey: 'userId', as: 'enrolledQbanks' });
-    QuestionBank.belongsToMany(User, { through: UserQbank, foreignKey: 'qbankId', as: 'enrolledQbankUsers' });
+    // --- User and Q-Bank Enrollment ---
+    User.hasMany(UserQbank, { foreignKey: 'userId' });
+    UserQbank.belongsTo(User, { foreignKey: 'userId' });
+    QuestionBank.hasMany(UserQbank, { foreignKey: 'qbankId' });
+    UserQbank.belongsTo(QuestionBank, { foreignKey: 'qbankId' });
 
     User.hasMany(Payment, { foreignKey: 'userId' });
     Payment.belongsTo(User, { foreignKey: 'userId' });

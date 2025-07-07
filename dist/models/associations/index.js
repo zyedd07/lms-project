@@ -26,17 +26,22 @@ const Drug_model_1 = __importDefault(require("../Drug.model"));
 const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model"));
 const UserTestSeries_model_1 = __importDefault(require("../UserTestSeries.model"));
 const UserQbank_model_1 = __importDefault(require("../UserQbank.model"));
-const QuestionBank_model_1 = __importDefault(require("models/QuestionBank.model"));
+const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
 const initAssociation = () => {
-    // --- NEW: User and Course relationship through UserCourse ---
-    // This replaces the old Enrollment model associations.
-    User_model_1.default.belongsToMany(Course_model_1.default, { through: UserCourse_model_1.default, foreignKey: 'userId', as: 'enrolledCourses' });
-    Course_model_1.default.belongsToMany(User_model_1.default, { through: UserCourse_model_1.default, foreignKey: 'courseId', as: 'enrolledUsers' });
-    // --- OLD Enrollment model relationships have been removed ---
-    User_model_1.default.belongsToMany(TestSeries_model_1.default, { through: UserTestSeries_model_1.default, foreignKey: 'userId', as: 'enrolledTestSeries' });
-    TestSeries_model_1.default.belongsToMany(User_model_1.default, { through: UserTestSeries_model_1.default, foreignKey: 'testSeriesId', as: 'enrolledTestUsers' });
-    User_model_1.default.belongsToMany(QuestionBank_model_1.default, { through: UserQbank_model_1.default, foreignKey: 'userId', as: 'enrolledQbanks' });
-    QuestionBank_model_1.default.belongsToMany(User_model_1.default, { through: UserQbank_model_1.default, foreignKey: 'qbankId', as: 'enrolledQbankUsers' });
+    User_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'userId' });
+    UserCourse_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
+    Course_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'courseId' });
+    UserCourse_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId' });
+    // --- User and Test Series Enrollment ---
+    User_model_1.default.hasMany(UserTestSeries_model_1.default, { foreignKey: 'userId' });
+    UserTestSeries_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
+    TestSeries_model_1.default.hasMany(UserTestSeries_model_1.default, { foreignKey: 'testSeriesId' });
+    UserTestSeries_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId' });
+    // --- User and Q-Bank Enrollment ---
+    User_model_1.default.hasMany(UserQbank_model_1.default, { foreignKey: 'userId' });
+    UserQbank_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
+    QuestionBank_model_1.default.hasMany(UserQbank_model_1.default, { foreignKey: 'qbankId' });
+    UserQbank_model_1.default.belongsTo(QuestionBank_model_1.default, { foreignKey: 'qbankId' });
     User_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'userId' });
     Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     Course_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'courseId' });
