@@ -1,5 +1,5 @@
 import Teacher from "../models/Teacher.model";
-import { CreateTeacherServiceParams, GetTeacherFilterType, LoginTeacherServiceParams } from "../utils/types";
+import { CreateTeacherServiceParams, GetTeacherFilterType, LoginTeacherServiceParams,GetTeacherPermissionsParams, UpdateTeacherPermissionsParams  } from "../utils/types";
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import HttpError from "../utils/httpError";
@@ -7,6 +7,8 @@ import { Role } from "../utils/constants";
 import CourseTeacher from "../models/CourseTeacher.model";
 import * as fs from 'fs'; // Import Node.js File System module
 import * as path from 'path'; // Import Node.js Path module
+import User from '../models/User.model'; // Assuming teachers are stored in the User model
+
 
 // Define the path to your Jitsi private key file.
 // In production on Render, it will be in /etc/secrets/.
@@ -60,6 +62,42 @@ export const createTeacherService = async ({ name, email, password, phone, exper
     }
 }
 
+export const getTeacherPermissions = async ({ teacherId }: GetTeacherPermissionsParams) => {
+    const teacher = await User.findOne({
+        where: { id: teacherId, role: 'teacher' },
+        attributes: ['permissions'] // Only fetch the permissions field
+    });
+
+    if (!teacher) {
+        throw new HttpError("Teacher not found.", 404);
+    }
+
+    // Return the permissions object, or a default object if null
+    return (teacher as any).permissions || { courses: false, tests: false, qbank: false, webinars: false };
+};
+
+/**
+ * Updates the permissions for a specific teacher.
+ */
+export const updateTeacherPermissions = async ({ teacherId, permissions }: UpdateTeacherPermissionsParams) => {
+    const teacher = await User.findOne({
+        where: { id: teacherId, role: 'teacher' }
+    });
+
+    if (!teacher) {
+        throw new HttpError("Teacher not found.", 404);
+    }
+
+    // Get existing permissions to merge with new ones
+    const existingPermissions = (teacher as any).permissions || {};
+    
+    // Update the teacher's permissions field with the new values
+    (teacher as any).permissions = { ...existingPermissions, ...permissions };
+
+    await teacher.save();
+    return teacher;
+};
+
 export const loginTeacherService = async ({ email, password }: LoginTeacherServiceParams) => {
     try {
         const teacher = await Teacher.findOne({ where: { email } });
@@ -99,7 +137,8 @@ export const loginTeacherService = async ({ email, password }: LoginTeacherServi
     }
 }
 
-export const isTeacherAssignedService = async (teacherId: string, courseId: string) => {
+export const 
+isTeacherAssignedService = async (teacherId: string, courseId: string) => {
     try {
         const isAssigned = await CourseTeacher.findOne({
             where: {

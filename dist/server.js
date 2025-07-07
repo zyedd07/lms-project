@@ -20,7 +20,7 @@ require('dotenv').config();
 console.log("DATABASE_URL being used by application:", process.env.DATABASE_URL);
 // Routers
 const User_router_1 = __importDefault(require("./routes/User.router"));
-const Teacher_router_1 = __importDefault(require("./routes/Teacher.router"));
+const teacher_router_1 = __importDefault(require("./routes/teacher.router"));
 const Category_router_1 = __importDefault(require("./routes/Category.router"));
 const Admin_router_1 = __importDefault(require("./routes/Admin.router"));
 const Course_router_1 = __importDefault(require("./routes/Course.router"));
@@ -40,6 +40,8 @@ const HomeContent_router_1 = __importDefault(require("./routes/HomeContent.route
 const UserCourse_router_1 = __importDefault(require("./routes/UserCourse.router"));
 const UserTestSeries_router_1 = __importDefault(require("./routes/UserTestSeries.router"));
 const UserQbank_router_1 = __importDefault(require("./routes/UserQbank.router"));
+const HelpCenter_router_1 = __importDefault(require("./routes/HelpCenter.router"));
+const TermsSection_router_1 = __importDefault(require("./routes/TermsSection.router")); // Make sure the filename matches
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -71,7 +73,7 @@ app.get('/', (req, res) => {
 });
 // Routes
 app.use('/user', User_router_1.default);
-app.use('/teacher', Teacher_router_1.default);
+app.use('/teachers', teacher_router_1.default); // Using the new teacher router
 app.use('/categories', Category_router_1.default);
 app.use('/admin', Admin_router_1.default);
 app.use('/course', Course_router_1.default);
@@ -91,6 +93,8 @@ app.use('/home-content', HomeContent_router_1.default);
 app.use('/user-courses', UserCourse_router_1.default);
 app.use('/user-test-series', UserTestSeries_router_1.default);
 app.use('/user-qbanks', UserQbank_router_1.default);
+app.use('/help-center', HelpCenter_router_1.default);
+app.use('/terms-sections', TermsSection_router_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);

@@ -477,3 +477,20 @@ export interface UpdateTermsSectionParams {
     content?: string;
     order?: number;
 }
+
+export type TeacherPermissions = {
+    courses?: boolean;
+    tests?: boolean;
+    qbank?: boolean;
+    webinars?: boolean;
+    // Add any other page keys here as needed
+};
+
+export type UpdateTeacherPermissionsParams = {
+    teacherId: string;
+    permissions: TeacherPermissions;
+};
+
+export type GetTeacherPermissionsParams = {
+    teacherId: string;
+};

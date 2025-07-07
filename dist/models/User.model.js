@@ -70,5 +70,15 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.DATE,
         allowNull: true,
     },
+    permissions: {
+        type: sequelize_1.DataTypes.JSONB,
+        allowNull: true, // Or set a default value
+        defaultValue: {
+            courses: true,
+            tests: true,
+            qbank: true,
+            webinars: true
+        }
+    }
 }, { timestamps: true });
 exports.default = User;

@@ -14,7 +14,7 @@ import {
     getCourseByIdService,
 } from "../services/Course.service";
 import { Role } from "../utils/constants";
-import { isTeacherAssignedService } from "../services/Teacher.service";
+import { isTeacherAssignedService } from "../services/teacher.service";
 import { GetCourseFilters } from "../utils/types"; 
 // Make sure to import CourseContentModule if you want to use it for type checking the request body
 // import { CourseContentModule } from "../utils/types"; 

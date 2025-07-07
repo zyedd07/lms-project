@@ -17,7 +17,7 @@ exports.courseTeacherController = exports.deleteCourseController = exports.updat
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const Course_service_1 = require("../services/Course.service");
 const constants_1 = require("../utils/constants");
-const Teacher_service_1 = require("../services/Teacher.service");
+const teacher_service_1 = require("../services/teacher.service");
 // Make sure to import CourseContentModule if you want to use it for type checking the request body
 // import { CourseContentModule } from "../utils/types"; 
 const createCourseController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -131,7 +131,7 @@ const updateCourseController = (req, res, next) => __awaiter(void 0, void 0, voi
         // --- END MODIFIED LINE ---
         const { id } = req.params;
         const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
-        if (role !== constants_1.Role.ADMIN && !(role === constants_1.Role.TEACHER && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.id) && (yield (0, Teacher_service_1.isTeacherAssignedService)(req.user.id, id)))) {
+        if (role !== constants_1.Role.ADMIN && !(role === constants_1.Role.TEACHER && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.id) && (yield (0, teacher_service_1.isTeacherAssignedService)(req.user.id, id)))) {
             throw new httpError_1.default('Unauthorized', 403);
         }
         if (!id) {
