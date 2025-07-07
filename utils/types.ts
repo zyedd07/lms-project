@@ -433,3 +433,22 @@ export type UpdateTestSeriesEnrollmentParams = {
     testSeriesId: string;
     status: EnrollmentStatus;
 };
+export type EnrollInQbankServiceParams = {
+    userId: string;
+    qbankId: string;
+};
+
+export type UnenrollFromQbankServiceParams = {
+    userId: string;
+    qbankId: string;
+};
+
+export type GetUserEnrolledQbanksParams = {
+    userId: string;
+};
+
+export type UpdateQbankEnrollmentParams = {
+    userId: string;
+    qbankId: string;
+    status: EnrollmentStatus;
+};

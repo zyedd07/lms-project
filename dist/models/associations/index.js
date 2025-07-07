@@ -25,6 +25,8 @@ const Notification_model_1 = __importDefault(require("../Notification.model"));
 const Drug_model_1 = __importDefault(require("../Drug.model"));
 const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model"));
 const UserTestSeries_model_1 = __importDefault(require("../UserTestSeries.model"));
+const UserQbank_model_1 = __importDefault(require("../UserQbank.model"));
+const QuestionBank_model_1 = __importDefault(require("models/QuestionBank.model"));
 const initAssociation = () => {
     // --- NEW: User and Course relationship through UserCourse ---
     // This replaces the old Enrollment model associations.
@@ -33,6 +35,8 @@ const initAssociation = () => {
     // --- OLD Enrollment model relationships have been removed ---
     User_model_1.default.belongsToMany(TestSeries_model_1.default, { through: UserTestSeries_model_1.default, foreignKey: 'userId', as: 'enrolledTestSeries' });
     TestSeries_model_1.default.belongsToMany(User_model_1.default, { through: UserTestSeries_model_1.default, foreignKey: 'testSeriesId', as: 'enrolledTestUsers' });
+    User_model_1.default.belongsToMany(QuestionBank_model_1.default, { through: UserQbank_model_1.default, foreignKey: 'userId', as: 'enrolledQbanks' });
+    QuestionBank_model_1.default.belongsToMany(User_model_1.default, { through: UserQbank_model_1.default, foreignKey: 'qbankId', as: 'enrolledQbankUsers' });
     User_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'userId' });
     Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     Course_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'courseId' });

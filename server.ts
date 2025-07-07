@@ -26,6 +26,10 @@ import drugRouter from './routes/Drug.router';
 import drugCategoryRouter from './routes/DrugCategory.router';
 import homeContentRouter from './routes/HomeContent.router';
 
+import userCourseRouter from './routes/UserCourse.router';
+import userTestSeriesRouter from './routes/UserTestSeries.router';
+import userQbankRouter from './routes/UserQbank.router';
+
 const app = express();
 
 app.use(express.json());
@@ -78,7 +82,9 @@ app.use('/articles', articleRouter);
 app.use('/drugs', drugRouter);
 app.use('/drug-categories', drugCategoryRouter);
 app.use('/home-content', homeContentRouter);
-
+app.use('/user-courses', userCourseRouter);
+app.use('/user-test-series', userTestSeriesRouter);
+app.use('/user-qbanks', userQbankRouter);
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('--- UNHANDLED REJECTION ---');
