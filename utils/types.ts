@@ -414,3 +414,22 @@ export type UpdateEnrollmentStatusParams = {
     courseId: string;
     status: EnrollmentStatus;
 };
+export type EnrollInTestSeriesServiceParams = {
+    userId: string;
+    testSeriesId: string;
+};
+
+export type UnenrollFromTestSeriesServiceParams = {
+    userId: string;
+    testSeriesId: string;
+};
+
+export type GetUserEnrolledTestSeriesParams = {
+    userId: string;
+};
+
+export type UpdateTestSeriesEnrollmentParams = {
+    userId: string;
+    testSeriesId: string;
+    status: EnrollmentStatus;
+};

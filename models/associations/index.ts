@@ -19,6 +19,7 @@ import Company from '../Company.model';
 import Notification from "../Notification.model";
 import Drug from "../Drug.model"; 
 import DrugCategory from "../DrugCategory.model"; 
+import UserTestSeries from "../UserTestSeries.model";
 
 const initAssociation = () => {
     // --- NEW: User and Course relationship through UserCourse ---
@@ -27,6 +28,9 @@ const initAssociation = () => {
     Course.belongsToMany(User, { through: UserCourse, foreignKey: 'courseId', as: 'enrolledUsers' });
 
     // --- OLD Enrollment model relationships have been removed ---
+User.belongsToMany(TestSeries, { through: UserTestSeries, foreignKey: 'userId', as: 'enrolledTestSeries' });
+    TestSeries.belongsToMany(User, { through: UserTestSeries, foreignKey: 'testSeriesId', as: 'enrolledTestUsers' });
+
 
     User.hasMany(Payment, { foreignKey: 'userId' });
     Payment.belongsTo(User, { foreignKey: 'userId' });
