@@ -22,6 +22,8 @@ import DrugCategory from "../DrugCategory.model";
 import UserTestSeries from "../UserTestSeries.model";
 import UserQbank from "../UserQbank.model";
 import QuestionBank from "../QuestionBank.model";
+import TermsSection from "models/TermsOfService.model";
+import HelpCenterSection from "models/HelpCenter.model";
 
 const initAssociation = () => {
         User.hasMany(UserCourse, { foreignKey: 'userId' });

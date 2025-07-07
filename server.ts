@@ -29,6 +29,8 @@ import homeContentRouter from './routes/HomeContent.router';
 import userCourseRouter from './routes/UserCourse.router';
 import userTestSeriesRouter from './routes/UserTestSeries.router';
 import userQbankRouter from './routes/UserQbank.router';
+import helpCenterRouter from './routes/HelpCenter.router';
+import termsRouter from './routes/TermsSection.router'; // Make sure the filename matches
 
 const app = express();
 
@@ -85,6 +87,8 @@ app.use('/home-content', homeContentRouter);
 app.use('/user-courses', userCourseRouter);
 app.use('/user-test-series', userTestSeriesRouter);
 app.use('/user-qbanks', userQbankRouter);
+app.use('/help-center', helpCenterRouter);
+app.use('/terms-sections', termsRouter);
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('--- UNHANDLED REJECTION ---');
