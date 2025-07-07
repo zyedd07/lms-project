@@ -21,7 +21,7 @@ import Drug from "../Drug.model";
 import DrugCategory from "../DrugCategory.model"; 
 import UserTestSeries from "../UserTestSeries.model";
 import UserQbank from "../UserQbank.model";
-import QuestionBank from "models/QuestionBank.model";
+import QuestionBank from "../QuestionBank.model";
 
 const initAssociation = () => {
     // --- NEW: User and Course relationship through UserCourse ---
