@@ -42,7 +42,7 @@ const auth_1 = __importStar(require("../middleware/auth"));
 const router = express_1.default.Router();
 // This assumes you might have other teacher-specific routes in the future.
 // GET a specific teacher's page permissions
-router.get('/:teacherId/permissions', auth_1.default, auth_1.authorizeAdmin, TeacherController.getTeacherPermissions);
+router.get('/:userId/permissions', auth_1.default, auth_1.authorizeAdmin, TeacherController.getTeacherPermissions);
 // PUT (update) a specific teacher's page permissions
-router.put('/:teacherId/permissions', auth_1.default, auth_1.authorizeAdmin, TeacherController.updateTeacherPermissions);
+router.put('/:userId/permissions', auth_1.default, auth_1.authorizeAdmin, TeacherController.updateTeacherPermissions);
 exports.default = router;
