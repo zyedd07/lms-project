@@ -213,7 +213,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country'
+            'rollNo', 'collegeName', 'university', 'country','password'
         ];
 
         // Populate allowedUpdates with other profile fields
