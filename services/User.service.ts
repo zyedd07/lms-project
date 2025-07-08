@@ -233,12 +233,20 @@ export const getUsersService = async (email?: string) => {
 
 /**
  * Updates a user's information.
- */
-export const updateUserService = async (id: string, updates: UpdateUserServiceParams) => {
+ */export const updateUserService = async (id: string, updates: UpdateUserServiceParams) => {
     const user = await User.findByPk(id);
     if (!user) {
         throw new HttpError("User not found", 404);
     }
+
+    // --- FIX: Check if a new password is being provided ---
+    if (updates.password) {
+        // If yes, hash the new password before updating
+        const salt = await bcrypt.genSalt(10);
+        updates.password = await bcrypt.hash(updates.password, salt);
+    }
+
+    // Now, assign the updates (with the potentially hashed password)
     Object.assign(user, updates);
     await user.save();
     return user;
