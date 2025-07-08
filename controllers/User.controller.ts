@@ -171,9 +171,12 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         const updates = req.body;
 
         const allowedUpdates: any = {};
+        // FIX: Added 'password' to the list of allowed fields to update.
         const fieldsToUpdate = [
-            'name', 'email', 'phone', 'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+            'name', 'email', 'phone', 'dateOfBirth', 'address', 
+            'rollNo', 'collegeName', 'university', 'country', 'password'
         ];
+        
         fieldsToUpdate.forEach(field => {
             if (updates[field] !== undefined) {
                 allowedUpdates[field] = updates[field];
@@ -184,7 +187,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             throw new HttpError("No valid update data provided.", 400);
         }
 
-        const updatedUser = await updateUserService(userId, allowedUpdates);
+        const updatedUser = await UserService.updateUserService(userId, allowedUpdates);
         
         res.status(200).json({
             success: true,
@@ -195,6 +198,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         next(error);
     }
 };
+
 
 /**
  * Controller for uploading a profile picture.
