@@ -168,15 +168,47 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             throw new HttpError("User not authenticated.", 401);
         }
         const userId = req.user.id;
-        const updates = req.body;
+        const updates = { ...req.body }; // Create a mutable copy of the request body
 
         const allowedUpdates: any = {};
-        // FIX: Added 'password' to the list of allowed fields to update.
+
+        // --- Handle Password Update Separately ---
+        const currentPassword = updates.currentPassword;
+        const newPassword = updates.newPassword;
+
+        if (currentPassword || newPassword) { // Check if a password update is attempted
+            if (!currentPassword || !newPassword) {
+                throw new HttpError("Both currentPassword and newPassword are required to change password.", 400);
+            }
+
+            // 1. Fetch the user to verify current password
+            const user = await User.findById(userId); // Assuming User.findById fetches the user with their hashed password
+            if (!user) {
+                throw new HttpError("User not found.", 404);
+            }
+
+            // 2. Verify the current password (bcrypt is still needed here)
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                throw new HttpError("Current password incorrect.", 401);
+            }
+
+            // 3. Pass the new password (plain text) to the service for hashing
+            allowedUpdates.newPassword = newPassword; // Renamed to newPassword to be explicit for the service
+
+            // Remove password fields from the original updates object so they are not processed as regular fields
+            delete updates.currentPassword;
+            delete updates.newPassword;
+        }
+        // --- End Password Update Handling ---
+
+        // Define allowed fields for general profile updates
         const fieldsToUpdate = [
-            'name', 'email', 'phone', 'dateOfBirth', 'address', 
+            'name', 'email', 'phone', 'dateOfBirth', 'address',
             'rollNo', 'collegeName', 'university', 'country', 'password'
         ];
-        
+
+        // Populate allowedUpdates with other profile fields
         fieldsToUpdate.forEach(field => {
             if (updates[field] !== undefined) {
                 allowedUpdates[field] = updates[field];
@@ -187,19 +219,23 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             throw new HttpError("No valid update data provided.", 400);
         }
 
+        // Call the service to update the user with the prepared allowedUpdates.
+        // The updateUserService is now responsible for hashing 'newPassword' if it exists.
         const updatedUser = await updateUserService(userId, allowedUpdates);
-        
+
+        // Remove sensitive data (like password) before sending the response
+        const userResponseData = updatedUser.toObject ? updatedUser.toObject() : { ...updatedUser };
+        delete userResponseData.password;
+
         res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            data: updatedUser 
+            data: userResponseData
         });
     } catch (error) {
         next(error);
     }
 };
-
-
 /**
  * Controller for uploading a profile picture.
  */
