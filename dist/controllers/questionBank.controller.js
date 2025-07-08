@@ -132,12 +132,13 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Unauthorized: User information missing.", 401);
         }
         // Find the question bank to check authorization
-        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
+        // FIX: Call the service function that includes uploader data
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to update (uploader, admin, or teacher)
+        // FIX: Use questionBank.uploader?.id for authorization check
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to update this question bank.", 403);
         }
@@ -221,12 +222,13 @@ const deleteQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Unauthorized: User information missing.", 401);
         }
         // Find the question bank to check authorization
-        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
+        // FIX: Call the service function that includes uploader data
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to delete (uploader, admin, or teacher)
+        // FIX: Use questionBank.uploader?.id for authorization check
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to delete this question bank.", 403);
         }

@@ -22,7 +22,6 @@ interface AuthenticatedRequest extends Request {
         email: string;
         role: string;
     };
-    file?: Express.Multer.File; // Add file property for multer
 }
 
 /**
@@ -147,14 +146,15 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Find the question bank to check authorization
-        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
-        const questionBank = await getQuestionBankByIdService(id) as any;
+        // FIX: Call the service function that includes uploader data
+        const questionBank = await getQuestionBankByIdService(id);
         if (!questionBank) {
             throw new HttpError("Question bank not found.", 404);
         }
 
         // Check if the user is authorized to update (uploader, admin, or teacher)
-        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
+        // FIX: Use questionBank.uploader?.id for authorization check
+        if ((questionBank as any).uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to update this question bank.", 403);
         }
 
@@ -251,14 +251,15 @@ export const deleteQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Find the question bank to check authorization
-        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
-        const questionBank = await getQuestionBankByIdService(id) as any;
+        // FIX: Call the service function that includes uploader data
+        const questionBank = await getQuestionBankByIdService(id);
         if (!questionBank) {
             throw new HttpError("Question bank not found.", 404);
         }
 
         // Check if the user is authorized to delete (uploader, admin, or teacher)
-        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
+        // FIX: Use questionBank.uploader?.id for authorization check
+        if ((questionBank as any).uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to delete this question bank.", 403);
         }
 
