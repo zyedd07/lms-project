@@ -179,41 +179,41 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
 
         // --- Handle Password Update Separately ---
         const currentPassword = updates.currentPassword;
-        const password = updates.password;
+        // FIX: Use updates.newPassword as sent from the frontend
+        const newPasswordValue = updates.newPassword;
 
-        if (currentPassword || password) { // Check if a password update is attempted
-            if (!currentPassword || !password) {
+        if (currentPassword || newPasswordValue) { // Check if a password update is attempted
+            if (!currentPassword || !newPasswordValue) {
                 throw new HttpError("Both currentPassword and newPassword are required to change password.", 400);
             }
 
             // 1. Fetch the user to verify current password using Sequelize's findByPk
-            // Ensure 'User' is your Sequelize model instance.
             const user = await User.findByPk(userId);
             if (!user) {
                 throw new HttpError("User not found.", 404);
             }
 
             // 2. Verify the current password
-            // Casting 'user' to 'any' to explicitly allow access to the 'password' property,
-            // as Sequelize model types might not always expose it directly without specific type definitions.
             const isMatch = await bcrypt.compare(currentPassword, (user as any).password);
             if (!isMatch) {
                 throw new HttpError("Current password incorrect.", 401);
             }
 
             // 3. Pass the new password (plain text) to the service for hashing
-            allowedUpdates.password = password; // Renamed to newPassword to be explicit for the service
+            // FIX: Assign newPasswordValue to 'password' for the service, as the service expects 'updates.password'
+            allowedUpdates.password = newPasswordValue;
 
             // Remove password fields from the original updates object so they are not processed as regular fields
             delete updates.currentPassword;
-            delete updates.password;
+            delete updates.newPassword; // FIX: Delete newPassword, not 'password'
         }
         // --- End Password Update Handling ---
 
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country','password'
+            'rollNo', 'collegeName', 'university', 'country'
+            // FIX: Removed 'password' from this list, as it's handled separately
         ];
 
         // Populate allowedUpdates with other profile fields
@@ -228,11 +228,10 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         }
 
         // Call the service to update the user with the prepared allowedUpdates.
-        // The updateUserService is now responsible for hashing 'newPassword' if it exists.
+        // The updateUserService is now responsible for hashing 'password' if it exists.
         const updatedUser = await updateUserService(userId, allowedUpdates);
 
         // Remove sensitive data (like password) before sending the response
-        // Sequelize model instances typically have a .toJSON() method.
         const userResponseData = (updatedUser as any).toJSON ? (updatedUser as any).toJSON() : { ...updatedUser };
         delete userResponseData.password;
 
@@ -245,6 +244,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         next(error);
     }
 };
+
 
 /**
  * Controller for uploading a profile picture.
