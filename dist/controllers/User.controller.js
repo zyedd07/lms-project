@@ -47,6 +47,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
 // The User model is NOT imported here. Controllers should not directly access models.
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const User_model_1 = __importDefault(require("../models/User.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const User_service_1 = require("../services/User.service");
 const multer_1 = __importStar(require("multer"));
@@ -205,11 +207,46 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
             throw new httpError_1.default("User not authenticated.", 401);
         }
         const userId = req.user.id;
-        const updates = req.body;
+        const updates = Object.assign({}, req.body); // Create a mutable copy of the request body
         const allowedUpdates = {};
+        // --- Handle Password Update Separately ---
+        const currentPassword = updates.currentPassword;
+        const newPassword = updates.newPassword;
+        if (currentPassword || newPassword) { // Check if a password update is attempted
+            if (!currentPassword || !newPassword) {
+                throw new httpError_1.default("Both currentPassword and newPassword are required to change password.", 400);
+            }
+            // 1. Fetch the user to verify current password
+            // Ensure 'User' is correctly imported and is your Mongoose model instance.
+            // If you're using default export for your User model, it should be:
+            // import User from '../models/User';
+            // If 'findById' is not found, ensure 'User' is the Mongoose Model itself, not its constructor type.
+            // Casting to 'any' here to resolve TypeScript error if typings are ambiguous.
+            const user = yield User_model_1.default.findById(userId);
+            if (!user) {
+                throw new httpError_1.default("User not found.", 404);
+            }
+            // 2. Verify the current password (bcrypt is still needed here)
+            // If you encounter 'Cannot find name 'bcrypt'' error, ensure 'bcryptjs' is installed:
+            // npm install bcryptjs
+            // npm install --save-dev @types/bcryptjs
+            const isMatch = yield bcryptjs_1.default.compare(currentPassword, user.password);
+            if (!isMatch) {
+                throw new httpError_1.default("Current password incorrect.", 401);
+            }
+            // 3. Pass the new password (plain text) to the service for hashing
+            allowedUpdates.newPassword = newPassword; // Renamed to newPassword to be explicit for the service
+            // Remove password fields from the original updates object so they are not processed as regular fields
+            delete updates.currentPassword;
+            delete updates.newPassword;
+        }
+        // --- End Password Update Handling ---
+        // Define allowed fields for general profile updates
         const fieldsToUpdate = [
-            'name', 'email', 'phone', 'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
+            'name', 'email', 'phone', 'dateOfBirth', 'address',
+            'rollNo', 'collegeName', 'university', 'country', 'password'
         ];
+        // Populate allowedUpdates with other profile fields
         fieldsToUpdate.forEach(field => {
             if (updates[field] !== undefined) {
                 allowedUpdates[field] = updates[field];
@@ -218,11 +255,19 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         if (Object.keys(allowedUpdates).length === 0) {
             throw new httpError_1.default("No valid update data provided.", 400);
         }
+        // Call the service to update the user with the prepared allowedUpdates.
+        // The updateUserService is now responsible for hashing 'newPassword' if it exists.
         const updatedUser = yield (0, User_service_1.updateUserService)(userId, allowedUpdates);
+        // Remove sensitive data (like password) before sending the response
+        // To resolve 'Property 'toObject' does not exist on type 'Model<any, any>'',
+        // we explicitly cast updatedUser to 'any' to allow access to Mongoose document methods.
+        // A more robust solution would be to correctly type the return of updateUserService.
+        const userResponseData = updatedUser.toObject ? updatedUser.toObject() : Object.assign({}, updatedUser);
+        delete userResponseData.password;
         res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            data: updatedUser
+            data: userResponseData
         });
     }
     catch (error) {

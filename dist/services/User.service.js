@@ -260,12 +260,18 @@ const getUsersService = (email) => __awaiter(void 0, void 0, void 0, function* (
 exports.getUsersService = getUsersService;
 /**
  * Updates a user's information.
- */
-const updateUserService = (id, updates) => __awaiter(void 0, void 0, void 0, function* () {
+ */ const updateUserService = (id, updates) => __awaiter(void 0, void 0, void 0, function* () {
     const user = yield User_model_1.default.findByPk(id);
     if (!user) {
         throw new httpError_1.default("User not found", 404);
     }
+    // --- FIX: Check if a new password is being provided ---
+    if (updates.password) {
+        // If yes, hash the new password before updating
+        const salt = yield bcryptjs_1.default.genSalt(10);
+        updates.password = yield bcryptjs_1.default.hash(updates.password, salt);
+    }
+    // Now, assign the updates (with the potentially hashed password)
     Object.assign(user, updates);
     yield user.save();
     return user;

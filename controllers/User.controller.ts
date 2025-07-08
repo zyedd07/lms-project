@@ -1,5 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 // The User model is NOT imported here. Controllers should not directly access models.
+import bcrypt from 'bcryptjs';
+import User from "../models/User.model";
+
 import HttpError from "../utils/httpError";
 import {
     createUserService,
@@ -162,6 +165,7 @@ export const getLoggedInUser = async (req: AuthenticatedRequest, res: Response, 
 /**
  * Controller for a logged-in user to update their own profile.
  */
+
 export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         if (!req.user || !req.user.id) {
@@ -182,12 +186,20 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             }
 
             // 1. Fetch the user to verify current password
-            const user = await User.findById(userId); // Assuming User.findById fetches the user with their hashed password
+            // Ensure 'User' is correctly imported and is your Mongoose model instance.
+            // If you're using default export for your User model, it should be:
+            // import User from '../models/User';
+            // If 'findById' is not found, ensure 'User' is the Mongoose Model itself, not its constructor type.
+            // Casting to 'any' here to resolve TypeScript error if typings are ambiguous.
+            const user = await (User as any).findById(userId);
             if (!user) {
                 throw new HttpError("User not found.", 404);
             }
 
             // 2. Verify the current password (bcrypt is still needed here)
+            // If you encounter 'Cannot find name 'bcrypt'' error, ensure 'bcryptjs' is installed:
+            // npm install bcryptjs
+            // npm install --save-dev @types/bcryptjs
             const isMatch = await bcrypt.compare(currentPassword, user.password);
             if (!isMatch) {
                 throw new HttpError("Current password incorrect.", 401);
@@ -224,7 +236,10 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         const updatedUser = await updateUserService(userId, allowedUpdates);
 
         // Remove sensitive data (like password) before sending the response
-        const userResponseData = updatedUser.toObject ? updatedUser.toObject() : { ...updatedUser };
+        // To resolve 'Property 'toObject' does not exist on type 'Model<any, any>'',
+        // we explicitly cast updatedUser to 'any' to allow access to Mongoose document methods.
+        // A more robust solution would be to correctly type the return of updateUserService.
+        const userResponseData = (updatedUser as any).toObject ? (updatedUser as any).toObject() : { ...updatedUser };
         delete userResponseData.password;
 
         res.status(200).json({
@@ -236,6 +251,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         next(error);
     }
 };
+
 /**
  * Controller for uploading a profile picture.
  */
