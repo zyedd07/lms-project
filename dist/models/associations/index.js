@@ -107,5 +107,16 @@ const initAssociation = () => {
         as: 'drugs'
     });
     // --- END DRUG INDEX ASSOCIATIONS ---
+    // --- FIX: ASSOCIATIONS FOR UPLOADER/CREATOR ---
+    // Course uploader
+    Course_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'uploaderId', as: 'uploader' });
+    // TestSeries creator
+    TestSeries_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'createdBy', as: 'creator' });
+    // QuestionBank uploader
+    QuestionBank_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'uploadedBy', as: 'uploader' });
+    // Question creator (assuming Question has a createdBy field referencing User)
+    // If your Question model has a 'createdBy' field that links to User, add this:
+    // Question.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+    // --- END FIX ---
 };
 exports.default = initAssociation;

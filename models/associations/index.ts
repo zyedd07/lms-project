@@ -26,8 +26,8 @@ import TermsSection from "models/TermsOfService.model";
 import HelpCenterSection from "models/HelpCenter.model";
 
 const initAssociation = () => {
-        User.hasMany(UserCourse, { foreignKey: 'userId' });
-     UserCourse.belongsTo(User, { foreignKey: 'userId' });
+    User.hasMany(UserCourse, { foreignKey: 'userId' });
+    UserCourse.belongsTo(User, { foreignKey: 'userId' });
     Course.hasMany(UserCourse, { foreignKey: 'courseId' });
     UserCourse.belongsTo(Course, { foreignKey: 'courseId' });
 
@@ -126,6 +126,18 @@ const initAssociation = () => {
         as: 'drugs'
     });
     // --- END DRUG INDEX ASSOCIATIONS ---
+
+    // --- FIX: ASSOCIATIONS FOR UPLOADER/CREATOR ---
+    // Course uploader
+    Course.belongsTo(User, { foreignKey: 'uploaderId', as: 'uploader' });
+    // TestSeries creator
+    TestSeries.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+    // QuestionBank uploader
+    QuestionBank.belongsTo(User, { foreignKey: 'uploadedBy', as: 'uploader' });
+    // Question creator (assuming Question has a createdBy field referencing User)
+    // If your Question model has a 'createdBy' field that links to User, add this:
+    // Question.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+    // --- END FIX ---
 };
 
 export default initAssociation;
