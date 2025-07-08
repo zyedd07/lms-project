@@ -85,6 +85,7 @@ export type UpdateUserServiceParams = {
     collegeName?: string;
     university?: string;
     country?: string;
+    password?:string;
 }
 
 // --- Teacher Types ---
