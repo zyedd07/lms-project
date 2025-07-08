@@ -179,10 +179,10 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
 
         // --- Handle Password Update Separately ---
         const currentPassword = updates.currentPassword;
-        const newPassword = updates.newPassword;
+        const password = updates.password;
 
-        if (currentPassword || newPassword) { // Check if a password update is attempted
-            if (!currentPassword || !newPassword) {
+        if (currentPassword || password) { // Check if a password update is attempted
+            if (!currentPassword || !password) {
                 throw new HttpError("Both currentPassword and newPassword are required to change password.", 400);
             }
 
@@ -202,11 +202,11 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             }
 
             // 3. Pass the new password (plain text) to the service for hashing
-            allowedUpdates.newPassword = newPassword; // Renamed to newPassword to be explicit for the service
+            allowedUpdates.password = password; // Renamed to newPassword to be explicit for the service
 
             // Remove password fields from the original updates object so they are not processed as regular fields
             delete updates.currentPassword;
-            delete updates.newPassword;
+            delete updates.password;
         }
         // --- End Password Update Handling ---
 

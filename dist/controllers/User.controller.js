@@ -211,9 +211,9 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         const allowedUpdates = {};
         // --- Handle Password Update Separately ---
         const currentPassword = updates.currentPassword;
-        const newPassword = updates.newPassword;
-        if (currentPassword || newPassword) { // Check if a password update is attempted
-            if (!currentPassword || !newPassword) {
+        const password = updates.password;
+        if (currentPassword || password) { // Check if a password update is attempted
+            if (!currentPassword || !password) {
                 throw new httpError_1.default("Both currentPassword and newPassword are required to change password.", 400);
             }
             // 1. Fetch the user to verify current password using Sequelize's findByPk
@@ -230,16 +230,16 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
                 throw new httpError_1.default("Current password incorrect.", 401);
             }
             // 3. Pass the new password (plain text) to the service for hashing
-            allowedUpdates.newPassword = newPassword; // Renamed to newPassword to be explicit for the service
+            allowedUpdates.password = password; // Renamed to newPassword to be explicit for the service
             // Remove password fields from the original updates object so they are not processed as regular fields
             delete updates.currentPassword;
-            delete updates.newPassword;
+            delete updates.password;
         }
         // --- End Password Update Handling ---
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country'
+            'rollNo', 'collegeName', 'university', 'country', 'password'
         ];
         // Populate allowedUpdates with other profile fields
         fieldsToUpdate.forEach(field => {
