@@ -32,7 +32,7 @@ const QuestionBank = index_1.sequelize.define('QuestionBank', {
     },
     uploadedBy: {
         type: sequelize_1.DataTypes.UUID,
-        allowNull: false, // Assuming an uploader is always required
+        allowNull: true, // Assuming an uploader is always required
         references: {
             model: 'Users', // This should match your actual Users table name
             key: 'id',

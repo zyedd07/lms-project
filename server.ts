@@ -31,7 +31,7 @@ import userTestSeriesRouter from './routes/UserTestSeries.router';
 import userQbankRouter from './routes/UserQbank.router';
 import helpCenterRouter from './routes/HelpCenter.router';
 import termsRouter from './routes/TermsSection.router'; // Make sure the filename matches
-
+import paymentGatewayRoutes from './routes/PaymentGateway.router';
 const app = express();
 
 app.use(express.json());
@@ -89,6 +89,7 @@ app.use('/user-test-series', userTestSeriesRouter);
 app.use('/user-qbanks', userQbankRouter);
 app.use('/help-center', helpCenterRouter);
 app.use('/terms-sections', termsRouter);
+app.use('/payment-gateway', paymentGatewayRoutes);
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('--- UNHANDLED REJECTION ---');

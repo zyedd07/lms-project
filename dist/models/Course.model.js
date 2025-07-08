@@ -57,7 +57,7 @@ const Course = _1.sequelize.define('Course', {
     },
     uploaderId: {
         type: sequelize_1.DataTypes.UUID,
-        allowNull: false, // Assuming an uploader is always required
+        allowNull: true, // Assuming an uploader is always required
         references: {
             model: 'Users', // This should match your actual Users table name
             key: 'id',

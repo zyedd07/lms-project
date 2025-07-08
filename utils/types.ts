@@ -8,6 +8,48 @@ export type GetFilters = {
 
 // --- User Types ---
 
+export type CreatePaymentGatewayParams = {
+    gatewayName: string;
+    apiKey?: string;
+    apiSecret?: string;
+    paymentUrl?: string;
+    successUrl?: string;
+    failureUrl?: string;
+    currency?: string;
+    testMode?: boolean;
+    isActive?: boolean;
+    isDefault?: boolean;
+};
+
+export type UpdatePaymentGatewayParams = {
+    gatewayName?: string;
+    apiKey?: string;
+    apiSecret?: string;
+    paymentUrl?: string;
+    successUrl?: string;
+    failureUrl?: string;
+    currency?: string;
+    testMode?: boolean;
+    isActive?: boolean;
+    isDefault?: boolean;
+};
+
+export type PaymentGatewayData = {
+    id: number;
+    gatewayName: string;
+    apiKey?: string;
+    apiSecret?: string; // Will be stripped for public view
+    paymentUrl?: string;
+    successUrl?: string;
+    failureUrl?: string;
+    currency?: string;
+    testMode?: boolean;
+    isActive: boolean;
+    isDefault: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
 // --- Type Definitions for Service Layer ---
 export type UpdateHomeContentParams = {
     sliderImages?: string[];

@@ -24,7 +24,7 @@ const TestSeries = _1.sequelize.define('TestSeries', {
     },
     createdBy: {
         type: sequelize_1.DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
             model: 'Users', // This should match your actual Users table name
             key: 'id',
