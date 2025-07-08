@@ -32,14 +32,13 @@ const QuestionBank = index_1.sequelize.define('QuestionBank', {
     },
     uploadedBy: {
         type: sequelize_1.DataTypes.UUID,
-        allowNull: true, // Can be null if not linked to a uploader
-        // If you have a User or Admin model, you would define the association here:
-        // references: {
-        //     model: 'Users', // Or 'Admins' if you have a separate admin table
-        //     key: 'id',
-        // },
-        // onDelete: 'SET NULL',
-        // onUpdate: 'CASCADE'
+        allowNull: false, // Assuming an uploader is always required
+        references: {
+            model: 'Users', // This should match your actual Users table name
+            key: 'id',
+        },
+        // onDelete: 'SET NULL', // Optional: What happens if the uploader user is deleted
+        // onUpdate: 'CASCADE'  // Optional: What happens if the uploader user's ID changes
     },
     uploadDate: {
         type: sequelize_1.DataTypes.DATE,

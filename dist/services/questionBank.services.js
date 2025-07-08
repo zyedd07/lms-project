@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getQuestionBankByIdService = exports.getAllQuestionBanksService = exports.deleteQuestionBankService = exports.updateQuestionBankService = exports.createQuestionBankService = void 0;
 const QuestionBank_model_1 = __importDefault(require("../models/QuestionBank.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
+const User_model_1 = __importDefault(require("../models/User.model")); // Import the User model
 // Helper function to safely narrow 'unknown' error type
 function isHttpError(error) {
     return error instanceof httpError_1.default;
@@ -24,19 +25,19 @@ function isSequelizeUniqueConstraintError(error) {
 }
 /**
  * Creates a new Question Bank record in the database.
- * @param params - Contains all necessary data for creating a question bank, including the new price.
+ * @param params - Contains all necessary data for creating a question bank, including the new price and uploaderId.
  * @returns A Promise that resolves to the created QuestionBankData.
  * @throws HttpError if required parameters are missing, if price is invalid, or if a unique constraint is violated.
  * @throws HttpError with 500 status for other internal errors.
  */
-const createQuestionBankService = (params) => __awaiter(void 0, void 0, void 0, function* () {
+const createQuestionBankService = (params // This type should now include 'uploadedBy'
+) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Basic validation for core required fields
-        if (!params.name || !params.filePath || !params.fileName) {
-            throw new httpError_1.default("Name, file path, and file name are required to create a question bank.", 400);
+        if (!params.name || !params.filePath || !params.fileName || !params.uploadedBy) { // FIX: Added uploadedBy check
+            throw new httpError_1.default("Name, file path, file name, and uploader are required to create a question bank.", 400);
         }
         // Validate price - ensure it's a number and non-negative
-        // params.price must be explicitly checked as it might be `undefined` or a non-numeric string from user input
         if (typeof params.price !== 'number' || isNaN(params.price) || params.price < 0) {
             throw new httpError_1.default("Price is required and must be a non-negative number.", 400);
         }
@@ -45,8 +46,9 @@ const createQuestionBankService = (params) => __awaiter(void 0, void 0, void 0, 
             description: params.description,
             filePath: params.filePath,
             fileName: params.fileName,
-            price: params.price, // Include the new price field
-            uploadedBy: params.uploadedBy,
+            price: params.price,
+            uploadedBy: params.uploadedBy, // FIX: Pass the uploadedBy field
+            // uploadDate will be set by defaultValue in the model
         });
         // Return the created question bank as plain data
         return newQuestionBank.toJSON();
@@ -90,7 +92,14 @@ const updateQuestionBankService = (id, params) => __awaiter(void 0, void 0, void
         // Sequelize will only update fields present in the params object
         yield questionBank.update(params);
         // Fetch the updated question bank to ensure we return the latest state
-        const updatedQuestionBank = yield QuestionBank_model_1.default.findByPk(id);
+        // FIX: Include uploader data when fetching the updated question bank
+        const updatedQuestionBank = yield QuestionBank_model_1.default.findByPk(id, {
+            include: [{
+                    model: User_model_1.default,
+                    as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                    attributes: ['id', 'name', 'email'] // Select specific user attributes
+                }]
+        });
         if (!updatedQuestionBank) {
             // This case indicates a serious issue where the update succeeded but retrieval failed
             throw new httpError_1.default("Failed to retrieve updated question bank.", 500);
@@ -143,7 +152,15 @@ exports.deleteQuestionBankService = deleteQuestionBankService;
  */
 const getAllQuestionBanksService = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const questionBanks = yield QuestionBank_model_1.default.findAll();
+        // FIX: Include the User model for uploader information
+        const questionBanks = yield QuestionBank_model_1.default.findAll({
+            include: [{
+                    model: User_model_1.default,
+                    as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                    required: false, // Set to true if a QB MUST have an uploader
+                    attributes: ['id', 'name', 'email'] // Select specific user attributes
+                }]
+        });
         // Map Sequelize model instances to plain data objects
         return questionBanks.map(qb => qb.toJSON());
     }
@@ -162,7 +179,15 @@ exports.getAllQuestionBanksService = getAllQuestionBanksService;
  */
 const getQuestionBankByIdService = (id) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const questionBank = yield QuestionBank_model_1.default.findByPk(id);
+        // FIX: Include the User model for uploader information
+        const questionBank = yield QuestionBank_model_1.default.findByPk(id, {
+            include: [{
+                    model: User_model_1.default,
+                    as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                    required: false,
+                    attributes: ['id', 'name', 'email']
+                }]
+        });
         if (!questionBank) {
             throw new httpError_1.default("Question Bank not found.", 404);
         }

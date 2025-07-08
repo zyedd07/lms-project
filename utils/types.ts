@@ -19,7 +19,17 @@ export type UpdateHomeContentParams = {
     topRatedTestNames?: string[];
     topRatedQbankNames?: string[];
 };
-
+export interface TestSeriesData {
+id: string;
+    name: string;
+    description?: string; // Optional field
+    price: number;
+    createdBy: string; // This is the ID of the user who created it
+    
+    
+    createdAt: Date; // Assuming timestamps are enabled
+    updatedAt: Date; // Assuming timestamps are enabled
+}
 /**
  * Defines the user data that is encoded into the JWT and attached to authenticated requests.
  * Includes all fields from the registration form.

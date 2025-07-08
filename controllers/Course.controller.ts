@@ -22,6 +22,9 @@ import { GetCourseFilters } from "../utils/types";
 export const createCourseController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const role = req.user?.role;
+        // FIX: Get uploaderId from the authenticated user
+        const uploaderId = req.user?.id;
+
         if (role !== Role.ADMIN) {
             throw new HttpError('Unauthorized', 403);
         }
@@ -31,8 +34,24 @@ export const createCourseController = async (req: AuthenticatedRequest, res: Res
         if (!name || !categoryId || !courseType) {
             throw new HttpError('Please provide name, categoryId, and courseType', 400);
         }
-        // --- MODIFIED LINE: Pass 'contents' to the createCourseService ---
-        const newCourse = await createCourseService({ name, description, imageUrl, demoVideoUrl, categoryId, price, courseType, syllabus, contents });
+        // FIX: Ensure uploaderId is present
+        if (!uploaderId) {
+            throw new HttpError('Uploader information is missing.', 400);
+        }
+
+        // --- MODIFIED LINE: Pass 'contents' and 'uploaderId' to the createCourseService ---
+        const newCourse = await createCourseService({ 
+            name, 
+            description, 
+            imageUrl, 
+            demoVideoUrl, 
+            categoryId, 
+            price, 
+            courseType, 
+            syllabus, 
+            contents,
+            uploaderId // Pass the uploaderId
+        });
         // --- END MODIFIED LINE ---
         res.status(201).json({
             success: true,

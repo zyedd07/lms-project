@@ -2,6 +2,8 @@
 
 import Categories from "../models/Categories.model";
 import Course from "../models/Course.model"; // Ensure this import is correct and brings in the typed Course model
+import User from "../models/User.model"; // Import the User model to include it in queries
+
 import CourseTeacher from "../models/CourseTeacher.model";
 import Teacher from "../models/Teacher.model";
 import { CourseTeacherServiceOperation } from "../utils/constants";
@@ -17,7 +19,12 @@ import {
     // CourseInstance 
 } from "../utils/types"; // Make sure your custom CourseInstance type is accessible, or use a direct cast
 
-export const createCourseService = async (params: CreateCourseServiceParams) => {
+// Extend CreateCourseServiceParams to include uploaderId
+interface CreateCourseServiceParamsWithUploader extends CreateCourseServiceParams {
+    uploaderId: string; // The ID of the user who is uploading the course
+}
+
+export const createCourseService = async (params: CreateCourseServiceParamsWithUploader) => {
     try {
         const existingCourse = await Course.findOne({
             where: { name: params.name, categoryId: params.categoryId },
@@ -36,7 +43,8 @@ export const createCourseService = async (params: CreateCourseServiceParams) => 
             demoVideoUrl: params.demoVideoUrl,
             active: params.active, 
             syllabus: params.syllabus || [], 
-            contents: params.contents || [], // Ensure contents is also passed here
+            contents: params.contents || [],
+            uploaderId: params.uploaderId, // Assign the uploaderId from params
         });
         return newCourse;
     } catch (error) {
@@ -53,19 +61,6 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
             throw new HttpError('Course not found', 404);
         }
 
-        // --- CORRECTED LINES ---
-        // To safely access properties like 'syllabus' and 'contents' on the 'course' object
-        // without TypeScript complaining about `Model<any, any>`, you can use:
-        // 1. Explicitly casting `course` to the correct type (e.g., `Course & { syllabus: any[]; contents: any[]; }`)
-        // 2. Using `course.get('propertyName')` method which is type-safe
-        // 3. Ensuring your Sequelize model definition uses the correct instance typing (as provided in the last response for Course.model.ts)
-
-        // Assuming your Course.model.ts now properly types the instance:
-        // No explicit cast is needed IF your model typing is perfect and accessible.
-        // However, if the error persists, a simple type assertion like `as any` or a more specific type
-        // can temporarily resolve it while you refine your model's instance typing.
-
-        // Let's use `as any` for quick fix, but the best long-term solution is strong model typing.
         const currentSyllabus = (course as any).syllabus || [];
         const currentContents = (course as any).contents || [];
         
@@ -80,7 +75,6 @@ export const updateCourseService = async (id: string, params: UpdateCourseServic
                 where: { id: id }
             }
         );
-        // --- END CORRECTED LINES ---
 
         const updatedCourse = await Course.findByPk(id);
         return updatedCourse; 
@@ -106,6 +100,12 @@ export const getCourseByIdService = async (id: string) => {
                     as: 'category',
                     required: false,
                     attributes: ['id', 'name']
+                },
+                { // FIX: Include the User model for uploader information
+                    model: User,
+                    as: 'uploader', // This alias must match the 'as' in your Course model association
+                    required: false, // Set to true if a course MUST have an uploader
+                    attributes: ['id', 'name', 'email'] // Select specific user attributes
                 }
             ]
         });
@@ -123,6 +123,28 @@ export const getCourseByIdService = async (id: string) => {
 export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCourseServiceParams, filters?: GetCourseFilters) => {
     try {
         let whereClause: any = {};
+        let includeClause: any[] = [ // Define common include clause
+            {
+                model: Teacher,
+                through: { attributes: [] },
+                as: 'teachers',
+                required: false,
+                attributes: ['id', 'name']
+            },
+            {
+                model: Categories,
+                as: 'category',
+                required: false,
+                attributes: ['id', 'name']
+            },
+            { // FIX: Include the User model for uploader information
+                model: User,
+                as: 'uploader', // This alias must match the 'as' in your Course model association
+                required: false,
+                attributes: ['id', 'name', 'email']
+            }
+        ];
+
         if (id) {
             whereClause = { id }; 
             if (active === true || active === false) {
@@ -130,21 +152,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
             }
             const courseData = await Course.findOne({
                 where: whereClause,
-                include: [
-                    {
-                        model: Teacher,
-                        through: { attributes: [] },
-                        as: 'teachers',
-                        required: false,
-                        attributes: ['id', 'name']
-                    },
-                    {
-                        model: Categories,
-                        as: 'category',
-                        required: false,
-                        attributes: ['id', 'name']
-                    }
-                ],
+                include: includeClause, // Use the defined include clause
                 limit: filters?.limit,
                 offset: filters?.offset
             })
@@ -163,21 +171,7 @@ export const getAllCoursesService = async ({ categoryId, id, active }: GetAllCou
                 where: whereClause,
                 limit: filters?.limit,
                 offset: filters?.offset,
-                 include: [
-                     {
-                         model: Teacher,
-                         through: { attributes: [] },
-                         as: 'teachers',
-                         required: false,
-                         attributes: ['id', 'name']
-                     },
-                     {
-                         model: Categories,
-                         as: 'category',
-                         required: false,
-                         attributes: ['id', 'name']
-                     }
-                 ]
+                include: includeClause // Use the defined include clause
             });
 
             return courses; 
@@ -198,6 +192,13 @@ export const getAssignedCourseService = async (teacherId: string, filters?: GetC
                     model: Course,
                     as: 'course',
                     required: true,
+                    // FIX: Include uploader in the nested Course model
+                    include: [{
+                        model: User,
+                        as: 'uploader',
+                        required: false,
+                        attributes: ['id', 'name', 'email']
+                    }],
                 },
                 {
                     model: Teacher,

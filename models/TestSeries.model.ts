@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
+import User from './User.model';
 
 const TestSeries = sequelize.define('TestSeries', {
     id: {
@@ -21,9 +22,15 @@ const TestSeries = sequelize.define('TestSeries', {
         allowNull: false,      // As requested: "no nullable"
         defaultValue: 0.0,     // Ensures a default value if not provided
     },
-    createdBy: {
+    createdBy: { // This field will now be a foreign key
         type: DataTypes.UUID,
         allowNull: false,
+        references: {
+            model: 'Users', // This should match your actual Users table name
+            key: 'id',
+        },
+        // onDelete: 'SET NULL',
+        // onUpdate: 'CASCADE'
     },
 }, {
     timestamps: true,

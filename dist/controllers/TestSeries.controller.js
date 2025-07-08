@@ -18,7 +18,7 @@ const TestSeries_service_1 = require("../services/TestSeries.service");
 const constants_1 = require("../utils/constants");
 const Test_model_1 = __importDefault(require("../models/Test.model")); // Correct: Test model
 const TestSeries_model_1 = __importDefault(require("../models/TestSeries.model")); // Correct: TestSeries model
-// REMOVED: import TestOption from "../models/Option.model"; // This model is no longer used for MCQ options
+const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for direct includes if needed
 const createTestSeriesController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         if (!req.user || !req.user.id) {
@@ -40,7 +40,7 @@ const createTestSeriesController = (req, res, next) => __awaiter(void 0, void 0,
             name,
             description,
             price, // Pass price to the service
-            createdBy: req.user.id,
+            createdBy: req.user.id, // Pass the ID of the authenticated user as the creator
         });
         res.status(201).json(newTestSeries);
     }
@@ -51,21 +51,28 @@ const createTestSeriesController = (req, res, next) => __awaiter(void 0, void 0,
 exports.createTestSeriesController = createTestSeriesController;
 // Renamed from getFullTestSeriesController to getTestSeriesWithTestsController
 // to better reflect what it's fetching based on our new model hierarchy.
-// If you truly need ALL questions and options for ALL series, keep the deeper includes,
-// but be mindful of performance.
+// This controller will now also include the creator of the TestSeries.
 const getTestSeriesWithTestsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const testSeriesData = yield TestSeries_model_1.default.findAll({
             // Include associated Tests
-            include: [{
+            include: [
+                {
                     model: Test_model_1.default,
                     as: 'tests', // Ensure this alias matches the TestSeries.hasMany(Test, { as: 'tests' }) association
                     // If you need questions nested here, add another include:
                     // include: [{
-                    //      model: Question,
-                    //      as: 'questions' // Ensure this alias matches the Test.hasMany(Question, { as: 'questions' }) association
+                    //     model: Question,
+                    //     as: 'questions' // Ensure this alias matches the Test.hasMany(Question, { as: 'questions' }) association
                     // }]
-                }]
+                },
+                {
+                    model: User_model_1.default,
+                    as: 'creator', // This alias must match the 'as' in your TestSeries model association
+                    required: false, // Set to true if a TestSeries MUST have a creator
+                    attributes: ['id', 'name', 'email'] // Select specific user attributes
+                }
+            ]
         });
         res.status(200).json({ success: true, data: testSeriesData });
     }
@@ -78,7 +85,8 @@ exports.getTestSeriesWithTestsController = getTestSeriesWithTestsController;
 const getTestSeriesByIdController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        const testSeries = yield TestSeries_model_1.default.findByPk(id);
+        // FIX: Use the getTestSeriesByIdService which already includes the creator data
+        const testSeries = yield (0, TestSeries_service_1.getTestSeriesByIdService)(id);
         if (!testSeries) {
             throw new httpError_1.default("Test Series not found", 404);
         }
@@ -91,6 +99,7 @@ const getTestSeriesByIdController = (req, res, next) => __awaiter(void 0, void 0
 exports.getTestSeriesByIdController = getTestSeriesByIdController;
 const getTestSeriesController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        // This service already includes the 'creator' information
         const testSeriesList = yield (0, TestSeries_service_1.getAllTestSeriesService)({});
         res.status(200).json({
             success: true,
@@ -103,17 +112,26 @@ const getTestSeriesController = (req, res, next) => __awaiter(void 0, void 0, vo
 });
 exports.getTestSeriesController = getTestSeriesController;
 const updateTestSeriesController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { id } = req.params;
-        const { name, description, price } = req.body; // Added price
-        if (!req.user || !req.user.role) {
-            throw new httpError_1.default("Authentication required: User role is missing.", 401);
+        const { name, description, price } = req.body;
+        if (!req.user || !req.user.id || !req.user.role) { // Ensure user ID is available for authorization
+            throw new httpError_1.default("Authentication required: User information is missing.", 401);
         }
+        const userId = req.user.id;
         const role = req.user.role;
-        if (role !== constants_1.Role.ADMIN && role !== constants_1.Role.TEACHER) {
-            throw new httpError_1.default("Unauthorized", 403);
+        // FIX: Fetch the test series with creator information for authorization
+        const testSeries = yield (0, TestSeries_service_1.getTestSeriesByIdService)(id);
+        if (!testSeries) {
+            throw new httpError_1.default("Test Series not found", 404);
         }
-        const updatedTestSeries = yield (0, TestSeries_service_1.updateTestSeriesService)(id, { name, description, price }); // Pass price to the service
+        // Check if the user is authorized to update (creator, admin, or teacher)
+        // FIX: Cast testSeries to 'any' to allow access to 'creator' property if TestSeriesData type is not yet updated
+        if (((_a = testSeries.creator) === null || _a === void 0 ? void 0 : _a.id) !== userId && role !== constants_1.Role.ADMIN && role !== constants_1.Role.TEACHER) {
+            throw new httpError_1.default("Unauthorized to update this test series.", 403);
+        }
+        const updatedTestSeries = yield (0, TestSeries_service_1.updateTestSeriesService)(id, { name, description, price });
         res.status(200).json({
             success: true,
             data: updatedTestSeries,
@@ -125,14 +143,24 @@ const updateTestSeriesController = (req, res, next) => __awaiter(void 0, void 0,
 });
 exports.updateTestSeriesController = updateTestSeriesController;
 const deleteTestSeriesController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { id } = req.params;
-        if (!req.user || !req.user.role) {
-            throw new httpError_1.default("Authentication required: User role is missing.", 401);
+        if (!req.user || !req.user.id || !req.user.role) { // Ensure user ID is available for authorization
+            throw new httpError_1.default("Authentication required: User information is missing.", 401);
         }
+        const userId = req.user.id;
         const role = req.user.role;
-        if (role !== constants_1.Role.ADMIN && role !== constants_1.Role.TEACHER) {
-            throw new httpError_1.default("Unauthorized", 403);
+        // FIX: Fetch the test series with creator information for authorization
+        const testSeries = yield (0, TestSeries_service_1.getTestSeriesByIdService)(id);
+        if (!testSeries) {
+            // Corrected: Removed the duplicate 'new' keyword
+            throw new httpError_1.default("Test Series not found", 404);
+        }
+        // Check if the user is authorized to delete (creator, admin, or teacher)
+        // FIX: Cast testSeries to 'any' to allow access to 'creator' property if TestSeriesData type is not yet updated
+        if (((_a = testSeries.creator) === null || _a === void 0 ? void 0 : _a.id) !== userId && role !== constants_1.Role.ADMIN && role !== constants_1.Role.TEACHER) {
+            throw new httpError_1.default("Unauthorized to delete this test series.", 403);
         }
         const response = yield (0, TestSeries_service_1.deleteTestSeriesService)(id);
         res.status(200).json(Object.assign({ success: true }, response));

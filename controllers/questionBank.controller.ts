@@ -1,7 +1,14 @@
 import { NextFunction, Request, Response } from 'express';
 import HttpError from '../utils/httpError';
-import QuestionBank from '../models/QuestionBank.model';
+import QuestionBank from '../models/QuestionBank.model'; // Ensure this import is correct
 import { createClient } from '@supabase/supabase-js';
+import {
+    createQuestionBankService,
+    getAllQuestionBanksService,
+    getQuestionBankByIdService,
+    updateQuestionBankService,
+    deleteQuestionBankService
+} from '../services/questionBank.services'; // Import service functions
 
 // Supabase client setup using environment variables
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -15,16 +22,18 @@ interface AuthenticatedRequest extends Request {
         email: string;
         role: string;
     };
+    file?: Express.Multer.File; // Add file property for multer
 }
 
 /**
  * Creates a new Question Bank, uploads the associated PDF file to Supabase Storage,
- * and saves the question bank details (including price) to the database.
+ * and saves the question bank details (including price and uploader) to the database.
  */
 export const createQuestionBankController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         // --- Authorization and File Validation ---
-        if (!req.user || !req.user.id) {
+        const uploaderId = req.user?.id; // Get uploader ID from authenticated user
+        if (!uploaderId) {
             throw new HttpError("Unauthorized: User ID missing.", 401);
         }
         if (!req.file) {
@@ -50,7 +59,7 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
         const fileMimeType = req.file.mimetype;
 
         // Create a unique path for the file in Supabase Storage
-        const supabaseFilePath = `question-banks/${req.user.id}/${Date.now()}-${originalFileName}`;
+        const supabaseFilePath = `question-banks/${uploaderId}/${Date.now()}-${originalFileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('question-banks')
@@ -75,14 +84,14 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
             throw new HttpError("Failed to get public URL for uploaded file.", 500);
         }
 
-        // --- Save Question Bank Details to Database ---
-        const newQuestionBank = await QuestionBank.create({
+        // --- Call Service to Save Question Bank Details to Database ---
+        const newQuestionBank = await createQuestionBankService({
             name: name,
             description: description,
             filePath: filePublicUrl,
             fileName: originalFileName,
-            price: parsedPrice, // Include the parsed price
-            uploadedBy: req.user.id,
+            price: parsedPrice,
+            uploadedBy: uploaderId, // Pass the uploaderId to the service
         });
 
         res.status(201).json({ success: true, data: newQuestionBank });
@@ -92,11 +101,12 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
 };
 
 /**
- * Retrieves all Question Banks from the database.
+ * Retrieves all Question Banks from the database, including uploader information.
  */
 export const getAllQuestionBanksController = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const questionBanks = await QuestionBank.findAll();
+        // FIX: Call the service function that includes uploader data
+        const questionBanks = await getAllQuestionBanksService();
         res.status(200).json({ success: true, data: questionBanks });
     } catch (error) {
         next(error);
@@ -104,13 +114,14 @@ export const getAllQuestionBanksController = async (req: Request, res: Response,
 };
 
 /**
- * Retrieves a single Question Bank by its ID.
+ * Retrieves a single Question Bank by its ID, including uploader information.
  */
 export const getQuestionBankByIdController = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        // Using 'as any' here for quick compilation; ideally, you'd define a Sequelize model interface.
-        const questionBank = await QuestionBank.findByPk(id) as any;
+        // FIX: Call the service function that includes uploader data
+        const questionBank = await getQuestionBankByIdService(id);
+        
         if (!questionBank) {
             throw new HttpError("Question bank not found.", 404);
         }
@@ -128,25 +139,28 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
     try {
         const { id } = req.params;
         // --- Authorization ---
-        if (!req.user || !req.user.id || !req.user.role) {
+        const userId = req.user?.id;
+        const userRole = req.user?.role;
+
+        if (!userId || !userRole) {
             throw new HttpError("Unauthorized: User information missing.", 401);
         }
 
-        // Find the question bank
-        // Using 'as any' here for quick compilation; ideally, you'd define a Sequelize model interface.
-        const questionBank = await QuestionBank.findByPk(id) as any;
+        // Find the question bank to check authorization
+        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
+        const questionBank = await getQuestionBankByIdService(id) as any;
         if (!questionBank) {
             throw new HttpError("Question bank not found.", 404);
         }
 
         // Check if the user is authorized to update (uploader, admin, or teacher)
-        if (questionBank.uploadedBy !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to update this question bank.", 403);
         }
 
-        const { name, description, price } = req.body; // Destructure price from req.body
-        let newFileUrl: string | undefined = undefined;
-        let newFileName: string | undefined = undefined;
+        const { name, description, price } = req.body;
+        let filePublicUrl: string | undefined = undefined;
+        let originalFileName: string | undefined = undefined;
 
         // Prepare fields for update
         const updateFields: { [key: string]: any } = {};
@@ -160,35 +174,30 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
             if (isNaN(parsedPrice) || parsedPrice < 0) {
                 throw new HttpError("Price must be a non-negative number.", 400);
             }
-            updateFields.price = parsedPrice; // Add parsed price to update fields
+            updateFields.price = parsedPrice;
         }
 
         // --- Handle File Replacement (if a new file is provided) ---
         if (req.file) {
             // Delete old file from Supabase Storage
             if (questionBank.filePath) {
-                // Extract the path within the bucket from the full public URL
-                // This slice(8) assumes a specific Supabase public URL structure,
-                // e.g., https://<project_id>.supabase.co/storage/v1/object/public/question-banks/...
                 const oldFilePathInBucket = questionBank.filePath.split('/').slice(8).join('/');
-
                 const { error: deleteError } = await supabase.storage
                     .from('question-banks')
                     .remove([oldFilePathInBucket]);
 
                 if (deleteError) {
                     console.error("Supabase Delete Old File Error:", deleteError);
-                    // Decide if you want to block the update or just log and proceed
                     throw new HttpError(`Failed to delete old PDF file from storage: ${deleteError.message}`, 500);
                 }
             }
 
             // Upload the new file
             const fileBuffer = req.file.buffer;
-            const originalFileName = req.file.originalname;
+            originalFileName = req.file.originalname;
             const fileMimeType = req.file.mimetype;
 
-            const supabaseFilePath = `question-banks/${req.user.id}/${Date.now()}-${originalFileName}`;
+            const supabaseFilePath = `question-banks/${userId}/${Date.now()}-${originalFileName}`; // Use current user's ID for new file path
 
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('question-banks')
@@ -207,21 +216,21 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
                 .from('question-banks')
                 .getPublicUrl(supabaseFilePath);
 
-            newFileUrl = publicUrlData?.publicUrl;
-            newFileName = originalFileName;
+            filePublicUrl = publicUrlData?.publicUrl;
 
-            if (!newFileUrl) {
+            if (!filePublicUrl) {
                 throw new HttpError("Failed to get public URL for new uploaded file.", 500);
             }
 
-            updateFields.filePath = newFileUrl;
-            updateFields.fileName = newFileName;
+            updateFields.filePath = filePublicUrl;
+            updateFields.fileName = originalFileName;
         }
 
-        // --- Perform Database Update ---
-        await questionBank.update(updateFields);
+        // --- Perform Database Update via Service ---
+        // FIX: Call the updateQuestionBankService
+        const updatedQuestionBank = await updateQuestionBankService(id, updateFields);
 
-        res.status(200).json({ success: true, data: questionBank });
+        res.status(200).json({ success: true, data: updatedQuestionBank });
     } catch (error) {
         next(error);
     }
@@ -234,25 +243,27 @@ export const deleteQuestionBankController = async (req: AuthenticatedRequest, re
     try {
         const { id } = req.params;
         // --- Authorization ---
-        if (!req.user || !req.user.id || !req.user.role) {
+        const userId = req.user?.id;
+        const userRole = req.user?.role;
+
+        if (!userId || !userRole) {
             throw new HttpError("Unauthorized: User information missing.", 401);
         }
 
-        // Find the question bank
-        // Using 'as any' here for quick compilation; ideally, you'd define a Sequelize model interface.
-        const questionBank = await QuestionBank.findByPk(id) as any;
+        // Find the question bank to check authorization
+        // Cast to 'any' to allow access to 'uploader' property if QuestionBankData type is not yet updated
+        const questionBank = await getQuestionBankByIdService(id) as any;
         if (!questionBank) {
             throw new HttpError("Question bank not found.", 404);
         }
 
         // Check if the user is authorized to delete (uploader, admin, or teacher)
-        if (questionBank.uploadedBy !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to delete this question bank.", 403);
         }
 
         // --- Delete File from Supabase Storage ---
         if (questionBank.filePath) {
-            // Extract the path within the bucket from the full public URL
             const filePathInBucket = questionBank.filePath.split('/').slice(8).join('/');
 
             const { error: deleteError } = await supabase.storage
@@ -265,10 +276,11 @@ export const deleteQuestionBankController = async (req: AuthenticatedRequest, re
             }
         }
 
-        // --- Delete Question Bank Record from Database ---
-        await questionBank.destroy();
+        // --- Delete Question Bank Record from Database via Service ---
+        // FIX: Call the deleteQuestionBankService
+        const response = await deleteQuestionBankService(id);
 
-        res.status(200).json({ success: true, message: "Question bank deleted successfully." });
+        res.status(200).json({ success: true, message: response.message });
     } catch (error) {
         next(error);
     }

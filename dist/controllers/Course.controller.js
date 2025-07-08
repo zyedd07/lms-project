@@ -21,9 +21,11 @@ const teacher_service_1 = require("../services/teacher.service");
 // Make sure to import CourseContentModule if you want to use it for type checking the request body
 // import { CourseContentModule } from "../utils/types"; 
 const createCourseController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
+        // FIX: Get uploaderId from the authenticated user
+        const uploaderId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.id;
         if (role !== constants_1.Role.ADMIN) {
             throw new httpError_1.default('Unauthorized', 403);
         }
@@ -33,8 +35,23 @@ const createCourseController = (req, res, next) => __awaiter(void 0, void 0, voi
         if (!name || !categoryId || !courseType) {
             throw new httpError_1.default('Please provide name, categoryId, and courseType', 400);
         }
-        // --- MODIFIED LINE: Pass 'contents' to the createCourseService ---
-        const newCourse = yield (0, Course_service_1.createCourseService)({ name, description, imageUrl, demoVideoUrl, categoryId, price, courseType, syllabus, contents });
+        // FIX: Ensure uploaderId is present
+        if (!uploaderId) {
+            throw new httpError_1.default('Uploader information is missing.', 400);
+        }
+        // --- MODIFIED LINE: Pass 'contents' and 'uploaderId' to the createCourseService ---
+        const newCourse = yield (0, Course_service_1.createCourseService)({
+            name,
+            description,
+            imageUrl,
+            demoVideoUrl,
+            categoryId,
+            price,
+            courseType,
+            syllabus,
+            contents,
+            uploaderId // Pass the uploaderId
+        });
         // --- END MODIFIED LINE ---
         res.status(201).json({
             success: true,

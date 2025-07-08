@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "./index"; // Assuming your sequelize instance is exported from './index'
+import User from './User.model';
 
 const QuestionBank = sequelize.define('QuestionBank', {
     id: {
@@ -29,16 +30,15 @@ const QuestionBank = sequelize.define('QuestionBank', {
         allowNull: false, // Assuming price is always required
         defaultValue: 0.00, // Default to 0.00 if not provided
     },
-    uploadedBy: {
+    uploadedBy: { // Define this as a foreign key
         type: DataTypes.UUID,
-        allowNull: true, // Can be null if not linked to a uploader
-        // If you have a User or Admin model, you would define the association here:
-        // references: {
-        //     model: 'Users', // Or 'Admins' if you have a separate admin table
-        //     key: 'id',
-        // },
-        // onDelete: 'SET NULL',
-        // onUpdate: 'CASCADE'
+        allowNull: false, // Assuming an uploader is always required
+        references: {
+            model: 'Users', // This should match your actual Users table name
+            key: 'id',
+        },
+        // onDelete: 'SET NULL', // Optional: What happens if the uploader user is deleted
+        // onUpdate: 'CASCADE'  // Optional: What happens if the uploader user's ID changes
     },
     uploadDate: {
         type: DataTypes.DATE,

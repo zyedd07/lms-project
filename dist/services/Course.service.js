@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.courseTeacherService = exports.deleteCourseService = exports.getAssignedCourseService = exports.getAllCoursesService = exports.getCourseByIdService = exports.updateCourseService = exports.createCourseService = void 0;
 const Categories_model_1 = __importDefault(require("../models/Categories.model"));
 const Course_model_1 = __importDefault(require("../models/Course.model")); // Ensure this import is correct and brings in the typed Course model
+const User_model_1 = __importDefault(require("../models/User.model")); // Import the User model to include it in queries
 const CourseTeacher_model_1 = __importDefault(require("../models/CourseTeacher.model"));
 const Teacher_model_1 = __importDefault(require("../models/Teacher.model"));
 const constants_1 = require("../utils/constants");
@@ -38,7 +39,8 @@ const createCourseService = (params) => __awaiter(void 0, void 0, void 0, functi
             demoVideoUrl: params.demoVideoUrl,
             active: params.active,
             syllabus: params.syllabus || [],
-            contents: params.contents || [], // Ensure contents is also passed here
+            contents: params.contents || [],
+            uploaderId: params.uploaderId, // Assign the uploaderId from params
         });
         return newCourse;
     }
@@ -55,17 +57,6 @@ const updateCourseService = (id, params) => __awaiter(void 0, void 0, void 0, fu
         if (!course) {
             throw new httpError_1.default('Course not found', 404);
         }
-        // --- CORRECTED LINES ---
-        // To safely access properties like 'syllabus' and 'contents' on the 'course' object
-        // without TypeScript complaining about `Model<any, any>`, you can use:
-        // 1. Explicitly casting `course` to the correct type (e.g., `Course & { syllabus: any[]; contents: any[]; }`)
-        // 2. Using `course.get('propertyName')` method which is type-safe
-        // 3. Ensuring your Sequelize model definition uses the correct instance typing (as provided in the last response for Course.model.ts)
-        // Assuming your Course.model.ts now properly types the instance:
-        // No explicit cast is needed IF your model typing is perfect and accessible.
-        // However, if the error persists, a simple type assertion like `as any` or a more specific type
-        // can temporarily resolve it while you refine your model's instance typing.
-        // Let's use `as any` for quick fix, but the best long-term solution is strong model typing.
         const currentSyllabus = course.syllabus || [];
         const currentContents = course.contents || [];
         yield Course_model_1.default.update(Object.assign(Object.assign({}, params), { 
@@ -73,7 +64,6 @@ const updateCourseService = (id, params) => __awaiter(void 0, void 0, void 0, fu
             syllabus: params.syllabus !== undefined ? params.syllabus : currentSyllabus, contents: params.contents !== undefined ? params.contents : currentContents }), {
             where: { id: id }
         });
-        // --- END CORRECTED LINES ---
         const updatedCourse = yield Course_model_1.default.findByPk(id);
         return updatedCourse;
     }
@@ -99,6 +89,12 @@ const getCourseByIdService = (id) => __awaiter(void 0, void 0, void 0, function*
                     as: 'category',
                     required: false,
                     attributes: ['id', 'name']
+                },
+                {
+                    model: User_model_1.default,
+                    as: 'uploader', // This alias must match the 'as' in your Course model association
+                    required: false, // Set to true if a course MUST have an uploader
+                    attributes: ['id', 'name', 'email'] // Select specific user attributes
                 }
             ]
         });
@@ -116,6 +112,27 @@ exports.getCourseByIdService = getCourseByIdService;
 const getAllCoursesService = (_a, filters_1) => __awaiter(void 0, [_a, filters_1], void 0, function* ({ categoryId, id, active }, filters) {
     try {
         let whereClause = {};
+        let includeClause = [
+            {
+                model: Teacher_model_1.default,
+                through: { attributes: [] },
+                as: 'teachers',
+                required: false,
+                attributes: ['id', 'name']
+            },
+            {
+                model: Categories_model_1.default,
+                as: 'category',
+                required: false,
+                attributes: ['id', 'name']
+            },
+            {
+                model: User_model_1.default,
+                as: 'uploader', // This alias must match the 'as' in your Course model association
+                required: false,
+                attributes: ['id', 'name', 'email']
+            }
+        ];
         if (id) {
             whereClause = { id };
             if (active === true || active === false) {
@@ -123,21 +140,7 @@ const getAllCoursesService = (_a, filters_1) => __awaiter(void 0, [_a, filters_1
             }
             const courseData = yield Course_model_1.default.findOne({
                 where: whereClause,
-                include: [
-                    {
-                        model: Teacher_model_1.default,
-                        through: { attributes: [] },
-                        as: 'teachers',
-                        required: false,
-                        attributes: ['id', 'name']
-                    },
-                    {
-                        model: Categories_model_1.default,
-                        as: 'category',
-                        required: false,
-                        attributes: ['id', 'name']
-                    }
-                ],
+                include: includeClause, // Use the defined include clause
                 limit: filters === null || filters === void 0 ? void 0 : filters.limit,
                 offset: filters === null || filters === void 0 ? void 0 : filters.offset
             });
@@ -157,21 +160,7 @@ const getAllCoursesService = (_a, filters_1) => __awaiter(void 0, [_a, filters_1
                 where: whereClause,
                 limit: filters === null || filters === void 0 ? void 0 : filters.limit,
                 offset: filters === null || filters === void 0 ? void 0 : filters.offset,
-                include: [
-                    {
-                        model: Teacher_model_1.default,
-                        through: { attributes: [] },
-                        as: 'teachers',
-                        required: false,
-                        attributes: ['id', 'name']
-                    },
-                    {
-                        model: Categories_model_1.default,
-                        as: 'category',
-                        required: false,
-                        attributes: ['id', 'name']
-                    }
-                ]
+                include: includeClause // Use the defined include clause
             });
             return courses;
         }
@@ -192,6 +181,13 @@ const getAssignedCourseService = (teacherId, filters) => __awaiter(void 0, void 
                     model: Course_model_1.default,
                     as: 'course',
                     required: true,
+                    // FIX: Include uploader in the nested Course model
+                    include: [{
+                            model: User_model_1.default,
+                            as: 'uploader',
+                            required: false,
+                            attributes: ['id', 'name', 'email']
+                        }],
                 },
                 {
                     model: Teacher_model_1.default,

@@ -54,6 +54,16 @@ const Course = _1.sequelize.define('Course', {
         type: sequelize_1.DataTypes.JSON,
         allowNull: true,
         defaultValue: [], // Default to an empty array
+    },
+    uploaderId: {
+        type: sequelize_1.DataTypes.UUID,
+        allowNull: false, // Assuming an uploader is always required
+        references: {
+            model: 'Users', // This should match your actual Users table name
+            key: 'id',
+        },
+        // onDelete: 'SET NULL', // Optional: What happens if the uploader user is deleted
+        // onUpdate: 'CASCADE'  // Optional: What happens if the uploader user's ID changes
     }
 }, {
     timestamps: true,

@@ -1,10 +1,12 @@
 import QuestionBank from "../models/QuestionBank.model";
 import HttpError from "../utils/httpError";
+import User from "../models/User.model"; // Import the User model
+
 import {
     CreateQuestionBankServiceParams,
     UpdateQuestionBankServiceParams,
     QuestionBankData
-} from "../utils/types"; // Ensure these types are updated with 'price'
+} from "../utils/types"; // Ensure these types are updated with 'price' and 'uploadedBy'
 
 // Helper function to safely narrow 'unknown' error type
 function isHttpError(error: unknown): error is HttpError {
@@ -17,22 +19,21 @@ function isSequelizeUniqueConstraintError(error: unknown): error is { name: stri
 
 /**
  * Creates a new Question Bank record in the database.
- * @param params - Contains all necessary data for creating a question bank, including the new price.
+ * @param params - Contains all necessary data for creating a question bank, including the new price and uploaderId.
  * @returns A Promise that resolves to the created QuestionBankData.
  * @throws HttpError if required parameters are missing, if price is invalid, or if a unique constraint is violated.
  * @throws HttpError with 500 status for other internal errors.
  */
 export const createQuestionBankService = async (
-    params: CreateQuestionBankServiceParams
+    params: CreateQuestionBankServiceParams // This type should now include 'uploadedBy'
 ): Promise<QuestionBankData> => {
     try {
         // Basic validation for core required fields
-        if (!params.name || !params.filePath || !params.fileName) {
-            throw new HttpError("Name, file path, and file name are required to create a question bank.", 400);
+        if (!params.name || !params.filePath || !params.fileName || !params.uploadedBy) { // FIX: Added uploadedBy check
+            throw new HttpError("Name, file path, file name, and uploader are required to create a question bank.", 400);
         }
 
         // Validate price - ensure it's a number and non-negative
-        // params.price must be explicitly checked as it might be `undefined` or a non-numeric string from user input
         if (typeof params.price !== 'number' || isNaN(params.price) || params.price < 0) {
             throw new HttpError("Price is required and must be a non-negative number.", 400);
         }
@@ -42,8 +43,9 @@ export const createQuestionBankService = async (
             description: params.description,
             filePath: params.filePath,
             fileName: params.fileName,
-            price: params.price, // Include the new price field
-            uploadedBy: params.uploadedBy,
+            price: params.price,
+            uploadedBy: params.uploadedBy, // FIX: Pass the uploadedBy field
+            // uploadDate will be set by defaultValue in the model
         });
 
         // Return the created question bank as plain data
@@ -94,7 +96,14 @@ export const updateQuestionBankService = async (
         await questionBank.update(params);
 
         // Fetch the updated question bank to ensure we return the latest state
-        const updatedQuestionBank = await QuestionBank.findByPk(id);
+        // FIX: Include uploader data when fetching the updated question bank
+        const updatedQuestionBank = await QuestionBank.findByPk(id, {
+            include: [{
+                model: User,
+                as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                attributes: ['id', 'name', 'email'] // Select specific user attributes
+            }]
+        });
 
         if (!updatedQuestionBank) {
             // This case indicates a serious issue where the update succeeded but retrieval failed
@@ -151,7 +160,15 @@ export const deleteQuestionBankService = async (
  */
 export const getAllQuestionBanksService = async (): Promise<QuestionBankData[]> => {
     try {
-        const questionBanks = await QuestionBank.findAll();
+        // FIX: Include the User model for uploader information
+        const questionBanks = await QuestionBank.findAll({
+            include: [{
+                model: User,
+                as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                required: false, // Set to true if a QB MUST have an uploader
+                attributes: ['id', 'name', 'email'] // Select specific user attributes
+            }]
+        });
         // Map Sequelize model instances to plain data objects
         return questionBanks.map(qb => qb.toJSON() as QuestionBankData);
     } catch (error: unknown) {
@@ -171,7 +188,15 @@ export const getQuestionBankByIdService = async (
     id: string
 ): Promise<QuestionBankData> => {
     try {
-        const questionBank = await QuestionBank.findByPk(id);
+        // FIX: Include the User model for uploader information
+        const questionBank = await QuestionBank.findByPk(id, {
+            include: [{
+                model: User,
+                as: 'uploader', // This alias must match the 'as' in your QuestionBank model association
+                required: false,
+                attributes: ['id', 'name', 'email']
+            }]
+        });
 
         if (!questionBank) {
             throw new HttpError("Question Bank not found.", 404);
