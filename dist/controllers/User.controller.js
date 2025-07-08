@@ -216,20 +216,15 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
             if (!currentPassword || !newPassword) {
                 throw new httpError_1.default("Both currentPassword and newPassword are required to change password.", 400);
             }
-            // 1. Fetch the user to verify current password
-            // Ensure 'User' is correctly imported and is your Mongoose model instance.
-            // If you're using default export for your User model, it should be:
-            // import User from '../models/User';
-            // If 'findById' is not found, ensure 'User' is the Mongoose Model itself, not its constructor type.
-            // Casting to 'any' here to resolve TypeScript error if typings are ambiguous.
-            const user = yield User_model_1.default.findById(userId);
+            // 1. Fetch the user to verify current password using Sequelize's findByPk
+            // Ensure 'User' is your Sequelize model instance.
+            const user = yield User_model_1.default.findByPk(userId);
             if (!user) {
                 throw new httpError_1.default("User not found.", 404);
             }
-            // 2. Verify the current password (bcrypt is still needed here)
-            // If you encounter 'Cannot find name 'bcrypt'' error, ensure 'bcryptjs' is installed:
-            // npm install bcryptjs
-            // npm install --save-dev @types/bcryptjs
+            // 2. Verify the current password
+            // Casting 'user' to 'any' to explicitly allow access to the 'password' property,
+            // as Sequelize model types might not always expose it directly without specific type definitions.
             const isMatch = yield bcryptjs_1.default.compare(currentPassword, user.password);
             if (!isMatch) {
                 throw new httpError_1.default("Current password incorrect.", 401);
@@ -244,7 +239,7 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country', 'password'
+            'rollNo', 'collegeName', 'university', 'country'
         ];
         // Populate allowedUpdates with other profile fields
         fieldsToUpdate.forEach(field => {
@@ -259,10 +254,8 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         // The updateUserService is now responsible for hashing 'newPassword' if it exists.
         const updatedUser = yield (0, User_service_1.updateUserService)(userId, allowedUpdates);
         // Remove sensitive data (like password) before sending the response
-        // To resolve 'Property 'toObject' does not exist on type 'Model<any, any>'',
-        // we explicitly cast updatedUser to 'any' to allow access to Mongoose document methods.
-        // A more robust solution would be to correctly type the return of updateUserService.
-        const userResponseData = updatedUser.toObject ? updatedUser.toObject() : Object.assign({}, updatedUser);
+        // Sequelize model instances typically have a .toJSON() method.
+        const userResponseData = updatedUser.toJSON ? updatedUser.toJSON() : Object.assign({}, updatedUser);
         delete userResponseData.password;
         res.status(200).json({
             success: true,
