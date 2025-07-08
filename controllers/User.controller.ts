@@ -187,7 +187,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
             throw new HttpError("No valid update data provided.", 400);
         }
 
-        const updatedUser = await UserService.updateUserService(userId, allowedUpdates);
+        const updatedUser = await updateUserService(userId, allowedUpdates);
         
         res.status(200).json({
             success: true,
