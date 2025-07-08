@@ -24,7 +24,7 @@ const TestSeries = sequelize.define('TestSeries', {
     },
     createdBy: { // This field will now be a foreign key
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
             model: 'Users', // This should match your actual Users table name
             key: 'id',
