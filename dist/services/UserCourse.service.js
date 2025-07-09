@@ -34,7 +34,7 @@ const getEnrolledCoursesForUser = (_a) => __awaiter(void 0, [_a], void 0, functi
         where: { userId },
         include: [{
                 model: Course_model_1.default,
-                attributes: ['id', 'name', 'description'] // Use 'name' to match your Course model
+                attributes: ['id', 'name', 'description', 'price'] // Use 'name' to match your Course model
             }]
     });
     return enrollments;

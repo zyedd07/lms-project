@@ -21,7 +21,7 @@ export const getEnrolledTestSeriesForUser = async ({ userId }: { userId: string 
         where: { userId },
         include: [{
             model: TestSeries,
-            attributes: ['id', 'name', 'description']
+            attributes: ['id', 'name', 'description','price']
         }]
     });
     return enrollments;

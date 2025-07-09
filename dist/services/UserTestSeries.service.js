@@ -32,7 +32,7 @@ const getEnrolledTestSeriesForUser = (_a) => __awaiter(void 0, [_a], void 0, fun
         where: { userId },
         include: [{
                 model: TestSeries_model_1.default,
-                attributes: ['id', 'name', 'description']
+                attributes: ['id', 'name', 'description', 'price']
             }]
     });
     return enrollments;

@@ -24,7 +24,7 @@ export const getEnrolledCoursesForUser = async ({ userId }: GetUserEnrolledCours
         where: { userId },
         include: [{
             model: Course,
-            attributes: ['id', 'name', 'description'] // Use 'name' to match your Course model
+            attributes: ['id', 'name', 'description','price'] // Use 'name' to match your Course model
         }]
     });
     return enrollments;

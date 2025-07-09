@@ -21,7 +21,7 @@ export const getEnrolledQbanksForUser = async ({ userId }: GetUserEnrolledQbanks
         where: { userId },
         include: [{
             model: Qbank,
-            attributes: ['id', 'name', 'description']
+            attributes: ['id', 'name', 'description','price']
         }]
     });
     return enrollments;

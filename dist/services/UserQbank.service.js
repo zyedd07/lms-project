@@ -32,7 +32,7 @@ const getEnrolledQbanksForUser = (_a) => __awaiter(void 0, [_a], void 0, functio
         where: { userId },
         include: [{
                 model: QuestionBank_model_1.default,
-                attributes: ['id', 'name', 'description']
+                attributes: ['id', 'name', 'description', 'price']
             }]
     });
     return enrollments;
