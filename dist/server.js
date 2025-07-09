@@ -43,6 +43,8 @@ const UserQbank_router_1 = __importDefault(require("./routes/UserQbank.router"))
 const HelpCenter_router_1 = __importDefault(require("./routes/HelpCenter.router"));
 const TermsSection_router_1 = __importDefault(require("./routes/TermsSection.router")); // Make sure the filename matches
 const PaymentGateway_router_1 = __importDefault(require("./routes/PaymentGateway.router"));
+const PaymentProcessing_router_1 = __importDefault(require("./routes/PaymentProcessing.router"));
+const PaymentWebhook_router_1 = __importDefault(require("./routes/PaymentWebhook.router")); // Import the new webhook router
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -97,6 +99,8 @@ app.use('/user-qbanks', UserQbank_router_1.default);
 app.use('/help-center', HelpCenter_router_1.default);
 app.use('/terms-sections', TermsSection_router_1.default);
 app.use('/payment-gateway', PaymentGateway_router_1.default);
+app.use('/payments', PaymentProcessing_router_1.default);
+app.use('/webhooks', PaymentWebhook_router_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);

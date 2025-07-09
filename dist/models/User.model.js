@@ -77,7 +77,11 @@ const User = _1.sequelize.define('User', {
             courses: true,
             tests: true,
             qbank: true,
-            webinars: true
+            webinars: true,
+            drugIndex: true, // New permission
+            article: true, // New permission
+            brand: true, // New permission
+            mediaLibrary: true // New permission
         }
     }
 }, { timestamps: true });

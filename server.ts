@@ -32,6 +32,10 @@ import userQbankRouter from './routes/UserQbank.router';
 import helpCenterRouter from './routes/HelpCenter.router';
 import termsRouter from './routes/TermsSection.router'; // Make sure the filename matches
 import paymentGatewayRoutes from './routes/PaymentGateway.router';
+import paymentProcessingRoutes from './routes/PaymentProcessing.router';
+import paymentWebhookRoutes from './routes/PaymentWebhook.router'; // Import the new webhook router
+
+
 const app = express();
 
 app.use(express.json());
@@ -90,6 +94,8 @@ app.use('/user-qbanks', userQbankRouter);
 app.use('/help-center', helpCenterRouter);
 app.use('/terms-sections', termsRouter);
 app.use('/payment-gateway', paymentGatewayRoutes);
+app.use('/payments', paymentProcessingRoutes);
+app.use('/webhooks', paymentWebhookRoutes);
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('--- UNHANDLED REJECTION ---');

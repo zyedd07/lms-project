@@ -1,4 +1,6 @@
+// util/types.ts
 import { Request } from 'express';
+import { Model, Optional } from 'sequelize'; // Import Model and Optional from sequelize
 
 // --- General Utility Types ---
 export type GetFilters = {
@@ -6,8 +8,8 @@ export type GetFilters = {
     offset?: number;
 };
 
-// --- User Types ---
 
+// --- Payment Gateway Types ---
 export type CreatePaymentGatewayParams = {
     gatewayName: string;
     apiKey?: string;
@@ -19,6 +21,7 @@ export type CreatePaymentGatewayParams = {
     testMode?: boolean;
     isActive?: boolean;
     isDefault?: boolean;
+    callbackUrl?: string;
 };
 
 export type UpdatePaymentGatewayParams = {
@@ -32,6 +35,7 @@ export type UpdatePaymentGatewayParams = {
     testMode?: boolean;
     isActive?: boolean;
     isDefault?: boolean;
+    callbackUrl?: string;
 };
 
 export type PaymentGatewayData = {
@@ -44,6 +48,7 @@ export type PaymentGatewayData = {
     failureUrl?: string;
     currency?: string;
     testMode?: boolean;
+    callbackUrl?: string;
     isActive: boolean;
     isDefault: boolean;
     createdAt: Date;
@@ -56,25 +61,21 @@ export type UpdateHomeContentParams = {
     questionOfTheDay?: object;
     aboutUsText?: string;
     customSections?: object[];
-    // Admin will provide an array of names for each "top rated" section
     topRatedCourseNames?: string[];
     topRatedTestNames?: string[];
     topRatedQbankNames?: string[];
 };
-export interface TestSeriesData {
-id: string;
+export type TestSeriesData = {
+    id: string;
     name: string;
-    description?: string; // Optional field
+    description?: string;
     price: number;
-    createdBy: string; // This is the ID of the user who created it
-    
-    
-    createdAt: Date; // Assuming timestamps are enabled
-    updatedAt: Date; // Assuming timestamps are enabled
-}
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
 /**
  * Defines the user data that is encoded into the JWT and attached to authenticated requests.
- * Includes all fields from the registration form.
  */
 export interface JwtUserPayload {
     id: string;
@@ -83,7 +84,6 @@ export interface JwtUserPayload {
     phone: string;
     role: string;
     profilePicture?: string | null;
-    // --- New fields for the JWT payload ---
     dateOfBirth?: string;
     address?: string;
     rollNo?: string;
@@ -99,27 +99,25 @@ export interface AuthenticatedRequest extends Request {
 
 /**
  * Defines the parameters required to create a new user.
- * This should match the data sent from the frontend registration form.
  */
 export type CreateUserServiceParams = {
     name: string;
     email: string;
     phone: string;
     password: string;
-    // --- New fields for user creation ---
     dateOfBirth: string;
     address: string;
     rollNo: string;
     collegeName: string;
     university: string;
     country: string;
-    designation: string; // This will map to the 'role' field in the backend
-}
+    designation: string;
+};
 
 export type LoginUserServiceParams = {
     email: string;
     password: string;
-}
+};
 
 /**
  * Defines the parameters for updating a user. All fields are optional.
@@ -130,15 +128,14 @@ export type UpdateUserServiceParams = {
     phone?: string;
     role?: string;
     profilePicture?: string;
-    // --- New fields that can be updated ---
     dateOfBirth?: string;
     address?: string;
     rollNo?: string;
     collegeName?: string;
     university?: string;
     country?: string;
-    password?:string;
-}
+    password?: string;
+};
 
 // --- Teacher Types ---
 export type CreateTeacherServiceParams = {
@@ -147,12 +144,12 @@ export type CreateTeacherServiceParams = {
     password: string;
     expertise: string;
     phone: string;
-}
+};
 
 export type LoginTeacherServiceParams = {
     email: string;
     password: string;
-}
+};
 
 export type GetTeacherFilterType = {
     name?: string;
@@ -160,31 +157,31 @@ export type GetTeacherFilterType = {
     expertise?: string;
     phone?: string;
     id?: string;
-}
+};
 
 // --- Categories (Course Categories) Types ---
 export type CreateCategoriesServiceParams = {
     name: string;
     description?: string;
     imageUrl?: string;
-}
+};
 
 export type GetCategorySearchCriteria = {
     name?: string;
     id?: string;
-}
+};
 
 // --- Admin Types ---
 export type CreateAdminServiceParams = {
     name: string;
     email: string;
     password: string;
-}
+};
 
 export type LoginAdminServiceParams = {
     email: string;
     password: string;
-}
+};
 
 // --- Course Types ---
 export type SyllabusSection = {
@@ -211,7 +208,7 @@ export type CreateCourseServiceParams = {
     active?: boolean;
     syllabus?: SyllabusSection[];
     contents?: CourseContentModule[];
-}
+};
 
 export type UpdateCourseServiceParams = {
     name?: string;
@@ -224,22 +221,21 @@ export type UpdateCourseServiceParams = {
     active?: boolean;
     syllabus?: SyllabusSection[];
     contents?: CourseContentModule[];
-}
+};
 
 export type GetAllCourseServiceParams = {
     categoryId?: string;
     id?: string;
     active?: boolean;
     teacherId?: string;
-}
+};
 
 export type GetCourseFilters = {
     limit?: number;
     offset?: number;
-}
+};
 
 export type CourseTeacherServiceOperationType = 'assign' | 'unassign';
-
 
 // --- Test Series Types ---
 export type CreateTestSeriesServiceParams = {
@@ -247,13 +243,13 @@ export type CreateTestSeriesServiceParams = {
     description?: string;
     price: number;
     createdBy: string;
-}
+};
 
 export type UpdateTestSeriesServiceParams = {
     name?: string;
     description?: string;
     price?: number;
-}
+};
 
 // --- Test Types ---
 export type CreateTestServiceParams = {
@@ -264,7 +260,7 @@ export type CreateTestServiceParams = {
     numberOfQuestions: number;
     passMarkPercentage: number;
     createdBy: string;
-}
+};
 
 export type UpdateTestServiceParams = {
     name?: string;
@@ -273,7 +269,7 @@ export type UpdateTestServiceParams = {
     numberOfQuestions?: number;
     passMarkPercentage?: number;
     testSeriesId?: string;
-}
+};
 
 // --- Question Types ---
 export type CreateQuestionServiceParams = {
@@ -283,7 +279,7 @@ export type CreateQuestionServiceParams = {
     correctAnswerIndex: number;
     points: number;
     negativePoints: number;
-}
+};
 
 export type UpdateQuestionServiceParams = {
     questionText?: string;
@@ -291,7 +287,7 @@ export type UpdateQuestionServiceParams = {
     correctAnswerIndex?: number;
     points?: number;
     negativePoints?: number;
-}
+};
 
 // --- Question Bank Types ---
 export type CreateQuestionBankServiceParams = {
@@ -301,7 +297,7 @@ export type CreateQuestionBankServiceParams = {
     fileName: string;
     uploadedBy?: string;
     price: number;
-}
+};
 
 export type UpdateQuestionBankServiceParams = {
     name?: string;
@@ -310,7 +306,7 @@ export type UpdateQuestionBankServiceParams = {
     fileName?: string;
     uploadedBy?: string;
     price?: number;
-}
+};
 
 export type QuestionBankData = {
     id: string;
@@ -323,7 +319,7 @@ export type QuestionBankData = {
     uploadDate: Date;
     createdAt: Date;
     updatedAt: Date;
-}
+};
 
 // --- Webinar Types ---
 export enum WebinarStatus {
@@ -355,19 +351,19 @@ export type GetWebinarFilters = {
 
 export type CreateBrandCategoryServiceParams = {
     name: string;
-}
+};
 
 export type UpdateBrandCategoryServiceParams = {
     name?: string;
-}
+};
 
 export type CreateCompanyServiceParams = {
     name: string;
-}
+};
 
 export type UpdateCompanyServiceParams = {
     name?: string;
-}
+};
 
 export type CreateBrandServiceParams = {
     name: string;
@@ -376,7 +372,7 @@ export type CreateBrandServiceParams = {
     companyId: string;
     availability: string;
     recommended_by_vets: boolean;
-}
+};
 
 export type UpdateBrandServiceParams = {
     name?: string;
@@ -385,7 +381,7 @@ export type UpdateBrandServiceParams = {
     companyId?: string;
     availability?: string;
     recommended_by_vets?: boolean;
-}
+};
 
 export type GetAllBrandServiceParams = GetFilters & {
     id?: string;
@@ -394,7 +390,7 @@ export type GetAllBrandServiceParams = GetFilters & {
     companyId?: string;
     recommended_by_vets?: boolean;
     availability?: string;
-}
+};
 
 // --- Notification Types ---
 export type CreateNotificationServiceParams = {
@@ -507,36 +503,35 @@ export type UpdateQbankEnrollmentParams = {
 };
 
 
-export interface CreateHelpSectionParams {
+export type CreateHelpSectionParams = {
     title: string;
     content: string;
     order?: number;
-}
+};
 
-export interface UpdateHelpSectionParams {
+export type UpdateHelpSectionParams = {
     title?: string;
     content?: string;
     order?: number;
-}
+};
 
-export interface CreateTermsSectionParams {
+export type CreateTermsSectionParams = {
     title: string;
     content: string;
     order?: number;
-}
+};
 
-export interface UpdateTermsSectionParams {
+export type UpdateTermsSectionParams = {
     title?: string;
     content?: string;
     order?: number;
-}
+};
 
 export type TeacherPermissions = {
     courses?: boolean;
     tests?: boolean;
     qbank?: boolean;
     webinars?: boolean;
-    // Add any other page keys here as needed
 };
 
 export type UpdateTeacherPermissionsParams = {
@@ -546,4 +541,34 @@ export type UpdateTeacherPermissionsParams = {
 
 export type GetTeacherPermissionsParams = {
     teacherId: string;
+};
+
+// --- Payment Processing Types ---
+export type CreateOrderParams = {
+    userId: string;
+    courseId?: string;
+    testSeriesId?: string;
+    qbankId?: string;
+    webinarId?: string;
+    price: number; // Changed from amount
+};
+
+export type OrderCreationResult = {
+    success: boolean;
+    message: string;
+    orderId: string;
+    confirmedPrice: number; // Changed from confirmedAmount
+};
+
+export type InitiatePaymentParams = {
+    orderId: string;
+    gatewayName: string;
+};
+
+export type PaymentInitiationResult = {
+    success: boolean;
+    message: string;
+    redirectUrl?: string; // Still useful if the gateway requires a redirect
+    transactionId: string;
+    orderId: string;
 };
