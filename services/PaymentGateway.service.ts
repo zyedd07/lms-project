@@ -159,11 +159,12 @@ export const getActivePaymentGatewaySetting = async (): Promise<PaymentGatewayDa
  * Retrieves a payment gateway setting by ID, including sensitive keys for backend use.
  * This function should ONLY be called by other backend services that need to use the keys.
  */
-export const getPaymentGatewaySettingByIdForBackend = async (id: string): Promise<PaymentGatewayData> => {
+export const getPaymentGatewaySettingByIdForBackend = async (gatewayName: string): Promise<PaymentGatewayData> => {
     try {
-        const setting = await PaymentGatewaySetting.findByPk(id);
+        // CORRECTED: Use findOne with a where clause to query by gatewayName
+        const setting = await PaymentGatewaySetting.findOne({ where: { gatewayName: gatewayName } });
         if (!setting) {
-            throw new HttpError('Payment gateway setting not found.', 404);
+            throw new HttpError(`Payment gateway setting with name '${gatewayName}' not found.`, 404);
         }
         return setting.toJSON() as PaymentGatewayData;
     } catch (error: any) {

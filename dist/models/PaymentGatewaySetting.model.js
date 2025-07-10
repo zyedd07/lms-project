@@ -5,10 +5,9 @@ const sequelize_1 = require("sequelize");
 const _1 = require("."); // Your Sequelize instance
 const PaymentGatewaySetting = _1.sequelize.define('PaymentGatewaySetting', {
     id: {
-        type: sequelize_1.DataTypes.UUID,
-        defaultValue: sequelize_1.DataTypes.UUIDV4,
-        primaryKey: true,
+        type: sequelize_1.DataTypes.INTEGER,
         autoIncrement: true,
+        primaryKey: true,
     },
     gatewayName: {
         type: sequelize_1.DataTypes.STRING,

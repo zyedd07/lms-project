@@ -166,11 +166,12 @@ exports.getActivePaymentGatewaySetting = getActivePaymentGatewaySetting;
  * Retrieves a payment gateway setting by ID, including sensitive keys for backend use.
  * This function should ONLY be called by other backend services that need to use the keys.
  */
-const getPaymentGatewaySettingByIdForBackend = (id) => __awaiter(void 0, void 0, void 0, function* () {
+const getPaymentGatewaySettingByIdForBackend = (gatewayName) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const setting = yield PaymentGatewaySetting_model_1.default.findByPk(id);
+        // CORRECTED: Use findOne with a where clause to query by gatewayName
+        const setting = yield PaymentGatewaySetting_model_1.default.findOne({ where: { gatewayName: gatewayName } });
         if (!setting) {
-            throw new httpError_1.default('Payment gateway setting not found.', 404);
+            throw new httpError_1.default(`Payment gateway setting with name '${gatewayName}' not found.`, 404);
         }
         return setting.toJSON();
     }

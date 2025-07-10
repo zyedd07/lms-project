@@ -4,10 +4,9 @@ import { sequelize } from '.'; // Your Sequelize instance
 
 const PaymentGatewaySetting = sequelize.define('PaymentGatewaySetting', {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true, 
-               autoIncrement: true,
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
     },
     gatewayName: { // Matches gateway_name
         type: DataTypes.STRING,
