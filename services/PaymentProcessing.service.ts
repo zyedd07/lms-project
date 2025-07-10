@@ -145,12 +145,7 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
         }
 
         // --- CONSTRUCT CALLBACK URL DYNAMICALLY ---
-        const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL; // Get from environment variable
-        if (!WEBHOOK_BASE_URL) {
-            throw new HttpError('WEBHOOK_BASE_URL environment variable is not set.', 500);
-        }
-        const phonePeCallbackUrl = `${WEBHOOK_BASE_URL}/${gatewayName}`; // e.g., https://yourbackend.com/webhooks/payment-status/PhonePe
-
+        
         const merchantTransactionId = `MTID_${uuidv4()}`;
         const amountInPaise = Math.round(order.price * 100);
 
@@ -167,7 +162,7 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: phonePeCallbackUrl, // Use the dynamically constructed callbackUrl
+            callbackUrl: activeGateway.failureUrl, // Use the dynamically constructed callbackUrl
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'
