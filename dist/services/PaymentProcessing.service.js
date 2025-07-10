@@ -56,11 +56,16 @@ const createOrder = (params) => __awaiter(void 0, void 0, void 0, function* () {
     if (!product) {
         throw new httpError_1.default(`${productType.charAt(0).toUpperCase() + productType.slice(1)} not found.`, 404);
     }
-    // Access 'price' property directly, relying on runtime existence
-    if (typeof product.price !== 'number' || isNaN(product.price)) {
+    // --- FIX: Convert product.price to number BEFORE validation ---
+    const rawProductPrice = product.price; // Get the raw value from Sequelize
+    const productPriceAsNumber = parseFloat(rawProductPrice); // Convert it to a number
+    // Now, validate the converted number
+    if (typeof productPriceAsNumber !== 'number' || isNaN(productPriceAsNumber)) {
+        // Log the problematic value for debugging
+        console.error(`DEBUG: Problematic product.price: Value=${rawProductPrice}, Type=${typeof rawProductPrice}`);
         throw new httpError_1.default(`Invalid price defined for ${productType}.`, 500);
     }
-    confirmedPrice = parseFloat(product.price.toString());
+    confirmedPrice = productPriceAsNumber; // Use the parsed number for confirmation
     if (parseFloat(price.toString()) !== confirmedPrice) {
         throw new httpError_1.default(`Price mismatch for ${productType}. Expected ${confirmedPrice}, received ${price}.`, 400);
     }
@@ -151,7 +156,7 @@ const initiatePayment = (params) => __awaiter(void 0, void 0, void 0, function* 
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.failureUrl, // Use the dynamically constructed callbackUrl
+            callbackUrl: phonePeCallbackUrl, // Use the dynamically constructed callbackUrl
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'
