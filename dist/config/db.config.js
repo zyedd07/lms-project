@@ -12,7 +12,7 @@ exports.config = {
             port: Number(process.env.DB_PORT),
             dialect: 'postgres',
             dialectOptions: {},
-            logging: false
+            logging: true
         }
     }
 };
