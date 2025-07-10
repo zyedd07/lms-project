@@ -136,7 +136,7 @@ const initiatePayment = (params) => __awaiter(void 0, void 0, void 0, function* 
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.callbackUrl, // Changed from failureUrl to callbackUrl
+            callbackUrl: activeGateway.failureUrl,
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'

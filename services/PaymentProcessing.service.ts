@@ -144,7 +144,7 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.callbackUrl, // Changed from failureUrl to callbackUrl
+            callbackUrl: activeGateway.failureUrl, 
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'

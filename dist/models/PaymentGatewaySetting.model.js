@@ -59,11 +59,6 @@ const PaymentGatewaySetting = _1.sequelize.define('PaymentGatewaySetting', {
         defaultValue: false,
         unique: true,
     },
-    callbackUrl: {
-        type: sequelize_1.DataTypes.STRING,
-        allowNull: true,
-        field: 'callback_url'
-    },
 }, {
     timestamps: true, // This will handle created_at and updated_at automatically
     tableName: 'payment_settings',
