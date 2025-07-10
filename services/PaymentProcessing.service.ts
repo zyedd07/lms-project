@@ -51,15 +51,12 @@ export const createOrder = async (params: CreateOrderParams): Promise<OrderCreat
         throw new HttpError(`${productType.charAt(0).toUpperCase() + productType.slice(1)} not found.`, 404);
     }
 
-    // --- FIX: Explicitly parse product.price to a number ---
-    const productPriceAsNumber = parseFloat(product.price); // Convert to number from string/decimal object
-
     // Access 'price' property directly, relying on runtime existence
-    if (typeof productPriceAsNumber !== 'number' || isNaN(productPriceAsNumber)) {
+    if (typeof product.price !== 'number' || isNaN(product.price)) {
         throw new HttpError(`Invalid price defined for ${productType}.`, 500);
     }
 
-    confirmedPrice = productPriceAsNumber; // Use the parsed number for confirmation
+    confirmedPrice = parseFloat(product.price.toString());
 
     if (parseFloat(price.toString()) !== confirmedPrice) {
         throw new HttpError(`Price mismatch for ${productType}. Expected ${confirmedPrice}, received ${price}.`, 400);
@@ -114,6 +111,15 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
     try {
         const activeGateway = await getPaymentGatewaySettingByIdForBackend(gatewayName);
 
+        // --- DEBUGGING LOG ---
+        console.log('DEBUG: activeGateway fetched:', activeGateway);
+        console.log('DEBUG: activeGateway.apiKey:', activeGateway.apiKey);
+        console.log('DEBUG: activeGateway.apiSecret:', activeGateway.apiSecret ? '***masked***' : 'N/A'); // Mask secret for logs
+        console.log('DEBUG: activeGateway.paymentUrl:', activeGateway.paymentUrl);
+        console.log('DEBUG: activeGateway.successUrl:', activeGateway.successUrl);
+        console.log('DEBUG: activeGateway.failureUrl:', activeGateway.failureUrl);
+        // --- END DEBUGGING LOG ---
+
         if (!activeGateway) {
             throw new HttpError(`Payment gateway '${gatewayName}' not found or not configured for processing.`, 404);
         }
@@ -126,9 +132,18 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
         const PHONEPE_SALT_KEY = activeGateway.apiSecret;
         const PHONEPE_SALT_INDEX = '1';
 
-        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.callbackUrl) {
+        // --- Validation check ---
+        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.failureUrl) {
+            // This is the error message being thrown
             throw new HttpError('PhonePe gateway configuration is incomplete. Missing API Key, Secret, or URLs.', 500);
         }
+
+        // --- CONSTRUCT CALLBACK URL DYNAMICALLY ---
+        const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL; // Get from environment variable
+        if (!WEBHOOK_BASE_URL) {
+            throw new HttpError('WEBHOOK_BASE_URL environment variable is not set.', 500);
+        }
+        const phonePeCallbackUrl = `${WEBHOOK_BASE_URL}/${gatewayName}`; // e.g., https://yourbackend.com/webhooks/payment-status/PhonePe
 
         const merchantTransactionId = `MTID_${uuidv4()}`;
         const amountInPaise = Math.round(order.price * 100);
@@ -146,7 +161,7 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.failureUrl,
+            callbackUrl: activeGateway.failureUrl, // Use the dynamically constructed callbackUrl
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'
