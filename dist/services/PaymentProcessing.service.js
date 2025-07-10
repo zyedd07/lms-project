@@ -56,11 +56,13 @@ const createOrder = (params) => __awaiter(void 0, void 0, void 0, function* () {
     if (!product) {
         throw new httpError_1.default(`${productType.charAt(0).toUpperCase() + productType.slice(1)} not found.`, 404);
     }
+    // --- FIX: Explicitly parse product.price to a number ---
+    const productPriceAsNumber = parseFloat(product.price); // Convert to number from string/decimal object
     // Access 'price' property directly, relying on runtime existence
-    if (typeof product.price !== 'number' || isNaN(product.price)) {
+    if (typeof productPriceAsNumber !== 'number' || isNaN(productPriceAsNumber)) {
         throw new httpError_1.default(`Invalid price defined for ${productType}.`, 500);
     }
-    confirmedPrice = parseFloat(product.price.toString());
+    confirmedPrice = productPriceAsNumber; // Use the parsed number for confirmation
     if (parseFloat(price.toString()) !== confirmedPrice) {
         throw new httpError_1.default(`Price mismatch for ${productType}. Expected ${confirmedPrice}, received ${price}.`, 400);
     }
@@ -118,12 +120,11 @@ const initiatePayment = (params) => __awaiter(void 0, void 0, void 0, function* 
         const PHONEPE_MERCHANT_ID = activeGateway.apiKey;
         const PHONEPE_SALT_KEY = activeGateway.apiSecret;
         const PHONEPE_SALT_INDEX = '1';
-        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.callbackUrl) { // Added callbackUrl to validation
+        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.callbackUrl) {
             throw new httpError_1.default('PhonePe gateway configuration is incomplete. Missing API Key, Secret, or URLs.', 500);
         }
         const merchantTransactionId = `MTID_${(0, uuid_1.v4)()}`;
         const amountInPaise = Math.round(order.price * 100);
-        // Cast user to any here to allow access to its properties without explicit model typing
         let user = yield User_model_1.default.findByPk(order.userId);
         if (!user || !user.phone) {
             throw new httpError_1.default('User phone number not found for payment processing.', 400);

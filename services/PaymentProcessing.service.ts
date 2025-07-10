@@ -51,12 +51,15 @@ export const createOrder = async (params: CreateOrderParams): Promise<OrderCreat
         throw new HttpError(`${productType.charAt(0).toUpperCase() + productType.slice(1)} not found.`, 404);
     }
 
+    // --- FIX: Explicitly parse product.price to a number ---
+    const productPriceAsNumber = parseFloat(product.price); // Convert to number from string/decimal object
+
     // Access 'price' property directly, relying on runtime existence
-    if (typeof product.price !== 'number' || isNaN(product.price)) {
+    if (typeof productPriceAsNumber !== 'number' || isNaN(productPriceAsNumber)) {
         throw new HttpError(`Invalid price defined for ${productType}.`, 500);
     }
 
-    confirmedPrice = parseFloat(product.price.toString());
+    confirmedPrice = productPriceAsNumber; // Use the parsed number for confirmation
 
     if (parseFloat(price.toString()) !== confirmedPrice) {
         throw new HttpError(`Price mismatch for ${productType}. Expected ${confirmedPrice}, received ${price}.`, 400);
@@ -123,14 +126,13 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
         const PHONEPE_SALT_KEY = activeGateway.apiSecret;
         const PHONEPE_SALT_INDEX = '1';
 
-        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.callbackUrl) { // Added callbackUrl to validation
+        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.callbackUrl) {
             throw new HttpError('PhonePe gateway configuration is incomplete. Missing API Key, Secret, or URLs.', 500);
         }
 
         const merchantTransactionId = `MTID_${uuidv4()}`;
         const amountInPaise = Math.round(order.price * 100);
 
-        // Cast user to any here to allow access to its properties without explicit model typing
         let user: any = await User.findByPk(order.userId);
         if (!user || !user.phone) {
             throw new HttpError('User phone number not found for payment processing.', 400);
@@ -144,7 +146,7 @@ export const initiatePayment = async (params: InitiatePaymentParams): Promise<Pa
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.failureUrl, 
+            callbackUrl: activeGateway.failureUrl,
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'
