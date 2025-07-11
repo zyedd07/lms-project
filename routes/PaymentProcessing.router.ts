@@ -10,13 +10,13 @@ const router = express.Router();
  * @desc Endpoint for the mobile app to create a new order before payment.
  * @access Private (Authenticated User)
  */
-router.post('/create-order', isAuth, createOrderController);
+router.post('/create-order', createOrderController);
 
 /**
  * @route POST /api/payments/process-transaction
  * @desc Endpoint for the mobile app to initiate payment for an existing order.
  * @access Private (Authenticated User)
  */
-router.post('/process-transaction', isAuth, processPaymentController);
+router.post('/process-transaction', processPaymentController);
 
 export default router;
