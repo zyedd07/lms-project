@@ -5,13 +5,13 @@ import isAuth, { authorizeAdmin } from '../middleware/auth';
 const router = express.Router();
 
 // Route to enroll a user in a course
-router.post('/enroll', isAuth, authorizeAdmin, UserCourseController.enrollInCourse);
+router.post('/enroll', isAuth, UserCourseController.enrollInCourse);
 
 // Route to get all courses for a specific user
-router.get('/user/:userId/courses', isAuth, authorizeAdmin, UserCourseController.getUserCourses);
+router.get('/user/:userId/courses', isAuth, UserCourseController.getUserCourses);
 
 // Route to remove a user's enrollment from a course
-router.delete('/unenroll', isAuth, authorizeAdmin, UserCourseController.unenrollFromCourse);
+router.delete('/unenroll', isAuth, UserCourseController.unenrollFromCourse);
 
 // --- NEW ROUTE ---
 // Route to update the status of an enrollment (e.g., 'active', 'completed', 'dropped')
