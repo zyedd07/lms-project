@@ -27,7 +27,17 @@ const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model"));
 const UserTestSeries_model_1 = __importDefault(require("../UserTestSeries.model"));
 const UserQbank_model_1 = __importDefault(require("../UserQbank.model"));
 const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
+const UserWebinar_model_1 = __importDefault(require("models/UserWebinar.model"));
+const webinar_model_1 = __importDefault(require("models/webinar.model"));
 const initAssociation = () => {
+    UserWebinar_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
+    // A UserWebinar belongs to a Webinar
+    UserWebinar_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarId' });
+    // Define inverse associations (optional, but good for comprehensive model relationships)
+    // A User can have many UserWebinars
+    User_model_1.default.hasMany(UserWebinar_model_1.default, { foreignKey: 'userId' });
+    // A Webinar can have many UserWebinars
+    webinar_model_1.default.hasMany(UserWebinar_model_1.default, { foreignKey: 'webinarId' });
     User_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'userId' });
     UserCourse_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     Course_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'courseId' });

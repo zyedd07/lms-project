@@ -34,6 +34,7 @@ import termsRouter from './routes/TermsSection.router'; // Make sure the filenam
 import paymentGatewayRoutes from './routes/PaymentGateway.router';
 import paymentProcessingRoutes from './routes/PaymentProcessing.router';
 import paymentWebhookRoutes from './routes/PaymentWebhook.router'; // Import the new webhook router
+import userWebinarRoutes from './routes/UserWebinar.router'; // The new UserWebinar routes
 
 
 const app = express();
@@ -96,7 +97,7 @@ app.use('/terms-sections', termsRouter);
 app.use('/payment-gateway', paymentGatewayRoutes);
 app.use('/payments', paymentProcessingRoutes);
 app.use('/webhooks', paymentWebhookRoutes);
-
+app.use('/user-webinars', userWebinarRoutes);
 process.on('unhandledRejection', (reason, promise) => {
   console.error('--- UNHANDLED REJECTION ---');
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);

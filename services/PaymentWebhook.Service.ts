@@ -9,10 +9,10 @@ import { Buffer } from 'buffer'; // Node.js Buffer for base64 encoding/decoding
 import UserCourse from '../models/UserCourse.model'; // Assuming you have this model
 import UserQbank from '../models/UserQbank.model'; // Assuming you have this model
 import UserTestSeries from '../models/UserTestSeries.model'; // Assuming you have this model
-// Note: UserWebinar model might also be needed if you track webinar enrollments similarly
+import UserWebinar from '../models/UserWebinar.model'; // Import the UserWebinar model
 
 // Import enrollment types from utils/types
-import { EnrollInCourseServiceParams, EnrollInQbankServiceParams } from '../utils/types';
+import { EnrollInCourseServiceParams, EnrollInQbankServiceParams, EnrollInWebinarServiceParams } from '../utils/types';
 
 
 /**
@@ -71,14 +71,24 @@ export const enrollUserInTestSeries = async ({ userId, testSeriesId }: { userId:
     return newEnrollment;
 };
 
-// Placeholder for webinar enrollment if you have a similar model
-const enrollUserInWebinar = async (userId: string, webinarId: string) => {
-    console.log(`Enrolling user ${userId} in webinar ${webinarId}`);
-    // Implement actual enrollment logic here (e.g., create entry in UserWebinar table)
-    // You'd likely have a UserWebinar.model.ts and a corresponding service function
-    // const existingEnrollment = await UserWebinar.findOne({ where: { userId, webinarId } });
-    // if (existingEnrollment) { throw new HttpError("User is already enrolled in this webinar.", 409); }
-    // return UserWebinar.create({ userId, webinarId });
+/**
+ * Enrolls a user in a Webinar.
+ * @param {EnrollInWebinarServiceParams} params - userId and webinarId.
+ * @returns {Promise<any>} The new enrollment record.
+ */
+export const enrollUserInWebinar = async ({ userId, webinarId }: EnrollInWebinarServiceParams) => {
+    // Check if the enrollment already exists
+    const existingEnrollment = await UserWebinar.findOne({
+        where: { userId, webinarId }
+    });
+
+    if (existingEnrollment) {
+        throw new HttpError("User is already enrolled in this webinar.", 409); // 409 Conflict
+    }
+
+    // The status will default to 'active' or similar based on the UserWebinar model definition.
+    const newEnrollment = await UserWebinar.create({ userId, webinarId });
+    return newEnrollment;
 };
 
 
@@ -168,7 +178,8 @@ export const handlePaymentWebhook = async (gatewayName: string, rawBody: any, he
             } else if (order.qbankId) {
                 await enrollUserInQbank({ userId: order.userId, qbankId: order.qbankId });
             } else if (order.webinarId) {
-                await enrollUserInWebinar(order.userId, order.webinarId); // Assuming webinar enrollment is not yet fully typed
+                // Use the newly defined enrollUserInWebinar function
+                await enrollUserInWebinar({ userId: order.userId, webinarId: order.webinarId });
             }
             // You might also send a success notification to the user
         } else if (paymentCode === 'PAYMENT_ERROR' || paymentState === 'FAILED') {

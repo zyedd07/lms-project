@@ -41,11 +41,11 @@ const UserQbankController = __importStar(require("../controllers/UserQbank.contr
 const auth_1 = __importStar(require("../middleware/auth"));
 const router = express_1.default.Router();
 // Enroll a user in a Q-Bank
-router.post('/enroll', auth_1.default, auth_1.authorizeAdmin, UserQbankController.enrollInQbank);
+router.post('/enroll', auth_1.default, UserQbankController.enrollInQbank);
 // Get all Q-Banks for a specific user
-router.get('/user/:userId/qbanks', auth_1.default, auth_1.authorizeAdmin, UserQbankController.getUserQbanks);
+router.get('/user/:userId/qbanks', auth_1.default, UserQbankController.getUserQbanks);
 // Unenroll a user from a Q-Bank
-router.delete('/unenroll', auth_1.default, auth_1.authorizeAdmin, UserQbankController.unenrollFromQbank);
+router.delete('/unenroll', auth_1.default, UserQbankController.unenrollFromQbank);
 // Update the status of a Q-Bank enrollment
 router.put('/status', auth_1.default, auth_1.authorizeAdmin, UserQbankController.updateEnrollmentStatus);
 exports.default = router;

@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handlePaymentWebhook = exports.enrollUserInTestSeries = exports.enrollUserInQbank = exports.enrollUserInCourse = void 0;
+exports.handlePaymentWebhook = exports.enrollUserInWebinar = exports.enrollUserInTestSeries = exports.enrollUserInQbank = exports.enrollUserInCourse = void 0;
 // services/PaymentWebhook.service.ts
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const Order_model_1 = __importDefault(require("../models/Order.model")); // Import the Order model
@@ -23,6 +23,7 @@ const buffer_1 = require("buffer"); // Node.js Buffer for base64 encoding/decodi
 const UserCourse_model_1 = __importDefault(require("../models/UserCourse.model")); // Assuming you have this model
 const UserQbank_model_1 = __importDefault(require("../models/UserQbank.model")); // Assuming you have this model
 const UserTestSeries_model_1 = __importDefault(require("../models/UserTestSeries.model")); // Assuming you have this model
+const UserWebinar_model_1 = __importDefault(require("../models/UserWebinar.model")); // Import the UserWebinar model
 /**
  * Enrolls a user in a course.
  * @param {EnrollInCourseServiceParams} params - userId and courseId.
@@ -73,15 +74,24 @@ const enrollUserInTestSeries = (_a) => __awaiter(void 0, [_a], void 0, function*
     return newEnrollment;
 });
 exports.enrollUserInTestSeries = enrollUserInTestSeries;
-// Placeholder for webinar enrollment if you have a similar model
-const enrollUserInWebinar = (userId, webinarId) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log(`Enrolling user ${userId} in webinar ${webinarId}`);
-    // Implement actual enrollment logic here (e.g., create entry in UserWebinar table)
-    // You'd likely have a UserWebinar.model.ts and a corresponding service function
-    // const existingEnrollment = await UserWebinar.findOne({ where: { userId, webinarId } });
-    // if (existingEnrollment) { throw new HttpError("User is already enrolled in this webinar.", 409); }
-    // return UserWebinar.create({ userId, webinarId });
+/**
+ * Enrolls a user in a Webinar.
+ * @param {EnrollInWebinarServiceParams} params - userId and webinarId.
+ * @returns {Promise<any>} The new enrollment record.
+ */
+const enrollUserInWebinar = (_a) => __awaiter(void 0, [_a], void 0, function* ({ userId, webinarId }) {
+    // Check if the enrollment already exists
+    const existingEnrollment = yield UserWebinar_model_1.default.findOne({
+        where: { userId, webinarId }
+    });
+    if (existingEnrollment) {
+        throw new httpError_1.default("User is already enrolled in this webinar.", 409); // 409 Conflict
+    }
+    // The status will default to 'active' or similar based on the UserWebinar model definition.
+    const newEnrollment = yield UserWebinar_model_1.default.create({ userId, webinarId });
+    return newEnrollment;
 });
+exports.enrollUserInWebinar = enrollUserInWebinar;
 /**
  * Handles incoming payment gateway webhooks.
  * Verifies the signature, parses the payload, updates order status, and enrolls user in product.
@@ -156,7 +166,8 @@ const handlePaymentWebhook = (gatewayName, rawBody, headers) => __awaiter(void 0
                 yield (0, exports.enrollUserInQbank)({ userId: order.userId, qbankId: order.qbankId });
             }
             else if (order.webinarId) {
-                yield enrollUserInWebinar(order.userId, order.webinarId); // Assuming webinar enrollment is not yet fully typed
+                // Use the newly defined enrollUserInWebinar function
+                yield (0, exports.enrollUserInWebinar)({ userId: order.userId, webinarId: order.webinarId });
             }
             // You might also send a success notification to the user
         }

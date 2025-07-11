@@ -8,6 +8,46 @@ export type GetFilters = {
     offset?: number;
 };
 
+export enum WebinarEnrollmentStatus {
+    ACTIVE = 'active',
+    COMPLETED = 'completed',
+    DROPPED = 'dropped',
+    REGISTERED = 'registered', // Added for initial registration
+    ATTENDED = 'attended',     // Added for webinars that have been attended
+    CANCELLED = 'cancelled'    // Added for cancelled enrollments
+}
+
+/**
+ * Parameters required to enroll a user in a webinar.
+ */
+export interface EnrollInWebinarServiceParams {
+    userId: string;
+    webinarId: string;
+}
+
+/**
+ * Parameters required to unenroll a user from a webinar.
+ */
+export interface UnenrollFromWebinarServiceParams {
+    userId: string;
+    webinarId: string;
+}
+
+/**
+ * Parameters required to get all webinars a user is enrolled in.
+ */
+export interface GetUserEnrolledWebinarsParams {
+    userId: string;
+}
+
+/**
+ * Parameters required to update the enrollment status of a user in a webinar.
+ */
+export interface UpdateWebinarEnrollmentStatusParams {
+    userId: string;
+    webinarId: string;
+    status: WebinarEnrollmentStatus; // Use the defined enum for type safety
+}
 
 // --- Payment Gateway Types ---
 export type CreatePaymentGatewayParams = {

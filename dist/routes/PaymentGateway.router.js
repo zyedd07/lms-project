@@ -45,7 +45,7 @@ const router = express_1.default.Router();
 router.post('/settings', auth_1.default, auth_1.authorizeAdmin, PaymentGatewayController.createPaymentGatewayController);
 router.put('/settings/:id', auth_1.default, auth_1.authorizeAdmin, PaymentGatewayController.updatePaymentGatewayController);
 router.delete('/settings/:id', auth_1.default, auth_1.authorizeAdmin, PaymentGatewayController.deletePaymentGatewayController);
-router.get('/settings', auth_1.default, auth_1.authorizeAdmin, PaymentGatewayController.getAllPaymentGatewaysController);
+router.get('/settings', auth_1.default, PaymentGatewayController.getAllPaymentGatewaysController);
 // Public/Mobile App route (might not require authentication if settings are generally public)
 router.get('/settings/active', auth_1.default, PaymentGatewayController.getActivePaymentGatewayController);
 exports.default = router;

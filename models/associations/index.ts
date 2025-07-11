@@ -24,8 +24,23 @@ import UserQbank from "../UserQbank.model";
 import QuestionBank from "../QuestionBank.model";
 import TermsSection from "models/TermsOfService.model";
 import HelpCenterSection from "models/HelpCenter.model";
+import UserWebinar from "models/UserWebinar.model"
+import Webinar from "models/webinar.model"
+
+
 
 const initAssociation = () => {
+UserWebinar.belongsTo(User, { foreignKey: 'userId' });
+// A UserWebinar belongs to a Webinar
+UserWebinar.belongsTo(Webinar, { foreignKey: 'webinarId' });
+
+// Define inverse associations (optional, but good for comprehensive model relationships)
+// A User can have many UserWebinars
+User.hasMany(UserWebinar, { foreignKey: 'userId' });
+// A Webinar can have many UserWebinars
+Webinar.hasMany(UserWebinar, { foreignKey: 'webinarId' });
+
+
     User.hasMany(UserCourse, { foreignKey: 'userId' });
     UserCourse.belongsTo(User, { foreignKey: 'userId' });
     Course.hasMany(UserCourse, { foreignKey: 'courseId' });

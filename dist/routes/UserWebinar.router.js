@@ -37,17 +37,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const UserCourseController = __importStar(require("../controllers/UserCourse.controller"));
-const auth_1 = __importStar(require("../middleware/auth"));
+const UserWebinarController = __importStar(require("../controllers/UserWebinar.Controller")); // Assuming your webinar controller is here
+const auth_1 = __importStar(require("../middleware/auth")); // Assuming your auth middleware is here
 const router = express_1.default.Router();
-// Route to enroll a user in a course
-router.post('/enroll', auth_1.default, UserCourseController.enrollInCourse);
-// Route to get all courses for a specific user
-router.get('/user/:userId/courses', auth_1.default, UserCourseController.getUserCourses);
-// Route to remove a user's enrollment from a course
-router.delete('/unenroll', auth_1.default, UserCourseController.unenrollFromCourse);
-// --- NEW ROUTE ---
-// Route to update the status of an enrollment (e.g., 'active', 'completed', 'dropped')
-// The frontend will send { userId, courseId, status } in the request body.
-router.put('/status', auth_1.default, auth_1.authorizeAdmin, UserCourseController.updateEnrollmentStatus);
+router.post('/enroll', auth_1.default, UserWebinarController.enrollInWebinar);
+router.get('/user/:userId/webinars', auth_1.default, UserWebinarController.getUserWebinars);
+router.delete('/unenroll', auth_1.default, UserWebinarController.unenrollFromWebinar);
+router.put('/status', auth_1.default, auth_1.authorizeAdmin, UserWebinarController.updateWebinarEnrollmentStatus);
 exports.default = router;

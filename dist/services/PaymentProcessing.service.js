@@ -137,11 +137,6 @@ const initiatePayment = (params) => __awaiter(void 0, void 0, void 0, function* 
             throw new httpError_1.default('PhonePe gateway configuration is incomplete. Missing API Key, Secret, or URLs.', 500);
         }
         // --- CONSTRUCT CALLBACK URL DYNAMICALLY ---
-        const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL; // Get from environment variable
-        if (!WEBHOOK_BASE_URL) {
-            throw new httpError_1.default('WEBHOOK_BASE_URL environment variable is not set.', 500);
-        }
-        const phonePeCallbackUrl = `${WEBHOOK_BASE_URL}/${gatewayName}`; // e.g., https://yourbackend.com/webhooks/payment-status/PhonePe
         const merchantTransactionId = `MTID_${(0, uuid_1.v4)()}`;
         const amountInPaise = Math.round(order.price * 100);
         let user = yield User_model_1.default.findByPk(order.userId);
@@ -156,7 +151,7 @@ const initiatePayment = (params) => __awaiter(void 0, void 0, void 0, function* 
             amount: amountInPaise,
             redirectUrl: activeGateway.successUrl,
             redirectMode: 'REDIRECT',
-            callbackUrl: phonePeCallbackUrl, // Use the dynamically constructed callbackUrl
+            callbackUrl: activeGateway.failureUrl, // Use the dynamically constructed callbackUrl
             mobileNumber: userMobileNumber,
             paymentInstrument: {
                 type: 'PAY_PAGE'

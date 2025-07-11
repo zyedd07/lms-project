@@ -41,11 +41,11 @@ const UserTestSeriesController = __importStar(require("../controllers/UserTestSe
 const auth_1 = __importStar(require("../middleware/auth"));
 const router = express_1.default.Router();
 // Enroll a user in a test series
-router.post('/enroll', auth_1.default, auth_1.authorizeAdmin, UserTestSeriesController.enrollInTestSeries);
+router.post('/enroll', auth_1.default, UserTestSeriesController.enrollInTestSeries);
 // Get all test series for a specific user
-router.get('/user/:userId/testseries', auth_1.default, auth_1.authorizeAdmin, UserTestSeriesController.getUserTestSeries);
+router.get('/user/:userId/testseries', auth_1.default, UserTestSeriesController.getUserTestSeries);
 // Unenroll a user from a test series
-router.delete('/unenroll', auth_1.default, auth_1.authorizeAdmin, UserTestSeriesController.unenrollFromTestSeries);
+router.delete('/unenroll', auth_1.default, UserTestSeriesController.unenrollFromTestSeries);
 // Update the status of a test series enrollment
 router.put('/status', auth_1.default, auth_1.authorizeAdmin, UserTestSeriesController.updateEnrollmentStatus);
 exports.default = router;

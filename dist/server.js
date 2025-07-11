@@ -45,6 +45,7 @@ const TermsSection_router_1 = __importDefault(require("./routes/TermsSection.rou
 const PaymentGateway_router_1 = __importDefault(require("./routes/PaymentGateway.router"));
 const PaymentProcessing_router_1 = __importDefault(require("./routes/PaymentProcessing.router"));
 const PaymentWebhook_router_1 = __importDefault(require("./routes/PaymentWebhook.router")); // Import the new webhook router
+const UserWebinar_router_1 = __importDefault(require("./routes/UserWebinar.router")); // The new UserWebinar routes
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -101,6 +102,7 @@ app.use('/terms-sections', TermsSection_router_1.default);
 app.use('/payment-gateway', PaymentGateway_router_1.default);
 app.use('/payments', PaymentProcessing_router_1.default);
 app.use('/webhooks', PaymentWebhook_router_1.default);
+app.use('/user-webinars', UserWebinar_router_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
