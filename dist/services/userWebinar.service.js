@@ -46,7 +46,7 @@ const getEnrolledWebinarsForUser = (_a) => __awaiter(void 0, [_a], void 0, funct
         where: { userId },
         include: [{
                 model: webinar_model_1.default,
-                attributes: ['id', 'title', 'description', 'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
+                attributes: ['id', 'title', 'price', 'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
             }]
     });
     return enrollments;

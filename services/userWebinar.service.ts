@@ -42,7 +42,7 @@ export const getEnrolledWebinarsForUser = async ({ userId }: GetUserEnrolledWebi
         where: { userId },
         include: [{
             model: Webinar,
-            attributes: ['id', 'title', 'description', 'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
+            attributes: ['id', 'title', 'price' ,'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
         }]
     });
     return enrollments;
