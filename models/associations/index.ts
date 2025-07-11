@@ -22,10 +22,10 @@ import DrugCategory from "../DrugCategory.model";
 import UserTestSeries from "../UserTestSeries.model";
 import UserQbank from "../UserQbank.model";
 import QuestionBank from "../QuestionBank.model";
-import TermsSection from "models/TermsOfService.model";
-import HelpCenterSection from "models/HelpCenter.model";
-import UserWebinar from "models/UserWebinar.model"
-import Webinar from "models/webinar.model"
+import TermsSection from "../TermsOfService.model";
+import HelpCenterSection from "../HelpCenter.model";
+import UserWebinar from "../UserWebinar.model"
+import Webinar from "../webinar.model"
 
 
 

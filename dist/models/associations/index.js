@@ -27,8 +27,8 @@ const DrugCategory_model_1 = __importDefault(require("../DrugCategory.model"));
 const UserTestSeries_model_1 = __importDefault(require("../UserTestSeries.model"));
 const UserQbank_model_1 = __importDefault(require("../UserQbank.model"));
 const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
-const UserWebinar_model_1 = __importDefault(require("models/UserWebinar.model"));
-const webinar_model_1 = __importDefault(require("models/webinar.model"));
+const UserWebinar_model_1 = __importDefault(require("../UserWebinar.model"));
+const webinar_model_1 = __importDefault(require("../webinar.model"));
 const initAssociation = () => {
     UserWebinar_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     // A UserWebinar belongs to a Webinar
