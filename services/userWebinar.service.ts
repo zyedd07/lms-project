@@ -1,9 +1,8 @@
-import UserWebinar from '../models/UserWebinar.model'; // Assuming this model exists
-import Webinar from '../models/webinar.model'; // Assuming this model exists
+import UserWebinar from '../models/UserWebinar.model';
+import Webinar from '../models/webinar.model';
 import HttpError from '../utils/httpError';
-// Import the necessary types from your types file, assuming similar structure to UserCourse types
 import {
-    WebinarEnrollmentStatus, // Assuming an enum or type for webinar enrollment status
+    WebinarEnrollmentStatus,
     EnrollInWebinarServiceParams,
     UnenrollFromWebinarServiceParams,
     GetUserEnrolledWebinarsParams,
@@ -42,7 +41,18 @@ export const getEnrolledWebinarsForUser = async ({ userId }: GetUserEnrolledWebi
         where: { userId },
         include: [{
             model: Webinar,
-            attributes: ['id', 'title', 'price' ,'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
+            // FIX: Added all fields from webinar.model.ts's init block
+            attributes: [
+                'id',
+                'title',
+                'speaker',
+                'date',
+                'time',
+                'imageUrl',
+                'status',
+                'jitsiRoomName',
+                'price'
+            ]
         }]
     });
     return enrollments;
@@ -81,8 +91,6 @@ export const updateWebinarEnrollmentStatus = async ({ userId, webinarId, status 
         throw new HttpError("Webinar enrollment record not found.", 404);
     }
 
-    // FIX: Cast the generic model instance to 'any' to allow property access.
-    // This resolves potential TypeScript errors if the model instance isn't fully typed.
     (enrollment as any).status = status;
     await enrollment.save();
     return enrollment;

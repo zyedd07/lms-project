@@ -13,8 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateWebinarEnrollmentStatus = exports.unenrollUserFromWebinar = exports.getEnrolledWebinarsForUser = exports.enrollUserInWebinar = void 0;
-const UserWebinar_model_1 = __importDefault(require("../models/UserWebinar.model")); // Assuming this model exists
-const webinar_model_1 = __importDefault(require("../models/webinar.model")); // Assuming this model exists
+const UserWebinar_model_1 = __importDefault(require("../models/UserWebinar.model"));
+const webinar_model_1 = __importDefault(require("../models/webinar.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 /**
  * Enrolls a user in a specific webinar.
@@ -46,7 +46,18 @@ const getEnrolledWebinarsForUser = (_a) => __awaiter(void 0, [_a], void 0, funct
         where: { userId },
         include: [{
                 model: webinar_model_1.default,
-                attributes: ['id', 'title', 'price', 'scheduledAt', 'duration', 'speaker'] // Adjust attributes to match your Webinar model
+                // FIX: Added all fields from webinar.model.ts's init block
+                attributes: [
+                    'id',
+                    'title',
+                    'speaker',
+                    'date',
+                    'time',
+                    'imageUrl',
+                    'status',
+                    'jitsiRoomName',
+                    'price'
+                ]
             }]
     });
     return enrollments;
@@ -81,8 +92,6 @@ const updateWebinarEnrollmentStatus = (_a) => __awaiter(void 0, [_a], void 0, fu
     if (!enrollment) {
         throw new httpError_1.default("Webinar enrollment record not found.", 404);
     }
-    // FIX: Cast the generic model instance to 'any' to allow property access.
-    // This resolves potential TypeScript errors if the model instance isn't fully typed.
     enrollment.status = status;
     yield enrollment.save();
     return enrollment;
