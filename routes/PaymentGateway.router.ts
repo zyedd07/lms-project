@@ -6,10 +6,10 @@ import isAuth, { authorizeAdmin } from '../middleware/auth'; // Import authorize
 const router = express.Router();
 
 // Admin routes (require authentication and ADMIN role)
-router.post('/settings', isAuth, authorizeAdmin, PaymentGatewayController.createPaymentGatewayController);
+router.post('/settings', isAuth,authorizeAdmin , PaymentGatewayController.createPaymentGatewayController);
 router.put('/settings/:id', isAuth, authorizeAdmin, PaymentGatewayController.updatePaymentGatewayController);
 router.delete('/settings/:id', isAuth, authorizeAdmin, PaymentGatewayController.deletePaymentGatewayController);
-router.get('/settings', isAuth, authorizeAdmin, PaymentGatewayController.getAllPaymentGatewaysController);
+router.get('/settings', isAuth, PaymentGatewayController.getAllPaymentGatewaysController);
 
 // Public/Mobile App route (might not require authentication if settings are generally public)
 router.get('/settings/active',isAuth, PaymentGatewayController.getActivePaymentGatewayController);
