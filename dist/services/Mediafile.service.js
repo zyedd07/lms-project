@@ -26,7 +26,8 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         Key: s3Key,
         Body: fileBuffer,
         ContentType: mimetype,
-        ACL: 'public-read', // Make the object publicly readable via CloudFront
+        // Removed ACL: 'public-read' as the bucket does not allow ACLs.
+        // Access control should be managed via S3 bucket policies.
     };
     try {
         // Upload file to S3 using PutObjectCommand
@@ -115,7 +116,8 @@ const uploadMultipleMedia = (files) => __awaiter(void 0, void 0, void 0, functio
             Key: s3Key,
             Body: buffer,
             ContentType: mimetype,
-            ACL: 'public-read',
+            // Removed ACL: 'public-read' as the bucket does not allow ACLs.
+            // Access control should be managed via S3 bucket policies.
         };
         try {
             yield aws_1.s3Client.send(new client_s3_1.PutObjectCommand(params));

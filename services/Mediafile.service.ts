@@ -1,4 +1,3 @@
-
 // Import S3Client and specific commands from AWS SDK v3
 import { S3Client, PutObjectCommand, DeleteObjectCommand, PutObjectCommandInput, DeleteObjectCommandInput } from '@aws-sdk/client-s3';
 import { s3Client, S3_BUCKET_NAME, AWS_REGION } from '../config/aws'; // Import the v3 S3Client
@@ -15,7 +14,8 @@ export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mime
     Key: s3Key,
     Body: fileBuffer,
     ContentType: mimetype,
-    ACL: 'public-read', // Make the object publicly readable via CloudFront
+    // Removed ACL: 'public-read' as the bucket does not allow ACLs.
+    // Access control should be managed via S3 bucket policies.
   };
 
   try {
@@ -113,7 +113,8 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<any[]> 
       Key: s3Key,
       Body: buffer,
       ContentType: mimetype,
-      ACL: 'public-read',
+      // Removed ACL: 'public-read' as the bucket does not allow ACLs.
+      // Access control should be managed via S3 bucket policies.
     };
 
     try {
