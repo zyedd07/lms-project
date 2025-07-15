@@ -46,11 +46,13 @@ const PaymentGateway_router_1 = __importDefault(require("./routes/PaymentGateway
 const PaymentProcessing_router_1 = __importDefault(require("./routes/PaymentProcessing.router"));
 const PaymentWebhook_router_1 = __importDefault(require("./routes/PaymentWebhook.router")); // Import the new webhook router
 const UserWebinar_router_1 = __importDefault(require("./routes/UserWebinar.router")); // The new UserWebinar routes
+const Mediafile_router_1 = __importDefault(require("./routes/Mediafile.router")); // The new UserWebinar routes
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 const allowedOrigins = [
-    'http://localhost:3000', // Your React Admin Panel's local development URL
+    'http://localhost:3000',
+    'https://d33203vzrqpmtm.cloudfront.net'
 ];
 const corsOptions = {
     origin: function (origin, callback) {
@@ -103,6 +105,7 @@ app.use('/payment-gateway', PaymentGateway_router_1.default);
 app.use('/payments', PaymentProcessing_router_1.default);
 app.use('/webhooks', PaymentWebhook_router_1.default);
 app.use('/user-webinars', UserWebinar_router_1.default);
+app.use('/media-file', Mediafile_router_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
