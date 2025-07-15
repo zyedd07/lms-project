@@ -2,11 +2,16 @@
 // This file handles request parsing, calls the service, and sends responses.
 
 import { Request, Response } from 'express'; // Import Request and Response types from Express
-
-import { File as MulterFile } from 'multer';
+// No direct import of MulterFile needed here if using global augmentation
 import * as mediaFileService from '../services/Mediafile.service'; // Import all functions from service
 
+// The global declaration for Express.Request augmentation for Multer.File
+// This should ideally be in a separate .d.ts file (e.g., src/types/express.d.ts)
+// and referenced in tsconfig.json.
+// For this example, we assume it's correctly picked up from your `multer.d.ts` file.
 
+// Define a simple interface for the expected structure of the media file entry
+// This helps TypeScript understand the properties even if the service returns 'any'
 interface MediaFileEntryResponse {
   fileUrl: string;
   s3Key: string;
@@ -32,8 +37,7 @@ export const uploadFile = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No file uploaded.' });
     }
 
-    // Access properties directly from the file object, which is now typed by Multer.File
-    const { originalname, mimetype, buffer, size } = file;
+    const { originalname, mimetype, buffer, size } = file; // Properties now directly available
 
     // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
 

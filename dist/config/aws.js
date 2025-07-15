@@ -1,51 +1,21 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AWS_REGION = exports.S3_BUCKET_NAME = exports.s3 = void 0;
-const AWS = __importStar(require("aws-sdk")); // Use import * as AWS for TypeScript
+exports.AWS_REGION = exports.S3_BUCKET_NAME = exports.s3Client = void 0;
+// Import S3Client from AWS SDK v3
+const client_s3_1 = require("@aws-sdk/client-s3");
 // Configure AWS with your credentials and region
-// It's best practice to load these from environment variables
-AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION,
+// AWS SDK v3 clients are configured directly.
+// It's best practice to load these from environment variables.
+const s3Client = new client_s3_1.S3Client({
+    region: process.env.AWS_REGION, // Region is directly passed to the client
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
 });
-const s3 = new AWS.S3();
-exports.s3 = s3;
+exports.s3Client = s3Client;
 // Correct way to export multiple named items from an object literal in TypeScript
 const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
 exports.S3_BUCKET_NAME = S3_BUCKET_NAME;
-const AWS_REGION = process.env.AWS_REGION;
+const AWS_REGION = process.env.AWS_REGION; // Still useful for metadata storage
 exports.AWS_REGION = AWS_REGION;

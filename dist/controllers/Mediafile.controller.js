@@ -45,6 +45,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteFile = exports.listMedia = exports.uploadFile = void 0;
+// No direct import of MulterFile needed here if using global augmentation
 const mediaFileService = __importStar(require("../services/Mediafile.service")); // Import all functions from service
 // Controller for handling file upload requests
 const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -55,8 +56,7 @@ const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded.' });
         }
-        // Access properties directly from the file object, which is now typed by Multer.File
-        const { originalname, mimetype, buffer, size } = file;
+        const { originalname, mimetype, buffer, size } = file; // Properties now directly available
         // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
         const mediaFileEntry = yield mediaFileService.uploadMedia(// Cast to MediaFileEntryResponse
         buffer, originalname, mimetype, size);
