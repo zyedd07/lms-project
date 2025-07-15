@@ -1,21 +1,43 @@
+// controllers/mediaFile.controller.ts
+// This file handles request parsing, calls the service, and sends responses.
 
 import { Request, Response } from 'express'; // Import Request and Response types from Express
+
+import { File as MulterFile } from 'multer';
 import * as mediaFileService from '../services/Mediafile.service'; // Import all functions from service
+
+
+interface MediaFileEntryResponse {
+  fileUrl: string;
+  s3Key: string;
+  // Add other properties you expect from the service's return if needed
+  id: string;
+  originalName: string;
+  s3Bucket: string;
+  s3Region: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Controller for handling file upload requests
 export const uploadFile = async (req: Request, res: Response) => {
   try {
-    // Multer adds 'file' to the request object
-    const file = req.file as Express.Multer.File; // Cast req.file to Multer's File type
+    // Multer adds 'file' to the request object.
+    // TypeScript now knows 'req.file' can be a MulterFile due to the global augmentation.
+    const file = req.file;
 
     if (!file) {
       return res.status(400).json({ message: 'No file uploaded.' });
     }
 
+    // Access properties directly from the file object, which is now typed by Multer.File
     const { originalname, mimetype, buffer, size } = file;
+
     // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
 
-    const mediaFileEntry = await mediaFileService.uploadMedia(
+    const mediaFileEntry: MediaFileEntryResponse = await mediaFileService.uploadMedia( // Cast to MediaFileEntryResponse
       buffer,
       originalname,
       mimetype,
@@ -25,8 +47,8 @@ export const uploadFile = async (req: Request, res: Response) => {
 
     res.status(201).json({
       message: 'File uploaded successfully!',
-      fileUrl: mediaFileEntry.fileUrl,
-      s3Key: mediaFileEntry.s3Key,
+      fileUrl: mediaFileEntry.fileUrl, // Now recognized
+      s3Key: mediaFileEntry.s3Key,       // Now recognized
       metadata: mediaFileEntry,
     });
   } catch (error: any) { // Use 'any' for error type or define a custom error interface
@@ -39,7 +61,7 @@ export const uploadFile = async (req: Request, res: Response) => {
 // Controller for handling requests to list all media files
 export const listMedia = async (req: Request, res: Response) => {
   try {
-    const mediaFiles = await mediaFileService.getAllMedia();
+    const mediaFiles: MediaFileEntryResponse[] = await mediaFileService.getAllMedia(); // Cast to array of MediaFileEntryResponse
     res.status(200).json(mediaFiles);
   } catch (error: any) {
     console.error('Error in mediaFile.controller.listMedia:', error);

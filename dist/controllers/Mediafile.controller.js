@@ -1,4 +1,6 @@
 "use strict";
+// controllers/mediaFile.controller.ts
+// This file handles request parsing, calls the service, and sends responses.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -47,18 +49,21 @@ const mediaFileService = __importStar(require("../services/Mediafile.service"));
 // Controller for handling file upload requests
 const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Multer adds 'file' to the request object
-        const file = req.file; // Cast req.file to Multer's File type
+        // Multer adds 'file' to the request object.
+        // TypeScript now knows 'req.file' can be a MulterFile due to the global augmentation.
+        const file = req.file;
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded.' });
         }
+        // Access properties directly from the file object, which is now typed by Multer.File
         const { originalname, mimetype, buffer, size } = file;
         // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
-        const mediaFileEntry = yield mediaFileService.uploadMedia(buffer, originalname, mimetype, size);
+        const mediaFileEntry = yield mediaFileService.uploadMedia(// Cast to MediaFileEntryResponse
+        buffer, originalname, mimetype, size);
         res.status(201).json({
             message: 'File uploaded successfully!',
-            fileUrl: mediaFileEntry.fileUrl,
-            s3Key: mediaFileEntry.s3Key,
+            fileUrl: mediaFileEntry.fileUrl, // Now recognized
+            s3Key: mediaFileEntry.s3Key, // Now recognized
             metadata: mediaFileEntry,
         });
     }
@@ -72,7 +77,7 @@ exports.uploadFile = uploadFile;
 // Controller for handling requests to list all media files
 const listMedia = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const mediaFiles = yield mediaFileService.getAllMedia();
+        const mediaFiles = yield mediaFileService.getAllMedia(); // Cast to array of MediaFileEntryResponse
         res.status(200).json(mediaFiles);
     }
     catch (error) {
