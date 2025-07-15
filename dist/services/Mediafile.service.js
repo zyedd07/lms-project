@@ -47,6 +47,7 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
             fileUrl: fileUrl,
             mimeType: mimetype,
             fileSize: fileSize,
+            // uploadedByAdminId: adminId, // Uncomment if tracking admin uploads
         });
         return mediaFileEntry.toJSON(); // Return plain object (type will be 'any')
     }

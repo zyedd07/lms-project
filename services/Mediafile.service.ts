@@ -3,6 +3,7 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, PutObjectCommandInput, DeleteObjectCommandInput } from '@aws-sdk/client-s3';
 import { s3Client, S3_BUCKET_NAME, AWS_REGION } from '../config/aws'; // Import the v3 S3Client
 import MediaFile from '../models/Mediafile.model'; // Import the MediaFile model
+import * as multer from 'multer'; // Explicitly import multer to make its namespace available for typing
 
 // Function to upload a file to S3 and save its metadata to the database
 export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mimetype: string, fileSize: number): Promise<any> => {
@@ -39,6 +40,7 @@ export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mime
       fileUrl: fileUrl,
       mimeType: mimetype,
       fileSize: fileSize,
+      // uploadedByAdminId: adminId, // Uncomment if tracking admin uploads
     });
 
     return mediaFileEntry.toJSON(); // Return plain object (type will be 'any')
@@ -91,7 +93,7 @@ export const deleteMedia = async (fileId: string): Promise<{ message: string }> 
 };
 
 // NEW: Function to upload multiple files to S3 and save their metadata
-export const uploadMultipleMedia = async (files: Express.Multer.File[]): Promise<any[]> => {
+export const uploadMultipleMedia = async (files: multer.File[]): Promise<any[]> => { // Use multer.File
   const uploadedFilesMetadata: any[] = [];
   const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
   if (!CLOUDFRONT_MEDIA_DOMAIN) {
