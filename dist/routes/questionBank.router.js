@@ -37,34 +37,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-// Ensure correct imports based on the shim
-const multer_1 = __importDefault(require("multer"));
+// Removed multer imports as direct file uploads are no longer handled in these routes
+// import multer, { FileFilterCallback, StorageEngine, File, MulterFileFilterFunction } from 'multer';
 const QuestionBankController = __importStar(require("../controllers/questionBank.controller"));
-const auth_1 = __importDefault(require("../middleware/auth"));
+const auth_1 = __importDefault(require("../middleware/auth")); // Assuming this is your authentication middleware
 const router = express_1.default.Router();
-// --- Multer Configuration for File Uploads ---
-// Corrected: Accessing memoryStorage directly from the multer object, which the shim now allows
-const storage = multer_1.default.memoryStorage();
-// Type the fileFilter function with MulterFileFilterFunction
-const fileFilter = (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-        cb(null, true);
-    }
-    else {
-        cb(new Error('Only PDF files are allowed!'), false);
-    }
-};
-const upload = (0, multer_1.default)({
-    storage: storage,
-    fileFilter: fileFilter, // This now correctly matches MulterFileFilterFunction
-    limits: {
-        fileSize: 1024 * 1024 * 10 // 10 MB file size limit
-    }
-});
+// --- Removed Multer Configuration ---
+// The frontend now sends a file URL in the JSON body,
+// so direct file upload middleware is no longer needed here.
+// The actual file upload to storage should happen via a separate media upload endpoint.
 // --- Question Bank Routes ---
-router.post('/create', auth_1.default, upload.single('pdfFile'), QuestionBankController.createQuestionBankController);
+// Route for creating a question bank
+// No multer middleware needed here. The controller expects JSON body with 'fileUrl'.
+router.post('/create', auth_1.default, QuestionBankController.createQuestionBankController);
+// Route for getting all question banks
 router.get('/', QuestionBankController.getAllQuestionBanksController);
+// Route for getting a single question bank by ID
 router.get('/:id', QuestionBankController.getQuestionBankByIdController);
-router.put('/:id', auth_1.default, upload.single('pdfFile'), QuestionBankController.updateQuestionBankController);
+// Route for updating a question bank
+// No multer middleware needed here. The controller expects JSON body with 'fileUrl' if updated.
+router.put('/:id', auth_1.default, QuestionBankController.updateQuestionBankController);
+// Route for deleting a question bank
 router.delete('/:id', auth_1.default, QuestionBankController.deleteQuestionBankController);
 exports.default = router;
