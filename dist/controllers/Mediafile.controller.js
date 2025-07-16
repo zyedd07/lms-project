@@ -1,5 +1,5 @@
 "use strict";
-// controllers/mediaFile.controller.ts
+// controllers/Mediafile.controller.ts
 // This file handles request parsing, calls the service, and sends responses.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -43,77 +43,69 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteFile = exports.listMedia = exports.uploadMultipleFiles = exports.uploadFile = void 0;
-const mediaFileService = __importStar(require("../services/Mediafile.service"));
+exports.uploadMultipleFiles = exports.deleteFile = exports.listMedia = exports.uploadFile = void 0;
+const mediaFileService = __importStar(require("../services/Mediafile.service")); // Import all functions from service
+const multer_1 = __importDefault(require("multer")); // Import the default export (the multer function)
+// Helper function to handle common error responses
+const handleErrorResponse = (res, error, defaultMessage) => {
+    console.error(`Error in mediaFile.controller:`, error);
+    let statusCode = 500;
+    let message = defaultMessage;
+    // Check if the error is an instance of multer.MulterError
+    if (error instanceof multer_1.default.MulterError) { // <--- Use multer.MulterError from the imported default
+        statusCode = 400; // Bad Request for Multer errors like file size limits
+        message = `File upload error: ${error.message}`;
+        if (error.code) {
+            message += ` (Code: ${error.code})`;
+        }
+    }
+    else if (error.statusCode) {
+        // Handle custom errors from service (e.g., MediaFileNotFoundError)
+        statusCode = error.statusCode;
+        message = error.message;
+    }
+    else {
+        // Generic error
+        message = error.message || defaultMessage;
+    }
+    res.status(statusCode).json({ message });
+};
 // Controller for handling single file upload requests
 const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Multer adds 'file' to the request object.
+        // req.file is typed by the Express.Request augmentation in multer-shim.d.ts
         const file = req.file;
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded.' });
         }
-        const { originalname, mimetype, buffer, size } = file;
-        // Optional: Get adminId if you have authentication middleware
-        // const adminId = (req as any).user.id;
-        const mediaFileEntry = yield mediaFileService.uploadMedia(buffer, originalname, mimetype, size);
+        const { originalname, mimetype, buffer, size } = file; // Properties now directly available
+        // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
+        const mediaFileEntry = yield mediaFileService.uploadMedia(// Cast to MediaFileEntryResponse
+        buffer, originalname, mimetype, size);
         res.status(201).json({
             message: 'File uploaded successfully!',
             fileUrl: mediaFileEntry.fileUrl,
             s3Key: mediaFileEntry.s3Key,
-            metadata: mediaFileEntry, // Returns all stored metadata including the signed URL
+            metadata: mediaFileEntry,
         });
     }
-    catch (error) { // Catching as 'any' to access custom properties like 'statusCode'
-        console.error('Error in mediaFile.controller.uploadFile:', error);
-        const statusCode = error.statusCode || 500; // Use custom status code if available from service
-        res.status(statusCode).json({ message: error.message || 'File upload failed.' });
+    catch (error) { // Use 'any' for error type or define a custom error interface
+        handleErrorResponse(res, error, 'File upload failed.');
     }
 });
 exports.uploadFile = uploadFile;
-// NEW: Controller for handling multiple file upload requests
-const uploadMultipleFiles = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        // Multer adds 'files' to the request object for array uploads.
-        // Ensure your router configuration uses `upload.array('fieldName')` or `upload.fields([...])`
-        const files = req.files; // Explicitly cast to array of Multer.File
-        if (!files || files.length === 0) {
-            return res.status(400).json({ message: 'No files uploaded.' });
-        }
-        // Optional: Get adminId if you have authentication middleware
-        // const adminId = (req as any).user.id;
-        const uploadedFilesMetadata = yield mediaFileService.uploadMultipleMedia(files);
-        // Filter out any potential null/undefined entries if your service's Promise.allSettled
-        // design returns them for failed individual uploads.
-        // Given the current service implementation (logs and continues, pushing to uploadedFilesMetadata),
-        // this filtering might not be strictly necessary if you always expect an object,
-        // but it's good practice if there's a chance of undefined/nulls for failed uploads.
-        const successfulUploads = uploadedFilesMetadata.filter(Boolean);
-        res.status(201).json({
-            message: `${successfulUploads.length} files uploaded successfully!`,
-            uploadedFiles: successfulUploads,
-            // You might also want to include a count of failed uploads if the service tracks them,
-            // or if you refactor the service to return success/failure arrays.
-        });
-    }
-    catch (error) {
-        console.error('Error in mediaFile.controller.uploadMultipleFiles:', error);
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message || 'Multiple file upload failed.' });
-    }
-});
-exports.uploadMultipleFiles = uploadMultipleFiles;
 // Controller for handling requests to list all media files
 const listMedia = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const mediaFiles = yield mediaFileService.getAllMedia();
+        const mediaFiles = yield mediaFileService.getAllMedia(); // Cast to array of MediaFileEntryResponse
         res.status(200).json(mediaFiles);
     }
     catch (error) {
-        console.error('Error in mediaFile.controller.listMedia:', error);
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message || 'Failed to fetch media list.' });
+        handleErrorResponse(res, error, 'Failed to fetch media list.');
     }
 });
 exports.listMedia = listMedia;
@@ -128,9 +120,30 @@ const deleteFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         res.status(200).json({ message: result.message });
     }
     catch (error) {
-        console.error('Error in mediaFile.controller.deleteFile:', error);
-        const statusCode = error.statusCode || 500; // Propagate custom status code from service
-        res.status(statusCode).json({ message: error.message || 'File deletion failed.' });
+        handleErrorResponse(res, error, 'File deletion failed.');
     }
 });
 exports.deleteFile = deleteFile;
+// NEW: Controller for handling multiple file upload requests
+const uploadMultipleFiles = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // req.files is typed by the Express.Request augmentation in multer-shim.d.ts
+        // It's already typed as `multer.File[]` or `{ [fieldname: string]: multer.File[] }`
+        // So, we can directly use `file as multer.File` or `files as multer.File[]`
+        const files = req.files; // <--- Use multer.File from the imported default
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: 'No files uploaded.' });
+        }
+        // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
+        const uploadedFilesMetadata = yield mediaFileService.uploadMultipleMedia(files);
+        const successfulUploads = uploadedFilesMetadata.filter(Boolean);
+        res.status(201).json({
+            message: `${successfulUploads.length} files uploaded successfully!`,
+            uploadedFiles: successfulUploads,
+        });
+    }
+    catch (error) {
+        handleErrorResponse(res, error, 'Multiple file upload failed.');
+    }
+});
+exports.uploadMultipleFiles = uploadMultipleFiles;
