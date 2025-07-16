@@ -15,7 +15,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteQuestionBankController = exports.updateQuestionBankController = exports.getQuestionBankByIdController = exports.getAllQuestionBanksController = exports.createQuestionBankController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const questionBank_services_1 = require("../services/questionBank.services");
-// --- REMOVED: The local QuestionBankData interface definition is no longer needed here ---
 /**
  * Creates a new Question Bank record in the database, using a provided file URL.
  * The actual file upload to storage is assumed to be handled by a separate media service/process.
@@ -28,12 +27,13 @@ const createQuestionBankController = (req, res, next) => __awaiter(void 0, void 
         if (!uploaderId) {
             throw new httpError_1.default("Unauthorized: User ID missing.", 401);
         }
-        // Extract and Validate Request Body Data
-        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
+        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
+        const { name, description, price, filePath } = req.body;
         if (!name) {
             throw new httpError_1.default("Question bank name is required.", 400);
         }
-        if (!fileUrl) {
+        // IMPORTANT CHANGE: Check 'filePath'
+        if (!filePath) {
             throw new httpError_1.default("PDF file URL is required for creating a question bank.", 400);
         }
         // Parse and validate price
@@ -41,13 +41,13 @@ const createQuestionBankController = (req, res, next) => __awaiter(void 0, void 
         if (isNaN(parsedPrice) || parsedPrice < 0) {
             throw new httpError_1.default("Price is required and must be a non-negative number.", 400);
         }
-        // Derive fileName from fileUrl (e.g., last segment of the URL path)
-        const fileName = fileUrl.split('/').pop() || 'untitled_file'; // Extract filename from URL
+        // Derive fileName from filePath (e.g., last segment of the URL path)
+        const fileName = filePath.split('/').pop() || 'untitled_file'; // Extract filename from URL
         // --- Call Service to Save Question Bank Details to Database ---
         const newQuestionBank = yield (0, questionBank_services_1.createQuestionBankService)({
             name: name,
             description: description,
-            filePath: fileUrl, // Pass the URL as filePath
+            filePath: filePath, // Pass the URL as filePath
             fileName: fileName, // Pass the derived filename
             price: parsedPrice,
             uploadedBy: uploaderId, // Pass the uploaderId to the service
@@ -78,7 +78,6 @@ exports.getAllQuestionBanksController = getAllQuestionBanksController;
 const getQuestionBankByIdController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        // Now 'QuestionBankData' is correctly imported and should match service's return
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
@@ -111,12 +110,11 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to update (uploader, admin, or teacher)
-        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
-        // but keeping it for now if your exact 'utils/types' is still in transition.
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to update this question bank.", 403);
         }
-        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
+        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
+        const { name, description, price, filePath } = req.body;
         // Prepare fields for update
         const updateFields = {};
         if (name !== undefined)
@@ -132,14 +130,14 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             updateFields.price = parsedPrice;
         }
         // Handle file URL update (if a new URL is provided)
-        if (fileUrl !== undefined) {
-            // Basic URL validation (can be more robust if needed)
-            if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) {
+        // IMPORTANT CHANGE: Check and use 'filePath'
+        if (filePath !== undefined) {
+            if (typeof filePath !== 'string' || !filePath.startsWith('http')) {
                 throw new httpError_1.default("PDF File URL must be a valid URL (start with http/https).", 400);
             }
-            updateFields.filePath = fileUrl;
+            updateFields.filePath = filePath;
             // Also update fileName if filePath changes
-            updateFields.fileName = fileUrl.split('/').pop() || 'untitled_file';
+            updateFields.fileName = filePath.split('/').pop() || 'untitled_file';
         }
         // --- Perform Database Update via Service ---
         const updatedQuestionBank = yield (0, questionBank_services_1.updateQuestionBankService)(id, updateFields);
@@ -171,8 +169,6 @@ const deleteQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to delete (uploader, admin, or teacher)
-        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
-        // but keeping it for now if your exact 'utils/types' is still in transition.
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to delete this question bank.", 403);
         }

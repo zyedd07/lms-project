@@ -1,9 +1,7 @@
-// controllers/questionBank.controller.ts
 import { NextFunction, Request, Response } from 'express';
 import HttpError from '../utils/httpError';
 
-// Import QuestionBankData directly from utils/types
-import { QuestionBankData } from '../utils/types'; // <-- IMPORTED HERE
+import { QuestionBankData } from '../utils/types'; // Import QuestionBankData directly from utils/types
 
 import {
     createQuestionBankService,
@@ -22,9 +20,6 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
-// --- REMOVED: The local QuestionBankData interface definition is no longer needed here ---
-
-
 /**
  * Creates a new Question Bank record in the database, using a provided file URL.
  * The actual file upload to storage is assumed to be handled by a separate media service/process.
@@ -37,13 +32,14 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
             throw new HttpError("Unauthorized: User ID missing.", 401);
         }
 
-        // Extract and Validate Request Body Data
-        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
+        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
+        const { name, description, price, filePath } = req.body;
 
         if (!name) {
             throw new HttpError("Question bank name is required.", 400);
         }
-        if (!fileUrl) {
+        // IMPORTANT CHANGE: Check 'filePath'
+        if (!filePath) {
             throw new HttpError("PDF file URL is required for creating a question bank.", 400);
         }
 
@@ -53,14 +49,14 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
             throw new HttpError("Price is required and must be a non-negative number.", 400);
         }
 
-        // Derive fileName from fileUrl (e.g., last segment of the URL path)
-        const fileName = fileUrl.split('/').pop() || 'untitled_file'; // Extract filename from URL
+        // Derive fileName from filePath (e.g., last segment of the URL path)
+        const fileName = filePath.split('/').pop() || 'untitled_file'; // Extract filename from URL
 
         // --- Call Service to Save Question Bank Details to Database ---
         const newQuestionBank = await createQuestionBankService({
             name: name,
             description: description,
-            filePath: fileUrl, // Pass the URL as filePath
+            filePath: filePath, // Pass the URL as filePath
             fileName: fileName, // Pass the derived filename
             price: parsedPrice,
             uploadedBy: uploaderId, // Pass the uploaderId to the service
@@ -90,7 +86,6 @@ export const getAllQuestionBanksController = async (req: Request, res: Response,
 export const getQuestionBankByIdController = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        // Now 'QuestionBankData' is correctly imported and should match service's return
         const questionBank: QuestionBankData = await getQuestionBankByIdService(id);
 
         if (!questionBank) {
@@ -125,13 +120,12 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Check if the user is authorized to update (uploader, admin, or teacher)
-        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
-        // but keeping it for now if your exact 'utils/types' is still in transition.
-        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
+        if ((questionBank as any).uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to update this question bank.", 403);
         }
 
-        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
+        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
+        const { name, description, price, filePath } = req.body;
 
         // Prepare fields for update
         const updateFields: { [key: string]: any } = {};
@@ -149,14 +143,14 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Handle file URL update (if a new URL is provided)
-        if (fileUrl !== undefined) {
-            // Basic URL validation (can be more robust if needed)
-            if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) {
+        // IMPORTANT CHANGE: Check and use 'filePath'
+        if (filePath !== undefined) {
+            if (typeof filePath !== 'string' || !filePath.startsWith('http')) {
                 throw new HttpError("PDF File URL must be a valid URL (start with http/https).", 400);
             }
-            updateFields.filePath = fileUrl;
+            updateFields.filePath = filePath;
             // Also update fileName if filePath changes
-            updateFields.fileName = fileUrl.split('/').pop() || 'untitled_file';
+            updateFields.fileName = filePath.split('/').pop() || 'untitled_file';
         }
 
         // --- Perform Database Update via Service ---
@@ -191,9 +185,7 @@ export const deleteQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Check if the user is authorized to delete (uploader, admin, or teacher)
-        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
-        // but keeping it for now if your exact 'utils/types' is still in transition.
-        if (questionBank.uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
+        if ((questionBank as any).uploader?.id !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new HttpError("Unauthorized to delete this question bank.", 403);
         }
 
