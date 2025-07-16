@@ -348,6 +348,13 @@ export type UpdateQuestionBankServiceParams = {
     price?: number;
 };
 
+export interface UploaderData {
+  id: string;
+  name: string;
+  email: string;
+  // Add other User model attributes if you are selecting them in your service's 'attributes' array
+}
+
 export type QuestionBankData = {
     id: string;
     name: string;
@@ -359,6 +366,8 @@ export type QuestionBankData = {
     uploadDate: Date;
     createdAt: Date;
     updatedAt: Date;
+      uploader?: UploaderData | null; // <-- IMPORTANT: Ensure this is included
+
 };
 
 // --- Webinar Types ---

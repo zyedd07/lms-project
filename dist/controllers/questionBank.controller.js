@@ -14,67 +14,41 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteQuestionBankController = exports.updateQuestionBankController = exports.getQuestionBankByIdController = exports.getAllQuestionBanksController = exports.createQuestionBankController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
-const supabase_js_1 = require("@supabase/supabase-js");
-const questionBank_services_1 = require("../services/questionBank.services"); // Import service functions
-// Supabase client setup using environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Using SERVICE_ROLE_KEY for server-side
-const supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseKey);
+const questionBank_services_1 = require("../services/questionBank.services");
+// --- REMOVED: The local QuestionBankData interface definition is no longer needed here ---
 /**
- * Creates a new Question Bank, uploads the associated PDF file to Supabase Storage,
- * and saves the question bank details (including price and uploader) to the database.
+ * Creates a new Question Bank record in the database, using a provided file URL.
+ * The actual file upload to storage is assumed to be handled by a separate media service/process.
  */
 const createQuestionBankController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        // --- Authorization and File Validation ---
+        // --- Authorization and Data Validation ---
         const uploaderId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Get uploader ID from authenticated user
         if (!uploaderId) {
             throw new httpError_1.default("Unauthorized: User ID missing.", 401);
         }
-        if (!req.file) {
-            throw new httpError_1.default("PDF file is required for creating a question bank.", 400);
-        }
-        // --- Extract and Validate Request Body Data ---
-        const { name, description, price } = req.body; // Destructure price from req.body
+        // Extract and Validate Request Body Data
+        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
         if (!name) {
             throw new httpError_1.default("Question bank name is required.", 400);
+        }
+        if (!fileUrl) {
+            throw new httpError_1.default("PDF file URL is required for creating a question bank.", 400);
         }
         // Parse and validate price
         const parsedPrice = parseFloat(price);
         if (isNaN(parsedPrice) || parsedPrice < 0) {
             throw new httpError_1.default("Price is required and must be a non-negative number.", 400);
         }
-        // --- File Handling and Supabase Upload ---
-        const fileBuffer = req.file.buffer;
-        const originalFileName = req.file.originalname;
-        const fileMimeType = req.file.mimetype;
-        // Create a unique path for the file in Supabase Storage
-        const supabaseFilePath = `question-banks/${uploaderId}/${Date.now()}-${originalFileName}`;
-        const { data: uploadData, error: uploadError } = yield supabase.storage
-            .from('question-banks')
-            .upload(supabaseFilePath, fileBuffer, {
-            contentType: fileMimeType,
-            upsert: false, // Do not overwrite existing files
-        });
-        if (uploadError) {
-            console.error("Supabase Upload Error:", uploadError);
-            throw new httpError_1.default(`Failed to upload PDF file to storage: ${uploadError.message}`, 500);
-        }
-        // Get the public URL for the uploaded file
-        const { data: publicUrlData } = supabase.storage
-            .from('question-banks')
-            .getPublicUrl(supabaseFilePath);
-        const filePublicUrl = publicUrlData === null || publicUrlData === void 0 ? void 0 : publicUrlData.publicUrl;
-        if (!filePublicUrl) {
-            throw new httpError_1.default("Failed to get public URL for uploaded file.", 500);
-        }
+        // Derive fileName from fileUrl (e.g., last segment of the URL path)
+        const fileName = fileUrl.split('/').pop() || 'untitled_file'; // Extract filename from URL
         // --- Call Service to Save Question Bank Details to Database ---
         const newQuestionBank = yield (0, questionBank_services_1.createQuestionBankService)({
             name: name,
             description: description,
-            filePath: filePublicUrl,
-            fileName: originalFileName,
+            filePath: fileUrl, // Pass the URL as filePath
+            fileName: fileName, // Pass the derived filename
             price: parsedPrice,
             uploadedBy: uploaderId, // Pass the uploaderId to the service
         });
@@ -90,7 +64,6 @@ exports.createQuestionBankController = createQuestionBankController;
  */
 const getAllQuestionBanksController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // FIX: Call the service function that includes uploader data
         const questionBanks = yield (0, questionBank_services_1.getAllQuestionBanksService)();
         res.status(200).json({ success: true, data: questionBanks });
     }
@@ -105,7 +78,7 @@ exports.getAllQuestionBanksController = getAllQuestionBanksController;
 const getQuestionBankByIdController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        // FIX: Call the service function that includes uploader data
+        // Now 'QuestionBankData' is correctly imported and should match service's return
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
@@ -118,8 +91,9 @@ const getQuestionBankByIdController = (req, res, next) => __awaiter(void 0, void
 });
 exports.getQuestionBankByIdController = getQuestionBankByIdController;
 /**
- * Updates an existing Question Bank, optionally replacing its PDF file,
- * and updates its details (including price) in the database.
+ * Updates an existing Question Bank record in the database.
+ * It now accepts a new file URL from the request body if the file needs to be changed.
+ * The deletion/upload of the actual file from storage is assumed to be handled by a separate media service.
  */
 const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
@@ -132,19 +106,17 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Unauthorized: User information missing.", 401);
         }
         // Find the question bank to check authorization
-        // FIX: Call the service function that includes uploader data
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to update (uploader, admin, or teacher)
-        // FIX: Use questionBank.uploader?.id for authorization check
+        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
+        // but keeping it for now if your exact 'utils/types' is still in transition.
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to update this question bank.", 403);
         }
-        const { name, description, price } = req.body;
-        let filePublicUrl = undefined;
-        let originalFileName = undefined;
+        const { name, description, price, fileUrl } = req.body; // Expecting fileUrl from frontend
         // Prepare fields for update
         const updateFields = {};
         if (name !== undefined)
@@ -159,47 +131,17 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             }
             updateFields.price = parsedPrice;
         }
-        // --- Handle File Replacement (if a new file is provided) ---
-        if (req.file) {
-            // Delete old file from Supabase Storage
-            if (questionBank.filePath) {
-                const oldFilePathInBucket = questionBank.filePath.split('/').slice(8).join('/');
-                const { error: deleteError } = yield supabase.storage
-                    .from('question-banks')
-                    .remove([oldFilePathInBucket]);
-                if (deleteError) {
-                    console.error("Supabase Delete Old File Error:", deleteError);
-                    throw new httpError_1.default(`Failed to delete old PDF file from storage: ${deleteError.message}`, 500);
-                }
+        // Handle file URL update (if a new URL is provided)
+        if (fileUrl !== undefined) {
+            // Basic URL validation (can be more robust if needed)
+            if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) {
+                throw new httpError_1.default("PDF File URL must be a valid URL (start with http/https).", 400);
             }
-            // Upload the new file
-            const fileBuffer = req.file.buffer;
-            originalFileName = req.file.originalname;
-            const fileMimeType = req.file.mimetype;
-            const supabaseFilePath = `question-banks/${userId}/${Date.now()}-${originalFileName}`; // Use current user's ID for new file path
-            const { data: uploadData, error: uploadError } = yield supabase.storage
-                .from('question-banks')
-                .upload(supabaseFilePath, fileBuffer, {
-                contentType: fileMimeType,
-                upsert: false,
-            });
-            if (uploadError) {
-                console.error("Supabase Upload Error:", uploadError);
-                throw new httpError_1.default(`Failed to upload new PDF file to storage: ${uploadError.message}`, 500);
-            }
-            // Get public URL for the new file
-            const { data: publicUrlData } = supabase.storage
-                .from('question-banks')
-                .getPublicUrl(supabaseFilePath);
-            filePublicUrl = publicUrlData === null || publicUrlData === void 0 ? void 0 : publicUrlData.publicUrl;
-            if (!filePublicUrl) {
-                throw new httpError_1.default("Failed to get public URL for new uploaded file.", 500);
-            }
-            updateFields.filePath = filePublicUrl;
-            updateFields.fileName = originalFileName;
+            updateFields.filePath = fileUrl;
+            // Also update fileName if filePath changes
+            updateFields.fileName = fileUrl.split('/').pop() || 'untitled_file';
         }
         // --- Perform Database Update via Service ---
-        // FIX: Call the updateQuestionBankService
         const updatedQuestionBank = yield (0, questionBank_services_1.updateQuestionBankService)(id, updateFields);
         res.status(200).json({ success: true, data: updatedQuestionBank });
     }
@@ -209,7 +151,9 @@ const updateQuestionBankController = (req, res, next) => __awaiter(void 0, void 
 });
 exports.updateQuestionBankController = updateQuestionBankController;
 /**
- * Deletes a Question Bank record and its associated PDF file from Supabase Storage.
+ * Deletes a Question Bank record from the database.
+ * The deletion of the associated PDF file from storage is assumed to be handled
+ * by a separate media service or a manual process if no longer referenced.
  */
 const deleteQuestionBankController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
@@ -222,29 +166,17 @@ const deleteQuestionBankController = (req, res, next) => __awaiter(void 0, void 
             throw new httpError_1.default("Unauthorized: User information missing.", 401);
         }
         // Find the question bank to check authorization
-        // FIX: Call the service function that includes uploader data
         const questionBank = yield (0, questionBank_services_1.getQuestionBankByIdService)(id);
         if (!questionBank) {
             throw new httpError_1.default("Question bank not found.", 404);
         }
         // Check if the user is authorized to delete (uploader, admin, or teacher)
-        // FIX: Use questionBank.uploader?.id for authorization check
+        // This cast is no longer strictly necessary if QuestionBankData includes 'uploader'
+        // but keeping it for now if your exact 'utils/types' is still in transition.
         if (((_c = questionBank.uploader) === null || _c === void 0 ? void 0 : _c.id) !== userId && userRole !== 'admin' && userRole !== 'teacher') {
             throw new httpError_1.default("Unauthorized to delete this question bank.", 403);
         }
-        // --- Delete File from Supabase Storage ---
-        if (questionBank.filePath) {
-            const filePathInBucket = questionBank.filePath.split('/').slice(8).join('/');
-            const { error: deleteError } = yield supabase.storage
-                .from('question-banks')
-                .remove([filePathInBucket]);
-            if (deleteError) {
-                console.error("Supabase Delete Error:", deleteError);
-                throw new httpError_1.default(`Failed to delete PDF file from storage: ${deleteError.message}`, 500);
-            }
-        }
         // --- Delete Question Bank Record from Database via Service ---
-        // FIX: Call the deleteQuestionBankService
         const response = yield (0, questionBank_services_1.deleteQuestionBankService)(id);
         res.status(200).json({ success: true, message: response.message });
     }
