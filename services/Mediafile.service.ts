@@ -1,8 +1,42 @@
+// services/mediaFile.service.ts
+// This file contains the core logic for interacting with AWS S3 and the database.
+
 // Import S3Client and specific commands from AWS SDK v3
-import { S3Client, PutObjectCommand, DeleteObjectCommand, PutObjectCommandInput, DeleteObjectCommandInput } from '@aws-sdk/client-s3';
-import { s3Client, S3_BUCKET_NAME, AWS_REGION } from '../config/aws'; // Import the v3 S3Client
-import MediaFile from '../models/Mediafile.model'; // Import the MediaFile model
+import { PutObjectCommand, DeleteObjectCommand, PutObjectCommandInput, DeleteObjectCommandInput } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/cloudfront-signer'; // Import getSignedUrl for CloudFront signing
+import { s3Client, S3_BUCKET_NAME, AWS_REGION } from '../config/aws';
+import MediaFile from '../models/Mediafile.model';
 import * as multer from 'multer'; // Explicitly import multer to make its namespace available for typing
+
+// Helper function to generate a CloudFront signed URL
+const generateCloudFrontSignedUrl = async (s3Key: string): Promise<string> => {
+  const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
+  const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
+  const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
+
+  if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
+    throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
+  }
+
+  // The URL that CloudFront will sign. This is the CloudFront distribution domain + S3 Key path.
+  const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}/${s3Key}`;
+
+  // Set a long expiration time (e.g., 1 year from now)
+  // Max expiration is 7 days (604800 seconds) for direct S3 pre-signed URLs.
+  // For CloudFront signed URLs, the maximum is 365 days (or 7 days for custom policies, check docs).
+  // Let's use 1 year (approx 31,536,000 seconds) for app resources.
+  const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
+
+  const signedUrl = getSignedUrl({
+    url: resourceUrl,
+    keyPairId: CLOUDFRONT_KEY_PAIR_ID,
+    privateKey: CLOUDFRONT_PRIVATE_KEY,
+    dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
+  });
+
+  return signedUrl;
+};
+
 
 // Function to upload a file to S3 and save its metadata to the database
 export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mimetype: string, fileSize: number): Promise<any> => {
@@ -14,36 +48,28 @@ export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mime
     Key: s3Key,
     Body: fileBuffer,
     ContentType: mimetype,
-    // Removed ACL: 'public-read' as the bucket does not allow ACLs.
-    // Access control should be managed via S3 bucket policies.
+    // ACL: 'public-read', // REMOVED: Objects are private by default. Access via signed URLs.
   };
 
   try {
-    // Upload file to S3 using PutObjectCommand
     await s3Client.send(new PutObjectCommand(params));
 
-    // Construct the public URL using the CloudFront domain
-    const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-    if (!CLOUDFRONT_MEDIA_DOMAIN) {
-      throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is not set.');
-    }
-    // For S3 v3 SDK, the URL construction is often manual or derived
-    const fileUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}/${s3Key}`;
-
-
-    // Save metadata to the RDS database
+    // Store the S3 Key and Bucket name in the database.
+    // The fileUrl in the DB will be a logical S3 path.
     const mediaFileEntry = await MediaFile.create({
       originalName: originalname,
       s3Key: s3Key,
       s3Bucket: S3_BUCKET_NAME,
       s3Region: AWS_REGION,
-      fileUrl: fileUrl,
+      fileUrl: `s3://${S3_BUCKET_NAME}/${s3Key}`, // Store a logical S3 path
       mimeType: mimetype,
       fileSize: fileSize,
       // uploadedByAdminId: adminId, // Uncomment if tracking admin uploads
     });
 
-    return mediaFileEntry.toJSON(); // Return plain object (type will be 'any')
+    // Return the CloudFront signed URL for immediate use in the frontend
+    const signedCloudFrontUrl = await generateCloudFrontSignedUrl(s3Key);
+    return { ...mediaFileEntry.toJSON(), fileUrl: signedCloudFrontUrl }; // Override fileUrl with signed URL
   } catch (error) {
     console.error('Error in uploadMedia service:', error);
     throw error; // Re-throw to be caught by the controller
@@ -56,7 +82,18 @@ export const getAllMedia = async (): Promise<any[]> => {
     const mediaFiles = await MediaFile.findAll({
       order: [['createdAt', 'DESC']], // Order by most recent first
     });
-    return mediaFiles.map(file => file.toJSON()); // Convert instances to plain objects (types will be 'any')
+
+    // For each media file, generate a CloudFront signed URL
+    const mediaFilesWithSignedUrls = await Promise.all(
+      mediaFiles.map(async (file) => {
+        const fileData = file.toJSON();
+        // Generate signed URL using the s3Key stored in the DB
+        const signedCloudFrontUrl = await generateCloudFrontSignedUrl(fileData.s3Key);
+        return { ...fileData, fileUrl: signedCloudFrontUrl }; // Replace stored fileUrl with signed one
+      })
+    );
+
+    return mediaFilesWithSignedUrls;
   } catch (error) {
     console.error('Error in getAllMedia service:', error);
     throw error;
@@ -66,7 +103,7 @@ export const getAllMedia = async (): Promise<any[]> => {
 // Function to delete a media file from S3 and its metadata from the database
 export const deleteMedia = async (fileId: string): Promise<{ message: string }> => {
   try {
-    const mediaFile = await MediaFile.findByPk(fileId); // This returns a MediaFile instance or null
+    const mediaFile = await MediaFile.findByPk(fileId);
 
     if (!mediaFile) {
       const error = new Error('Media file not found.');
@@ -74,15 +111,11 @@ export const deleteMedia = async (fileId: string): Promise<{ message: string }> 
       throw error;
     }
 
-    // Access properties directly from the Sequelize model instance
     const params: DeleteObjectCommandInput = { // Use v3 specific input type
       Bucket: (mediaFile as any).s3Bucket, // Cast to any to bypass type checking
       Key: (mediaFile as any).s3Key,       // Cast to any to bypass type checking
     };
-    // Delete from S3 using DeleteObjectCommand
     await s3Client.send(new DeleteObjectCommand(params));
-
-    // Delete from DB
     await mediaFile.destroy();
 
     return { message: 'Media file deleted successfully.' };
@@ -93,7 +126,7 @@ export const deleteMedia = async (fileId: string): Promise<{ message: string }> 
 };
 
 // NEW: Function to upload multiple files to S3 and save their metadata
-export const uploadMultipleMedia = async (files: multer.File[]): Promise<any[]> => { // Use multer.File
+export const uploadMultipleMedia = async (files: multer.File[]): Promise<any[]> => {
   const uploadedFilesMetadata: any[] = [];
   const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
   if (!CLOUDFRONT_MEDIA_DOMAIN) {
@@ -113,24 +146,23 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<any[]> 
       Key: s3Key,
       Body: buffer,
       ContentType: mimetype,
-      // Removed ACL: 'public-read' as the bucket does not allow ACLs.
-      // Access control should be managed via S3 bucket policies.
+      // ACL: 'public-read', // REMOVED: Objects are private by default. Access via signed URLs.
     };
 
     try {
       await s3Client.send(new PutObjectCommand(params));
-      const fileUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}/${s3Key}`;
+      const signedCloudFrontUrl = await generateCloudFrontSignedUrl(s3Key); // Generate signed URL for each uploaded file
 
       const mediaFileEntry = await MediaFile.create({
         originalName: originalname,
         s3Key: s3Key,
         s3Bucket: S3_BUCKET_NAME,
         s3Region: AWS_REGION,
-        fileUrl: fileUrl,
+        fileUrl: `s3://${S3_BUCKET_NAME}/${s3Key}`, // Store logical S3 path
         mimeType: mimetype,
         fileSize: fileSize,
       });
-      uploadedFilesMetadata.push(mediaFileEntry.toJSON());
+      uploadedFilesMetadata.push({ ...mediaFileEntry.toJSON(), fileUrl: signedCloudFrontUrl });
     } catch (error) {
       console.error(`Error uploading file ${originalname} in batch:`, error);
       // Decide how to handle individual file failures in a batch:

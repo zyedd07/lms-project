@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.844.0",
+    "@aws-sdk/cloudfront-signer": "^3.821.0",
     "@supabase/supabase-js": "^2.49.10",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.18",

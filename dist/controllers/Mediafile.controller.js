@@ -44,45 +44,72 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteFile = exports.listMedia = exports.uploadFile = void 0;
-// No direct import of MulterFile needed here if using global augmentation
-const mediaFileService = __importStar(require("../services/Mediafile.service")); // Import all functions from service
-// Controller for handling file upload requests
+exports.deleteFile = exports.listMedia = exports.uploadMultipleFiles = exports.uploadFile = void 0;
+const mediaFileService = __importStar(require("../services/Mediafile.service"));
+// Controller for handling single file upload requests
 const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Multer adds 'file' to the request object.
-        // TypeScript now knows 'req.file' can be a MulterFile due to the global augmentation.
         const file = req.file;
         if (!file) {
             return res.status(400).json({ message: 'No file uploaded.' });
         }
-        const { originalname, mimetype, buffer, size } = file; // Properties now directly available
-        // const adminId = (req as any).user.id; // If you have authentication and want to link to admin user
-        const mediaFileEntry = yield mediaFileService.uploadMedia(// Cast to MediaFileEntryResponse
-        buffer, originalname, mimetype, size);
+        const { originalname, mimetype, buffer, size } = file;
+        // Optional: Get adminId if you have authentication middleware
+        // const adminId = (req as any).user.id;
+        const mediaFileEntry = yield mediaFileService.uploadMedia(buffer, originalname, mimetype, size);
         res.status(201).json({
             message: 'File uploaded successfully!',
-            fileUrl: mediaFileEntry.fileUrl, // Now recognized
-            s3Key: mediaFileEntry.s3Key, // Now recognized
-            metadata: mediaFileEntry,
+            fileUrl: mediaFileEntry.fileUrl,
+            s3Key: mediaFileEntry.s3Key,
+            metadata: mediaFileEntry, // Returns all stored metadata including the signed URL
         });
     }
-    catch (error) { // Use 'any' for error type or define a custom error interface
+    catch (error) { // Catching as 'any' to access custom properties like 'statusCode'
         console.error('Error in mediaFile.controller.uploadFile:', error);
-        const statusCode = error.statusCode || 500; // Use custom status code if available
+        const statusCode = error.statusCode || 500; // Use custom status code if available from service
         res.status(statusCode).json({ message: error.message || 'File upload failed.' });
     }
 });
 exports.uploadFile = uploadFile;
+// NEW: Controller for handling multiple file upload requests
+const uploadMultipleFiles = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // Multer adds 'files' to the request object for array uploads.
+        // Ensure your router configuration uses `upload.array('fieldName')` or `upload.fields([...])`
+        const files = req.files; // Explicitly cast to array of Multer.File
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: 'No files uploaded.' });
+        }
+        // Optional: Get adminId if you have authentication middleware
+        // const adminId = (req as any).user.id;
+        const uploadedFilesMetadata = yield mediaFileService.uploadMultipleMedia(files);
+        // Filter out any potential null/undefined entries if your service's Promise.allSettled
+        // design returns them for failed individual uploads
+        const successfulUploads = uploadedFilesMetadata.filter(Boolean);
+        res.status(201).json({
+            message: `${successfulUploads.length} files uploaded successfully!`,
+            uploadedFiles: successfulUploads,
+            // You might also want to include a count of failed uploads if the service tracks them.
+        });
+    }
+    catch (error) {
+        console.error('Error in mediaFile.controller.uploadMultipleFiles:', error);
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({ message: error.message || 'Multiple file upload failed.' });
+    }
+});
+exports.uploadMultipleFiles = uploadMultipleFiles;
 // Controller for handling requests to list all media files
 const listMedia = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const mediaFiles = yield mediaFileService.getAllMedia(); // Cast to array of MediaFileEntryResponse
+        const mediaFiles = yield mediaFileService.getAllMedia();
         res.status(200).json(mediaFiles);
     }
     catch (error) {
         console.error('Error in mediaFile.controller.listMedia:', error);
-        res.status(500).json({ message: error.message || 'Failed to fetch media list.' });
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({ message: error.message || 'Failed to fetch media list.' });
     }
 });
 exports.listMedia = listMedia;
@@ -90,12 +117,15 @@ exports.listMedia = listMedia;
 const deleteFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params; // Get file ID from URL parameters
+        if (!id) {
+            return res.status(400).json({ message: 'Media file ID is required.' });
+        }
         const result = yield mediaFileService.deleteMedia(id);
         res.status(200).json({ message: result.message });
     }
     catch (error) {
         console.error('Error in mediaFile.controller.deleteFile:', error);
-        const statusCode = error.statusCode || 500;
+        const statusCode = error.statusCode || 500; // Propagate custom status code from service
         res.status(statusCode).json({ message: error.message || 'File deletion failed.' });
     }
 });
