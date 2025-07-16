@@ -32,39 +32,40 @@ export const createQuestionBankController = async (req: AuthenticatedRequest, re
             throw new HttpError("Unauthorized: User ID missing.", 401);
         }
 
-        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
         const { name, description, price, filePath } = req.body;
 
         if (!name) {
             throw new HttpError("Question bank name is required.", 400);
         }
-        // IMPORTANT CHANGE: Check 'filePath'
         if (!filePath) {
             throw new HttpError("PDF file URL is required for creating a question bank.", 400);
         }
 
-        // Parse and validate price
         const parsedPrice = parseFloat(price);
         if (isNaN(parsedPrice) || parsedPrice < 0) {
             throw new HttpError("Price is required and must be a non-negative number.", 400);
         }
 
-        // Derive fileName from filePath (e.g., last segment of the URL path)
-        const fileName = filePath.split('/').pop() || 'untitled_file'; // Extract filename from URL
+        // --- UPDATED FILENAME EXTRACTION ---
+        const urlObj = new URL(filePath);
+        const rawFileName = urlObj.pathname.split('/').pop();
+        const fileName = rawFileName ? rawFileName.split('?')[0].split('#')[0] : 'untitled_file';
+        // --- END UPDATED FILENAME EXTRACTION ---
 
         // --- Call Service to Save Question Bank Details to Database ---
         const newQuestionBank = await createQuestionBankService({
             name: name,
             description: description,
-            filePath: filePath, // Pass the URL as filePath
-            fileName: fileName, // Pass the derived filename
+            filePath: filePath, // Pass the full URL as filePath
+            fileName: fileName, // Pass the extracted filename
             price: parsedPrice,
             uploadedBy: uploaderId, // Pass the uploaderId to the service
         });
 
         res.status(201).json({ success: true, data: newQuestionBank });
     } catch (error) {
-        next(error); // Pass error to the error handling middleware
+        console.error("Error caught in createQuestionBankController (before passing to middleware):", error);
+        next(error);
     }
 };
 
@@ -124,7 +125,6 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
             throw new HttpError("Unauthorized to update this question bank.", 403);
         }
 
-        // IMPORTANT CHANGE: Destructure 'filePath' from req.body
         const { name, description, price, filePath } = req.body;
 
         // Prepare fields for update
@@ -143,14 +143,16 @@ export const updateQuestionBankController = async (req: AuthenticatedRequest, re
         }
 
         // Handle file URL update (if a new URL is provided)
-        // IMPORTANT CHANGE: Check and use 'filePath'
         if (filePath !== undefined) {
             if (typeof filePath !== 'string' || !filePath.startsWith('http')) {
                 throw new HttpError("PDF File URL must be a valid URL (start with http/https).", 400);
             }
             updateFields.filePath = filePath;
-            // Also update fileName if filePath changes
-            updateFields.fileName = filePath.split('/').pop() || 'untitled_file';
+            // --- UPDATED FILENAME EXTRACTION FOR UPDATE ---
+            const urlObj = new URL(filePath);
+            const rawFileName = urlObj.pathname.split('/').pop();
+            updateFields.fileName = rawFileName ? rawFileName.split('?')[0].split('#')[0] : 'untitled_file';
+            // --- END UPDATED FILENAME EXTRACTION ---
         }
 
         // --- Perform Database Update via Service ---

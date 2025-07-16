@@ -18,11 +18,11 @@ const QuestionBank = sequelize.define('QuestionBank', {
         allowNull: true,
     },
     filePath: { // Stores the path to the uploaded PDF file
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: false,
     },
     fileName: { // Stores just the original file name for display
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(1000),
         allowNull: false,
     },
     price: { // New price field
