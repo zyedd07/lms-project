@@ -85,12 +85,16 @@ const uploadMultipleFiles = (req, res) => __awaiter(void 0, void 0, void 0, func
         // const adminId = (req as any).user.id;
         const uploadedFilesMetadata = yield mediaFileService.uploadMultipleMedia(files);
         // Filter out any potential null/undefined entries if your service's Promise.allSettled
-        // design returns them for failed individual uploads
+        // design returns them for failed individual uploads.
+        // Given the current service implementation (logs and continues, pushing to uploadedFilesMetadata),
+        // this filtering might not be strictly necessary if you always expect an object,
+        // but it's good practice if there's a chance of undefined/nulls for failed uploads.
         const successfulUploads = uploadedFilesMetadata.filter(Boolean);
         res.status(201).json({
             message: `${successfulUploads.length} files uploaded successfully!`,
             uploadedFiles: successfulUploads,
-            // You might also want to include a count of failed uploads if the service tracks them.
+            // You might also want to include a count of failed uploads if the service tracks them,
+            // or if you refactor the service to return success/failure arrays.
         });
     }
     catch (error) {
