@@ -26,7 +26,7 @@ import TermsSection from "../TermsOfService.model";
 import HelpCenterSection from "../HelpCenter.model";
 import UserWebinar from "../UserWebinar.model"
 import Webinar from "../webinar.model"
-import Order from "models/Order.model";
+import Order from "../Order.model";
 
 
 

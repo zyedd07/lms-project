@@ -29,7 +29,7 @@ const UserQbank_model_1 = __importDefault(require("../UserQbank.model"));
 const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
 const UserWebinar_model_1 = __importDefault(require("../UserWebinar.model"));
 const webinar_model_1 = __importDefault(require("../webinar.model"));
-const Order_model_1 = __importDefault(require("models/Order.model"));
+const Order_model_1 = __importDefault(require("../Order.model"));
 const initAssociation = () => {
     Order_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
     Order_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
