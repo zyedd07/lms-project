@@ -42,10 +42,10 @@ const Order = sequelize.define('Order', {
         type: DataTypes.DECIMAL(10, 2), // Precision for price
         allowNull: false,
     },
-    status: {
-        type: DataTypes.ENUM('created', 'pending', 'completed', 'failed'),
+     status: {
+        type: DataTypes.ENUM('pending', 'successful', 'failed', 'refunded'), // Added 'refunded'
         allowNull: false,
-        defaultValue: 'created',
+        defaultValue: 'pending', // Default status for new payments
     },
     transactionId: { // Field for payment gateway transaction ID
         type: DataTypes.STRING,
