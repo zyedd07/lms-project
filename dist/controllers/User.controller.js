@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
+exports.rejectTeacher = exports.approveTeacher = exports.getPendingTeachers = exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
 // The User model is NOT imported here. Controllers should not directly access models.
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_model_1 = __importDefault(require("../models/User.model"));
@@ -75,12 +75,12 @@ const createUser = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
         if (!name || !email || !password || !phone || !dateOfBirth || !address || !rollNo || !collegeName || !university || !country || !designation) {
             throw new httpError_1.default("Please provide all required fields for registration", 400);
         }
-        const newUser = yield (0, User_service_1.createUserService)(req.body);
+        const serviceResponse = yield (0, User_service_1.createUserService)(req.body);
         res.status(201).json({
-            id: newUser.get('id'),
-            name: newUser.get('name'),
-            email: newUser.get('email'),
-            message: "User created successfully"
+            id: serviceResponse.user.id, // Accessing 'id' from the nested 'user' object
+            name: serviceResponse.user.name, // Accessing 'name' from the nested 'user' object
+            email: serviceResponse.user.email, // Accessing 'email' from the nested 'user' object
+            message: serviceResponse.message
         });
     }
     catch (error) {
@@ -238,7 +238,7 @@ const updateMyProfile = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country'
+            'rollNo', 'collegeName', 'university', 'country', 'status'
             // FIX: Removed 'password' from this list, as it's handled separately
         ];
         // Populate allowedUpdates with other profile fields
@@ -349,3 +349,78 @@ const deleteUser = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
     }
 });
 exports.deleteUser = deleteUser;
+const getPendingTeachers = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        // Authorization check: Ensure only admins can access this route.
+        // This is typically handled by middleware (e.g., `isAdmin` middleware),
+        // but can be done here if no specific middleware is desired.
+        // For robustness, a dedicated middleware is highly recommended for role-based access.
+        if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+            throw new httpError_1.default("Forbidden: Only administrators can view pending teachers.", 403);
+        }
+        const pendingTeachers = yield (0, User_service_1.getPendingTeachersService)();
+        res.status(200).json({
+            success: true,
+            message: "Pending teacher accounts fetched successfully.",
+            data: pendingTeachers
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getPendingTeachers = getPendingTeachers;
+/**
+ * Controller to approve a teacher's account.
+ * Accessible only by 'admin' role.
+ */
+const approveTeacher = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+            throw new httpError_1.default("Forbidden: Only administrators can approve teacher accounts.", 403);
+        }
+        const { id } = req.params; // Expecting teacher ID in URL parameter
+        if (!id) {
+            throw new httpError_1.default("Teacher ID is required.", 400);
+        }
+        const approvedTeacher = yield (0, User_service_1.approveTeacherService)(id);
+        res.status(200).json({
+            success: true,
+            message: "Teacher account approved successfully.",
+            data: approvedTeacher
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.approveTeacher = approveTeacher;
+/**
+ * Controller to reject a teacher's account.
+ * Accessible only by 'admin' role.
+ */
+const rejectTeacher = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+            throw new httpError_1.default("Forbidden: Only administrators can reject teacher accounts.", 403);
+        }
+        const { id } = req.params; // Expecting teacher ID in URL parameter
+        const { reason } = req.body; // Optional: reason for rejection from request body
+        if (!id) {
+            throw new httpError_1.default("Teacher ID is required.", 400);
+        }
+        const rejectedTeacher = yield (0, User_service_1.rejectTeacherService)(id, reason);
+        res.status(200).json({
+            success: true,
+            message: "Teacher account rejected successfully.",
+            data: rejectedTeacher
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.rejectTeacher = rejectTeacher;

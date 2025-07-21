@@ -22,7 +22,7 @@ const QuestionBank = index_1.sequelize.define('QuestionBank', {
         allowNull: false,
     },
     fileName: {
-        type: sequelize_1.DataTypes.STRING(1000),
+        type: sequelize_1.DataTypes.TEXT,
         allowNull: false,
     },
     price: {

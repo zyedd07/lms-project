@@ -1,8 +1,7 @@
 "use strict";
-// models/User.js (or your equivalent file path)
 Object.defineProperty(exports, "__esModule", { value: true });
 const sequelize_1 = require("sequelize");
-const _1 = require(".");
+const _1 = require("."); // Assuming './index' exports your Sequelize instance
 const User = _1.sequelize.define('User', {
     id: {
         type: sequelize_1.DataTypes.UUID,
@@ -17,6 +16,9 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
         unique: true,
+        validate: {
+            isEmail: true, // Add email validation
+        }
     },
     password: {
         type: sequelize_1.DataTypes.STRING,
@@ -25,7 +27,8 @@ const User = _1.sequelize.define('User', {
     phone: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
-        unique: true
+        unique: true,
+        // Consider adding a custom validator for phone number format if needed
     },
     // The 'designation' from the form maps to this 'role' field
     role: {
@@ -37,13 +40,21 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
     },
-    // --- NEW FIELDS TO ADD ---
+    // --- NEW FIELD FOR APPROVAL STATUS ---
+    status: {
+        type: sequelize_1.DataTypes.ENUM('pending', 'approved', 'rejected'), // Define possible statuses
+        allowNull: false,
+        defaultValue: 'pending', // New users start as pending, especially teachers
+        // For students, you might set this to 'approved' directly in your registration logic
+        // For admins, it would also be 'approved' by default or during initial setup
+    },
+    // --- ADDITIONAL USER DETAILS ---
     dateOfBirth: {
-        type: sequelize_1.DataTypes.DATE, // Storing as a string (e.g., "DD/MM/YYYY")
-        allowNull: true, // Set to false if it's a mandatory field
+        type: sequelize_1.DataTypes.DATEONLY, // Use DATEONLY if you only need the date part
+        allowNull: true,
     },
     address: {
-        type: sequelize_1.DataTypes.TEXT, // TEXT is better for potentially long addresses
+        type: sequelize_1.DataTypes.TEXT,
         allowNull: true,
     },
     rollNo: {
@@ -62,6 +73,7 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
     },
+    // --- PASSWORD RESET FIELDS ---
     passwordResetToken: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
@@ -70,19 +82,24 @@ const User = _1.sequelize.define('User', {
         type: sequelize_1.DataTypes.DATE,
         allowNull: true,
     },
+    // --- PERMISSIONS FIELD ---
     permissions: {
-        type: sequelize_1.DataTypes.JSONB,
-        allowNull: true, // Or set a default value
+        type: sequelize_1.DataTypes.JSONB, // JSONB is generally preferred over JSON for performance with querying
+        allowNull: true,
         defaultValue: {
             courses: true,
             tests: true,
             qbank: true,
             webinars: true,
-            drugIndex: true, // New permission
-            article: true, // New permission
-            brand: true, // New permission
-            mediaLibrary: true // New permission
+            drugIndex: true,
+            article: true,
+            brand: true,
+            mediaLibrary: true
         }
     }
-}, { timestamps: true });
+}, {
+    timestamps: true, // This will automatically add `createdAt` and `updatedAt` fields
+    // You can add other model options here, like `tableName` if your table name differs
+    // tableName: 'users_table', // Example if your table is not 'users'
+});
 exports.default = User;

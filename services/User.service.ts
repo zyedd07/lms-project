@@ -79,11 +79,42 @@ try {
 export const createUserService = async (params: CreateUserServiceParams) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(params.password, salt);
-    return User.create({
+
+    // Determine the role, defaulting to 'student' if not provided or invalid
+    let userRole = params.designation; // Assuming 'designation' from form maps to 'role'
+    if (!userRole || (userRole !== 'teacher' && userRole !== 'student' && userRole !== 'admin')) {
+        userRole = 'student'; // Default role
+    }
+
+    // Determine initial status based on role
+    let initialStatus: 'pending' | 'approved' | 'rejected';
+    if (userRole === 'teacher') {
+        initialStatus = 'pending'; // Teachers require approval
+    } else {
+        initialStatus = 'approved'; // Students and Admins are approved by default
+    }
+
+    const newUser = await User.create({
         ...params,
         password: passwordHash,
-        role: params.designation,
+        role: userRole, // Use the determined role
+        status: initialStatus, // Set the initial status
     });
+
+    // Removed: Email notification for pending status
+
+    // Return a subset of user data, excluding sensitive info
+    const userResponse = newUser.toJSON();
+    delete userResponse.password; // Remove password hash
+    delete userResponse.passwordResetToken;
+    delete userResponse.passwordResetExpires;
+
+    return {
+        user: userResponse,
+        message: initialStatus === 'pending'
+            ? 'Account created successfully. Your teacher account is awaiting admin approval.'
+            : 'Account created successfully. You can now log in.'
+    };
 };
 
 /**
@@ -93,7 +124,7 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
     const user = await User.findOne({
         where: { email },
         attributes: [
-            'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password',
+            'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password', 'status', // Include status
             'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
         ]
     });
@@ -105,22 +136,37 @@ export const loginUserService = async ({ email, password }: LoginUserServicePara
         throw new HttpError("Invalid password", 400);
     }
 
+    // --- CHECK USER STATUS ---
+    const userStatus = user.get('status');
+    if (userStatus === 'pending') {
+        throw new HttpError("Your account is awaiting admin approval. Please check back later.", 403); // Updated message
+    }
+    if (userStatus === 'rejected') {
+        throw new HttpError("Your account has been rejected. Please contact support.", 403);
+    }
+
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
-    
+
     // JWT payload should be minimal for security and performance
     const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
         email: user.get("email"),
         role: user.get("role"),
+        status: user.get("status"), // Include status in JWT for client-side checks
     };
-    
+
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
-    
-    return { user: user.toJSON(), token };
-};
 
+    // Ensure password is not returned in the user object
+    const userResponse = user.toJSON();
+    delete userResponse.password;
+    delete userResponse.passwordResetToken;
+    delete userResponse.passwordResetExpires;
+
+    return { user: userResponse, token };
+};
 /**
  * --- UPDATED SERVICE ---
  * Generates a password reset token and sends it to the user's email via SendGrid.
@@ -202,7 +248,7 @@ export const resetPasswordService = async (token: string, newPassword: string) =
 export const getProfileService = async (userId: string) => {
     const user = await User.findByPk(userId, {
         attributes: [
-            'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+            'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'status', // Include status
             'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
         ]
     });
@@ -217,7 +263,7 @@ export const getProfileService = async (userId: string) => {
  */
 export const getUsersService = async (email?: string) => {
     const attributes = [
-        'id', 'name', 'email', 'phone', 'role', 'profilePicture',
+        'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'status', // Include status
         'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
     ];
     if (email) {
@@ -230,26 +276,46 @@ export const getUsersService = async (email?: string) => {
         return await User.findAll({ attributes });
     }
 };
-
-/**
- * Updates a user's information.
- */export const updateUserService = async (id: string, updates: UpdateUserServiceParams) => {
+export const updateUserService = async (id: string, updates: UpdateUserServiceParams) => {
     const user = await User.findByPk(id);
     if (!user) {
         throw new HttpError("User not found", 404);
     }
 
-    // --- FIX: Check if a new password is being provided ---
+    // If a new password is being provided, hash it
     if (updates.password) {
-        // If yes, hash the new password before updating
         const salt = await bcrypt.genSalt(10);
         updates.password = await bcrypt.hash(updates.password, salt);
     }
 
-    // Now, assign the updates (with the potentially hashed password)
+    // IMPORTANT: Direct role/status changes via this general update service should be carefully considered.
+    // Ideally, role and especially status changes (like approval) should have dedicated admin-only services.
+    // If `updates.role` is provided, ensure it's a valid role ('student', 'teacher', 'admin')
+    // and if the role is changed to 'teacher', consider setting status to 'pending'
+    if (updates.role && !['student', 'teacher', 'admin'].includes(updates.role)) {
+        throw new HttpError("Invalid role provided for update.", 400);
+    }
+
+    // If role is updated to 'teacher' and user is not already pending/approved, set to pending.
+    // This is a safety net; the primary registration logic handles initial status.
+    if (updates.role === 'teacher' && user.get('status') === 'approved' && user.get('role') !== 'teacher') {
+         // If a student is being updated to a teacher, they should go into pending.
+         // This assumes student->teacher changes require re-approval.
+         // Adjust this logic based on your specific business rules.
+        (updates as any).status = 'pending';
+    }
+
+
     Object.assign(user, updates);
     await user.save();
-    return user;
+
+    // Ensure password is not returned in the user object
+    const userResponse = user.toJSON();
+    delete userResponse.password;
+    delete userResponse.passwordResetToken;
+    delete userResponse.passwordResetExpires;
+
+    return userResponse;
 };
 
 /**
@@ -305,7 +371,6 @@ export const deleteUserService = async (id: string) => {
     await user.destroy();
     return true;
 };
-
 export const googleSignInService = async (idToken: string) => {
     // You must add your Google Client ID to your environment variables
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -327,19 +392,21 @@ export const googleSignInService = async (idToken: string) => {
 
     if (!user) {
         // User doesn't exist, create a new one
-        // Note: A random password is created because the field is required in your model,
-        // but it won't be used for login since they'll use Google Sign-In.
         const randomPassword = crypto.randomBytes(16).toString('hex');
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(randomPassword, salt);
+
+        // Set role and status for Google Sign-In registration
+        const initialRole = 'student'; // Default role for social logins unless specified
+        const initialStatus = 'approved'; // Social logins are typically approved immediately
 
         user = await User.create({
             name,
             email,
             password: passwordHash,
             profilePicture: picture,
-            role: 'Student', // Assign a default role
-            // Fill other required fields with defaults or leave them null if your DB allows
+            role: initialRole,
+            status: initialStatus, // Set status here
             phone: null,
             dateOfBirth: null,
             address: '',
@@ -347,9 +414,21 @@ export const googleSignInService = async (idToken: string) => {
             collegeName: '',
             university: '',
             country: '',
-            designation: 'Student', // Ensure all required fields are present
+            // designation is mapped to role, so no need to set both
         });
+    } else {
+        // If user already exists, update their profile picture if provided by Google
+        // and ensure their status is approved if they were previously pending from a different registration method
+        if (picture && user.get('profilePicture') !== picture) {
+            user.set('profilePicture', picture);
+        }
+        // Ensure their status is approved if they were pending or rejected
+        if (user.get('status') !== 'approved') {
+            user.set('status', 'approved'); // Social logins usually imply direct approval
+        }
+        await user.save();
     }
+
 
     // User exists or was just created, now issue our app's JWT
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
@@ -358,6 +437,7 @@ export const googleSignInService = async (idToken: string) => {
         name: user.get("name"),
         email: user.get("email"),
         role: user.get("role"),
+        status: user.get("status"), // Include status in JWT
     };
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
@@ -379,21 +459,17 @@ export const facebookSignInService = async (accessToken: string) => {
         );
         facebookUserData = data;
     } catch (error) {
-        // This block catches errors from the axios call to Facebook
         if (axios.isAxiosError(error)) {
-            // Log the detailed error response from Facebook's server
             console.error("Axios Error calling Facebook Graph API:", JSON.stringify(error.response?.data, null, 2));
             const fbError = error.response?.data?.error;
             const errorMessage = fbError?.message || "Failed to validate Facebook token with Graph API.";
-            throw new HttpError(errorMessage, 400); // Throw a new error with Facebook's message
+            throw new HttpError(errorMessage, 400);
         } else {
-            // Handle other unexpected errors
             console.error("Non-Axios Error in facebookSignInService:", error);
             throw new HttpError("An unexpected server error occurred during Facebook validation.", 500);
         }
     }
 
-    // Step 2: Process the user data
     if (!facebookUserData || !facebookUserData.email) {
         throw new HttpError("Invalid Facebook token or email permission was not granted.", 401);
     }
@@ -401,7 +477,7 @@ export const facebookSignInService = async (accessToken: string) => {
     const { email, name } = facebookUserData;
     const picture = facebookUserData.picture?.data?.url;
 
-    // Step 3: Find or create the user in your database
+    // Step 2: Find or create the user in your database
     let user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -409,14 +485,17 @@ export const facebookSignInService = async (accessToken: string) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(randomPassword, salt);
 
+        // Set role and status for Facebook Sign-In registration
+        const initialRole = 'student'; // Default role for social logins
+        const initialStatus = 'approved'; // Social logins are typically approved immediately
+
         user = await User.create({
             name,
             email,
             password: passwordHash,
             profilePicture: picture,
-            role: 'Student',
-            designation: 'Student',
-            // Fill other required fields with defaults
+            role: initialRole,
+            status: initialStatus, // Set status here
             phone: null,
             dateOfBirth: null,
             address: '',
@@ -424,8 +503,21 @@ export const facebookSignInService = async (accessToken: string) => {
             collegeName: '',
             university: '',
             country: '',
+            // designation is mapped to role, so no need to set both
         });
+    } else {
+        // If user already exists, update their profile picture if provided by Facebook
+        // and ensure their status is approved if they were previously pending from a different registration method
+        if (picture && user.get('profilePicture') !== picture) {
+            user.set('profilePicture', picture);
+        }
+        // Ensure their status is approved if they were pending or rejected
+        if (user.get('status') !== 'approved') {
+            user.set('status', 'approved'); // Social logins usually imply direct approval
+        }
+        await user.save();
     }
+
 
     // Step 4: Issue your app's JWT
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
@@ -434,9 +526,79 @@ export const facebookSignInService = async (accessToken: string) => {
         name: user.get("name"),
         email: user.get("email"),
         role: user.get("role"),
+        status: user.get("status"), // Include status in JWT
     };
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
 
     return { user: user.toJSON(), token };
+};
+
+export const getPendingTeachersService = async () => {
+    // You should have middleware in your route to ensure only admins can call this.
+    const pendingTeachers = await User.findAll({
+        where: {
+            role: 'teacher',
+            status: 'pending'
+        },
+        attributes: [
+            'id', 'name', 'email', 'phone', 'role', 'status',
+            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country',
+            'createdAt' // Useful for admins to see when the application was submitted
+        ],
+        order: [['createdAt', 'ASC']] // Order by creation date, oldest first
+    });
+    return pendingTeachers;
+};
+
+/**
+ * Approves a teacher's account.
+ * This should only be accessible by users with the 'admin' role.
+ */
+export const approveTeacherService = async (teacherId: string) => {
+    const teacher = await User.findByPk(teacherId);
+
+    if (!teacher) {
+        throw new HttpError("Teacher not found.", 404);
+    }
+
+    if (teacher.get('role') !== 'teacher') {
+        throw new HttpError("User is not a teacher.", 400);
+    }
+
+    if (teacher.get('status') === 'approved') {
+        throw new HttpError("Teacher account is already approved.", 400);
+    }
+
+    await teacher.update({ status: 'approved' });
+
+    // Removed: Send Approval Email
+
+    return teacher; // Return the updated teacher object
+};
+
+/**
+ * Rejects a teacher's account.
+ * This should only be accessible by users with the 'admin' role.
+ */
+export const rejectTeacherService = async (teacherId: string, reason?: string) => {
+    const teacher = await User.findByPk(teacherId);
+
+    if (!teacher) {
+        throw new HttpError("Teacher not found.", 404);
+    }
+
+    if (teacher.get('role') !== 'teacher') {
+        throw new HttpError("User is not a teacher.", 400);
+    }
+
+    if (teacher.get('status') === 'rejected') {
+        throw new HttpError("Teacher account is already rejected.", 400);
+    }
+
+    await teacher.update({ status: 'rejected' });
+
+    // Removed: Send Rejection Email
+
+    return teacher; // Return the updated teacher object
 };

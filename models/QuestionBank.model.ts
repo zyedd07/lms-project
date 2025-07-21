@@ -22,7 +22,7 @@ const QuestionBank = sequelize.define('QuestionBank', {
         allowNull: false,
     },
     fileName: { // Stores just the original file name for display
-        type: DataTypes.STRING(1000),
+        type: DataTypes.TEXT,
         allowNull: false,
     },
     price: { // New price field

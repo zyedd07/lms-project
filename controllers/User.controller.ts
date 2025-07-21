@@ -16,6 +16,9 @@ import {
     resetPasswordService,
     googleSignInService,   //  --- IMPORT
     facebookSignInService, //  --- IMPORT
+    getPendingTeachersService,
+    approveTeacherService,
+    rejectTeacherService,
 } from "../services/User.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import multer, { MulterError } from 'multer';
@@ -42,12 +45,12 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         if (!name || !email || !password || !phone || !dateOfBirth || !address || !rollNo || !collegeName || !university || !country || !designation) {
             throw new HttpError("Please provide all required fields for registration", 400);
         }
-        const newUser = await createUserService(req.body);
+        const serviceResponse  = await createUserService(req.body);
         res.status(201).json({
-            id: newUser.get('id'),
-            name: newUser.get('name'),
-            email: newUser.get('email'),
-            message: "User created successfully"
+             id: serviceResponse.user.id,    // Accessing 'id' from the nested 'user' object
+            name: serviceResponse.user.name,  // Accessing 'name' from the nested 'user' object
+            email: serviceResponse.user.email, // Accessing 'email' from the nested 'user' object
+            message: serviceResponse.message 
         });
     } catch (error) {
         next(error);
@@ -212,7 +215,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response, 
         // Define allowed fields for general profile updates
         const fieldsToUpdate = [
             'name', 'email', 'phone', 'dateOfBirth', 'address',
-            'rollNo', 'collegeName', 'university', 'country'
+            'rollNo', 'collegeName', 'university', 'country','status' 
             // FIX: Removed 'password' from this list, as it's handled separately
         ];
 
@@ -326,3 +329,78 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
 
 // Export multer instance for use in routes
 export { profilePictureUpload };
+
+export const getPendingTeachers = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        // Authorization check: Ensure only admins can access this route.
+        // This is typically handled by middleware (e.g., `isAdmin` middleware),
+        // but can be done here if no specific middleware is desired.
+        // For robustness, a dedicated middleware is highly recommended for role-based access.
+        if (req.user?.role !== 'admin') {
+            throw new HttpError("Forbidden: Only administrators can view pending teachers.", 403);
+        }
+
+        const pendingTeachers = await getPendingTeachersService();
+        res.status(200).json({
+            success: true,
+            message: "Pending teacher accounts fetched successfully.",
+            data: pendingTeachers
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Controller to approve a teacher's account.
+ * Accessible only by 'admin' role.
+ */
+export const approveTeacher = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        if (req.user?.role !== 'admin') {
+            throw new HttpError("Forbidden: Only administrators can approve teacher accounts.", 403);
+        }
+
+        const { id } = req.params; // Expecting teacher ID in URL parameter
+        if (!id) {
+            throw new HttpError("Teacher ID is required.", 400);
+        }
+
+        const approvedTeacher = await approveTeacherService(id);
+        res.status(200).json({
+            success: true,
+            message: "Teacher account approved successfully.",
+            data: approvedTeacher
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Controller to reject a teacher's account.
+ * Accessible only by 'admin' role.
+ */
+export const rejectTeacher = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        if (req.user?.role !== 'admin') {
+            throw new HttpError("Forbidden: Only administrators can reject teacher accounts.", 403);
+        }
+
+        const { id } = req.params; // Expecting teacher ID in URL parameter
+        const { reason } = req.body; // Optional: reason for rejection from request body
+
+        if (!id) {
+            throw new HttpError("Teacher ID is required.", 400);
+        }
+
+        const rejectedTeacher = await rejectTeacherService(id, reason);
+        res.status(200).json({
+            success: true,
+            message: "Teacher account rejected successfully.",
+            data: rejectedTeacher
+        });
+    } catch (error) {
+        next(error);
+    }
+};

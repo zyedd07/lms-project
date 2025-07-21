@@ -26,6 +26,10 @@ router.put(
     UserController.profilePictureUpload.single('profilePicture'), // Apply multer middleware
     UserController.uploadProfilePictureController // Your controller to handle the upload
 );
+router.get('/teachers/pending', authorizeAdmin, UserController.getPendingTeachers);
+router.put('/teachers/:id/approve',authorizeAdmin, UserController.approveTeacher); // Use PUT for updates
+router.put('/teachers/:id/reject',authorizeAdmin, UserController.rejectTeacher);   // Use PUT for updates
+
 
 // Admin-only routes (requires authentication AND admin role)
 // IMPORTANT: Apply authorizeAdmin to routes that modify/view other users
