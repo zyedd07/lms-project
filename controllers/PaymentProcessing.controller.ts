@@ -105,7 +105,7 @@ export const processPaymentController = async (req: AuthenticatedRequest, res: R
                 include: [
                     { model: User, as: 'user', attributes: ['id', 'name', 'email'] }, // Include user details
                     // Include product details (use 'required: false' for LEFT JOIN)
-                    { model: Course, as: 'course', attributes: ['id', 'title'], required: false },
+                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
                     { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
                     { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
                     { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },

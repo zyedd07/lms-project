@@ -109,7 +109,7 @@ const getCompletedPayments = (req, res, next) => __awaiter(void 0, void 0, void 
             include: [
                 { model: User_model_1.default, as: 'user', attributes: ['id', 'name', 'email'] }, // Include user details
                 // Include product details (use 'required: false' for LEFT JOIN)
-                { model: Course_model_1.default, as: 'course', attributes: ['id', 'title'], required: false },
+                { model: Course_model_1.default, as: 'course', attributes: ['id', 'name'], required: false },
                 { model: QuestionBank_model_1.default, as: 'qbank', attributes: ['id', 'name'], required: false },
                 { model: TestSeries_model_1.default, as: 'testSeries', attributes: ['id', 'name'], required: false },
                 { model: webinar_model_1.default, as: 'webinar', attributes: ['id', 'title'], required: false },
