@@ -30,6 +30,11 @@ const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
 const UserWebinar_model_1 = __importDefault(require("../UserWebinar.model"));
 const webinar_model_1 = __importDefault(require("../webinar.model"));
 const initAssociation = () => {
+    Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
+    Payment_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
+    Payment_model_1.default.belongsTo(QuestionBank_model_1.default, { foreignKey: 'qbankId', as: 'qbank' });
+    Payment_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId', as: 'testSeries' });
+    Payment_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarId', as: 'webinar' });
     UserWebinar_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     // A UserWebinar belongs to a Webinar
     UserWebinar_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarId' });

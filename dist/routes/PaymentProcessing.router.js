@@ -20,4 +20,5 @@ router.post('/create-order', auth_1.default, PaymentProcessing_controller_1.crea
  * @access Private (Authenticated User)
  */
 router.post('/process-transaction', auth_1.default, PaymentProcessing_controller_1.processPaymentController);
+router.get('/payments/completed', auth_1.default, PaymentProcessing_controller_1.getCompletedPayments);
 exports.default = router;

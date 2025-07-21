@@ -30,6 +30,12 @@ import Webinar from "../webinar.model"
 
 
 const initAssociation = () => {
+
+    Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Payment.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+Payment.belongsTo(QuestionBank, { foreignKey: 'qbankId', as: 'qbank' });
+Payment.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
+Payment.belongsTo(Webinar, { foreignKey: 'webinarId', as: 'webinar' });
 UserWebinar.belongsTo(User, { foreignKey: 'userId' });
 // A UserWebinar belongs to a Webinar
 UserWebinar.belongsTo(Webinar, { foreignKey: 'webinarId' });

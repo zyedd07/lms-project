@@ -12,9 +12,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processPaymentController = exports.createOrderController = void 0;
+exports.getCompletedPayments = exports.processPaymentController = exports.createOrderController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const PaymentProcessing_service_1 = require("../services/PaymentProcessing.service"); // Import the new service functions
+const Payment_model_1 = __importDefault(require("../models/Payment.model")); // Import your Payment model
+const User_model_1 = __importDefault(require("../models/User.model")); // Import User model for association
+const Course_model_1 = __importDefault(require("../models/Course.model")); // Import product models for association
+const QuestionBank_model_1 = __importDefault(require("../models/QuestionBank.model"));
+const TestSeries_model_1 = __importDefault(require("../models/TestSeries.model"));
+const webinar_model_1 = __importDefault(require("../models/webinar.model"));
 /**
  * @route POST /api/payments/create-order
  * @desc Creates a new order record for a course enrollment.
@@ -88,3 +94,37 @@ const processPaymentController = (req, res, next) => __awaiter(void 0, void 0, v
     }
 });
 exports.processPaymentController = processPaymentController;
+const getCompletedPayments = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        // This check should ideally be handled by your `authorizeAdmin` middleware.
+        // It's a good practice to have it, but the middleware is the primary gatekeeper.
+        if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+            throw new httpError_1.default("Forbidden: Only administrators can view completed payments.", 403);
+        }
+        const completedPayments = yield Payment_model_1.default.findAll({
+            where: {
+                status: 'successful' // Querying for 'successful' payments
+            },
+            include: [
+                { model: User_model_1.default, as: 'user', attributes: ['id', 'name', 'email'] }, // Include user details
+                // Include product details (use 'required: false' for LEFT JOIN)
+                { model: Course_model_1.default, as: 'course', attributes: ['id', 'title'], required: false },
+                { model: QuestionBank_model_1.default, as: 'qbank', attributes: ['id', 'name'], required: false },
+                { model: TestSeries_model_1.default, as: 'testSeries', attributes: ['id', 'name'], required: false },
+                { model: webinar_model_1.default, as: 'webinar', attributes: ['id', 'title'], required: false },
+            ],
+            order: [['createdAt', 'DESC']] // Latest payments first
+        });
+        res.status(200).json({
+            success: true,
+            message: "Successfully fetched completed payments.",
+            data: completedPayments
+        });
+    }
+    catch (error) {
+        console.error("Error fetching completed payments:", error);
+        next(error); // Pass error to your global error handling middleware
+    }
+});
+exports.getCompletedPayments = getCompletedPayments;

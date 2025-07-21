@@ -3,7 +3,12 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth'; // Assuming your auth middleware
 import HttpError from '../utils/httpError';
 import { createOrder, initiatePayment } from '../services/PaymentProcessing.service'; // Import the new service functions
-
+import Payment from '../models/Payment.model'; // Import your Payment model
+import User from '../models/User.model'; // Import User model for association
+import Course from '../models/Course.model'; // Import product models for association
+import Qbank from '../models/QuestionBank.model';
+import TestSeries from '../models/TestSeries.model';
+import Webinar from '../models/webinar.model';
 /**
  * @route POST /api/payments/create-order
  * @desc Creates a new order record for a course enrollment.
@@ -82,5 +87,40 @@ export const processPaymentController = async (req: AuthenticatedRequest, res: R
 
     } catch (error: any) {
         next(error); // Pass error to the error handling middleware
+    }
+};
+
+export const getCompletedPayments = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        // This check should ideally be handled by your `authorizeAdmin` middleware.
+        // It's a good practice to have it, but the middleware is the primary gatekeeper.
+        if (req.user?.role !== 'admin') {
+            throw new HttpError("Forbidden: Only administrators can view completed payments.", 403);
+        }
+
+        const completedPayments = await Payment.findAll({
+            where: {
+                status: 'successful' // Querying for 'successful' payments
+            },
+            include: [
+                { model: User, as: 'user', attributes: ['id', 'name', 'email'] }, // Include user details
+                // Include product details (use 'required: false' for LEFT JOIN)
+                { model: Course, as: 'course', attributes: ['id', 'title'], required: false },
+                { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+                { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+                { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
+            ],
+            order: [['createdAt', 'DESC']] // Latest payments first
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Successfully fetched completed payments.",
+            data: completedPayments
+        });
+
+    } catch (error) {
+        console.error("Error fetching completed payments:", error);
+        next(error); // Pass error to your global error handling middleware
     }
 };

@@ -1,6 +1,6 @@
 // routes/PaymentProcessing.router.ts
 import express from 'express';
-import { createOrderController, processPaymentController } from '../controllers/PaymentProcessing.controller';
+import { createOrderController, processPaymentController,getCompletedPayments } from '../controllers/PaymentProcessing.controller';
 import isAuth from '../middleware/auth'; // Your authentication middleware
 
 const router = express.Router();
@@ -18,5 +18,8 @@ router.post('/create-order',isAuth, createOrderController);
  * @access Private (Authenticated User)
  */
 router.post('/process-transaction',isAuth, processPaymentController);
+
+router.get('/payments/completed', isAuth, getCompletedPayments);
+
 
 export default router;
