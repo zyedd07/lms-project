@@ -21,7 +21,7 @@ const Course = sequelize.define('Course', {
         allowNull: true,
     },
     demoVideoUrl: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true,
     },
     imageUrl: {
