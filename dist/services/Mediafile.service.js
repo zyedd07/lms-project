@@ -23,24 +23,28 @@ const Mediafile_model_1 = __importDefault(require("../models/Mediafile.model"));
 // Helper function to generate a CloudFront signed URL for the PROCESSED HLS video
 // This function now expects the *path* within the CloudFront distribution for the processed file.
 const generateCloudFrontSignedUrl = (processedCloudFrontPath) => __awaiter(void 0, void 0, void 0, function* () {
-    // This environment variable MUST point to your NEW CloudFront distribution domain
-    // (e.g., dy7qsaivtb43z.cloudfront.net)
     const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-    const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
+    const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY; // This is the variable we want to inspect
     const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
     if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
         throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
     }
-    // The full URL that CloudFront will sign.
-    // It's the CloudFront distribution domain + the specific path to the HLS master manifest.
+    // --- ADD THIS CONSOLE.LOG ---
+    // Log a portion of the key to avoid exposing the full key in logs, but enough to check format.
+    console.log('CLOUDFRONT_PRIVATE_KEY prefix (first 50 chars):', CLOUDFRONT_PRIVATE_KEY.substring(0, 50));
+    console.log('CLOUDFRONT_PRIVATE_KEY suffix (last 50 chars):', CLOUDFRONT_PRIVATE_KEY.slice(-50));
+    console.log('CLOUDFRONT_PRIVATE_KEY length:', CLOUDFRONT_PRIVATE_KEY.length);
+    console.log('CLOUDFRONT_PRIVATE_KEY contains BEGIN:', CLOUDFRONT_PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----'));
+    console.log('CLOUDFRONT_PRIVATE_KEY contains END:', CLOUDFRONT_PRIVATE_KEY.includes('-----END PRIVATE KEY-----'));
+    // --- END ADD ---
     const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedCloudFrontPath}`;
-    // Set a long expiration time (e.g., 1 year from now)
-    const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
+    console.log('Resource URL being signed:', resourceUrl); // Keep this log
+    const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const signedUrl = (0, cloudfront_signer_1.getSignedUrl)({
         url: resourceUrl,
         keyPairId: CLOUDFRONT_KEY_PAIR_ID,
         privateKey: CLOUDFRONT_PRIVATE_KEY,
-        dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
+        dateLessThan: dateLessThan.toISOString(),
     });
     return signedUrl;
 });
