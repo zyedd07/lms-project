@@ -18,71 +18,61 @@ exports.uploadMultipleMedia = exports.deleteMedia = exports.getAllMedia = export
 // Import S3Client and specific commands from AWS SDK v3
 const client_s3_1 = require("@aws-sdk/client-s3");
 const cloudfront_signer_1 = require("@aws-sdk/cloudfront-signer"); // Import getSignedUrl for CloudFront signing
-const aws_1 = require("../config/aws"); // S3_BUCKET_NAME is your input bucket
+const aws_1 = require("../config/aws");
 const Mediafile_model_1 = __importDefault(require("../models/Mediafile.model"));
-// Helper function to generate a CloudFront signed URL for the PROCESSED HLS video
-// This function now expects the *path* within the CloudFront distribution for the processed file.
+// Helper function to generate a CloudFront signed URL
 const generateCloudFrontSignedUrl = (processedCloudFrontPath) => __awaiter(void 0, void 0, void 0, function* () {
     const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-    const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY; // This is the variable we want to inspect
+    const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
     const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
     if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
         throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
     }
-    // --- ADD THIS CONSOLE.LOG ---
-    // Log a portion of the key to avoid exposing the full key in logs, but enough to check format.
-    console.log('CLOUDFRONT_PRIVATE_KEY prefix (first 50 chars):', CLOUDFRONT_PRIVATE_KEY.substring(0, 50));
-    console.log('CLOUDFRONT_PRIVATE_KEY suffix (last 50 chars):', CLOUDFRONT_PRIVATE_KEY.slice(-50));
-    console.log('CLOUDFRONT_PRIVATE_KEY length:', CLOUDFRONT_PRIVATE_KEY.length);
-    console.log('CLOUDFRONT_PRIVATE_KEY contains BEGIN:', CLOUDFRONT_PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----'));
-    console.log('CLOUDFRONT_PRIVATE_KEY contains END:', CLOUDFRONT_PRIVATE_KEY.includes('-----END PRIVATE KEY-----'));
-    // --- END ADD ---
+    // The URL that CloudFront will sign. This is the CloudFront distribution domain + S3 Key path.
     const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedCloudFrontPath}`;
-    console.log('Resource URL being signed:', resourceUrl); // Keep this log
-    const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    // Set a long expiration time (e.g., 1 year from now)
+    // Max expiration is 7 days (604800 seconds) for direct S3 pre-signed URLs.
+    // For CloudFront signed URLs, the maximum is 365 days (or 7 days for custom policies, check docs).
+    // Let's use 1 year (approx 31,536,000 seconds) for app resources.
+    const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
     const signedUrl = (0, cloudfront_signer_1.getSignedUrl)({
         url: resourceUrl,
         keyPairId: CLOUDFRONT_KEY_PAIR_ID,
         privateKey: CLOUDFRONT_PRIVATE_KEY,
-        dateLessThan: dateLessThan.toISOString(),
+        dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
     });
     return signedUrl;
 });
-// Function to upload a file to S3 (raw bucket) and save its metadata to the database
+// Function to upload a file to S3 and save its metadata to the database
 const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(void 0, void 0, void 0, function* () {
-    // Generate a unique key for S3 to avoid overwrites in the RAW uploads bucket
+    // Generate a unique key for S3 to avoid overwrites
     const s3Key = `uploads/${Date.now()}_${originalname.replace(/\s/g, '_')}`;
     const params = {
-        Bucket: aws_1.S3_BUCKET_NAME, // This is your input S3 bucket (e.g., admin-media-library)
+        Bucket: aws_1.S3_BUCKET_NAME,
         Key: s3Key,
         Body: fileBuffer,
         ContentType: mimetype,
+        // ACL: 'public-read', // REMOVED: Objects are private by default. Access via signed URLs.
     };
     try {
-        // 1. Upload the raw video to the input S3 bucket
         yield aws_1.s3Client.send(new client_s3_1.PutObjectCommand(params));
-        // 2. Store the original S3 Key and other metadata in the database.
-        // The s3Key stored here refers to the RAW file in the input bucket.
-        // The Lambda will use this s3Key to find the file for processing.
+        // Store the S3 Key and Bucket name in the database.
+        // The fileUrl in the DB will be a logical S3 path.
         const mediaFileEntry = yield Mediafile_model_1.default.create({
             originalName: originalname,
-            s3Key: s3Key, // Store the raw S3 key
-            s3Bucket: aws_1.S3_BUCKET_NAME, // Store the raw S3 bucket name
+            s3Key: s3Key,
+            s3Bucket: aws_1.S3_BUCKET_NAME,
             s3Region: aws_1.AWS_REGION,
-            fileUrl: `s3://${aws_1.S3_BUCKET_NAME}/${s3Key}`, // Store a logical S3 path to the raw file
+            fileUrl: `s3://${aws_1.S3_BUCKET_NAME}/${s3Key}`, // Store a logical S3 path
             mimeType: mimetype,
             fileSize: fileSize,
             // uploadedByAdminId: adminId, // Uncomment if tracking admin uploads
         });
-        // 3. Construct the path for the PROCESSED HLS video to generate the signed URL
-        // This path must match how MediaConvert outputs files to your optimized bucket.
-        // Example: s3://adminoptimzedvideos/processed-videos/YOUR_VIDEO_FILENAME_WITHOUT_EXTENSION/index.m3u8
         const filenameWithoutExtension = originalname.replace(/\s/g, '_').split('.').slice(0, -1).join('.');
         const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`; // Ensure this matches your MediaConvert output prefix
-        // 4. Generate the CloudFront signed URL for the PROCESSED HLS video
+        // Return the CloudFront signed URL for immediate use in the frontend
         const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath);
-        // Return the metadata including the signed URL for the processed video
-        return Object.assign(Object.assign({}, mediaFileEntry.toJSON()), { fileUrl: signedCloudFrontUrl }); // Override fileUrl with signed URL of processed video
+        return Object.assign(Object.assign({}, mediaFileEntry.toJSON()), { fileUrl: signedCloudFrontUrl }); // Override fileUrl with signed URL
     }
     catch (error) {
         console.error('Error in uploadMedia service:', error);
@@ -90,7 +80,6 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
     }
 });
 exports.uploadMedia = uploadMedia;
-// Function to get all media file metadata from the database
 const getAllMedia = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const mediaFiles = yield Mediafile_model_1.default.findAll({
@@ -134,16 +123,12 @@ const deleteMedia = (fileId) => __awaiter(void 0, void 0, void 0, function* () {
             error.statusCode = 404; // Custom status code for controller
             throw error;
         }
-        // Delete the raw file from the input S3 bucket
         const params = {
             Bucket: mediaFile.s3Bucket, // Cast to any to bypass type checking
             Key: mediaFile.s3Key, // Cast to any to bypass type checking
         };
         yield aws_1.s3Client.send(new client_s3_1.DeleteObjectCommand(params));
-        // TODO: Optionally, add logic here to delete the PROCESSED video files from the optimized bucket.
-        // This would involve constructing the processedHlsPath and deleting all segments and manifests.
-        // This is more complex and might require listing objects in the processed-videos/filename/ folder.
-        yield mediaFile.destroy(); // Delete metadata from DB
+        yield mediaFile.destroy();
         return { message: 'Media file deleted successfully.' };
     }
     catch (error) {
@@ -155,42 +140,45 @@ exports.deleteMedia = deleteMedia;
 // NEW: Function to upload multiple files to S3 and save their metadata
 const uploadMultipleMedia = (files) => __awaiter(void 0, void 0, void 0, function* () {
     const uploadedFilesMetadata = [];
+    const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
+    if (!CLOUDFRONT_MEDIA_DOMAIN) {
+        throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is not set.');
+    }
     for (const file of files) {
-        const originalname = file.originalname; // This is correctly 'originalname'
+        const originalname = file.originalname;
         const mimetype = file.mimetype;
         const buffer = file.buffer;
         const fileSize = file.size;
-        const s3Key = `uploads/${Date.now()}_${originalname.replace(/\s/g, '_')}`; // Key for raw file in input bucket
+        const s3Key = `uploads/${Date.now()}_${originalname.replace(/\s/g, '_')}`;
         const params = {
-            Bucket: aws_1.S3_BUCKET_NAME, // Your input S3 bucket
+            Bucket: aws_1.S3_BUCKET_NAME,
             Key: s3Key,
             Body: buffer,
             ContentType: mimetype,
+            // ACL: 'public-read', // REMOVED: Objects are private by default. Access via signed URLs.
         };
         try {
-            // 1. Upload the raw video
             yield aws_1.s3Client.send(new client_s3_1.PutObjectCommand(params));
-            // 2. Store metadata for the raw file
             const mediaFileEntry = yield Mediafile_model_1.default.create({
-                originalName: originalname, // Store originalname in DB
+                originalName: originalname,
                 s3Key: s3Key,
                 s3Bucket: aws_1.S3_BUCKET_NAME,
                 s3Region: aws_1.AWS_REGION,
-                fileUrl: `s3://${aws_1.S3_BUCKET_NAME}/${s3Key}`, // Logical S3 path to raw file
+                fileUrl: `s3://${aws_1.S3_BUCKET_NAME}/${s3Key}`, // Store logical S3 path
                 mimeType: mimetype,
                 fileSize: fileSize,
             });
-            // 3. Construct the path for the PROCESSED HLS video
             const filenameWithoutExtension = originalname.replace(/\s/g, '_').split('.').slice(0, -1).join('.');
             const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`; // Ensure this matches your MediaConvert output prefix
-            // 4. Generate signed URL for the PROCESSED HLS video
             const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath);
             uploadedFilesMetadata.push(Object.assign(Object.assign({}, mediaFileEntry.toJSON()), { fileUrl: signedCloudFrontUrl }));
         }
-        catch (error) { // <--- Added ': any' to explicitly type 'error'
+        catch (error) {
             console.error(`Error uploading file ${originalname} in batch:`, error);
-            // Corrected 'originalName' to 'originalname' and cast 'error' to 'Error' for .message
-            uploadedFilesMetadata.push({ originalname, error: error.message, status: 'failed' });
+            // Decide how to handle individual file failures in a batch:
+            // - Continue with other files and report partial success
+            // - Re-throw immediately to fail the whole batch
+            // For now, we'll log and continue.
         }
     }
     return uploadedFilesMetadata;
