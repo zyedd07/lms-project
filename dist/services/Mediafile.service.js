@@ -20,7 +20,6 @@ const client_s3_1 = require("@aws-sdk/client-s3");
 const cloudfront_signer_1 = require("@aws-sdk/cloudfront-signer"); // Import getSignedUrl for CloudFront signing
 const aws_1 = require("../config/aws");
 const Mediafile_model_1 = __importDefault(require("../models/Mediafile.model"));
-// Helper function to generate a CloudFront signed URL
 const generateCloudFrontSignedUrl = (processedCloudFrontPath) => __awaiter(void 0, void 0, void 0, function* () {
     const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
     const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
@@ -29,21 +28,21 @@ const generateCloudFrontSignedUrl = (processedCloudFrontPath) => __awaiter(void 
         throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
     }
     const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedCloudFrontPath}`;
-    // --- CRITICAL DIAGNOSTIC LOGS START HERE ---
     const serverCurrentTimeMs = Date.now();
     const serverCurrentTimeISO = new Date(serverCurrentTimeMs).toISOString();
     console.log('Server Date.now() (ms):', serverCurrentTimeMs);
-    console.log('Server current time (ISO):', serverCurrentTimeISO); // <--- THIS IS THE LOG I NEED
-    // --- CRITICAL DIAGNOSTIC LOGS END HERE ---
-    const dateLessThan = new Date(serverCurrentTimeMs + 365 * 24 * 60 * 60 * 1000); // 1 year from server's 'now'
-    console.log('Expires Date (ISO):', dateLessThan.toISOString()); // Log the calculated expiration date
+    console.log('Server current time (ISO):', serverCurrentTimeISO);
+    // ****** CRITICAL CHANGE HERE: Add 2 years instead of 1 year ******
+    const dateLessThan = new Date(serverCurrentTimeMs + (2 * 365 * 24 * 60 * 60 * 1000)); // This should now aim for 2 years from your server's perspective
+    console.log('Expires Date (ISO - calculated by server for signing):', dateLessThan.toISOString()); // Log the calculated expiration date
     const signedUrl = (0, cloudfront_signer_1.getSignedUrl)({
         url: resourceUrl,
         keyPairId: CLOUDFRONT_KEY_PAIR_ID,
         privateKey: CLOUDFRONT_PRIVATE_KEY,
         dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
     });
-    console.log('Resource URL being signed:', resourceUrl); // Log the full URL being signed
+    console.log('Resource URL being signed:', resourceUrl);
+    console.log('Generated Signed URL (check Expires parameter in browser):', signedUrl); // ADD THIS LINE to see the final URL from your server!
     return signedUrl;
 });
 // Function to upload a file to S3 and save its metadata to the database

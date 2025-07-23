@@ -8,8 +8,7 @@ import { s3Client, S3_BUCKET_NAME, AWS_REGION } from '../config/aws';
 import MediaFile from '../models/Mediafile.model';
 import * as multer from 'multer'; // Explicitly import multer to make its namespace available for typing
 
-// Helper function to generate a CloudFront signed URL
-const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Promise<string> => { // Ensure this parameter name is correct
+const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Promise<string> => {
     const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
     const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
     const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
@@ -20,15 +19,15 @@ const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Pro
 
     const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedCloudFrontPath}`;
 
-    // --- CRITICAL DIAGNOSTIC LOGS START HERE ---
     const serverCurrentTimeMs = Date.now();
     const serverCurrentTimeISO = new Date(serverCurrentTimeMs).toISOString();
     console.log('Server Date.now() (ms):', serverCurrentTimeMs);
-    console.log('Server current time (ISO):', serverCurrentTimeISO); // <--- THIS IS THE LOG I NEED
-    // --- CRITICAL DIAGNOSTIC LOGS END HERE ---
+    console.log('Server current time (ISO):', serverCurrentTimeISO);
 
-    const dateLessThan = new Date(serverCurrentTimeMs + 365 * 24 * 60 * 60 * 1000); // 1 year from server's 'now'
-    console.log('Expires Date (ISO):', dateLessThan.toISOString()); // Log the calculated expiration date
+    // ****** CRITICAL CHANGE HERE: Add 2 years instead of 1 year ******
+    const dateLessThan = new Date(serverCurrentTimeMs + (2 * 365 * 24 * 60 * 60 * 1000)); // This should now aim for 2 years from your server's perspective
+
+    console.log('Expires Date (ISO - calculated by server for signing):', dateLessThan.toISOString()); // Log the calculated expiration date
 
     const signedUrl = getSignedUrl({
         url: resourceUrl,
@@ -37,7 +36,8 @@ const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Pro
         dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
     });
 
-    console.log('Resource URL being signed:', resourceUrl); // Log the full URL being signed
+    console.log('Resource URL being signed:', resourceUrl);
+    console.log('Generated Signed URL (check Expires parameter in browser):', signedUrl); // ADD THIS LINE to see the final URL from your server!
 
     return signedUrl;
 };
