@@ -9,34 +9,38 @@ import MediaFile from '../models/Mediafile.model';
 import * as multer from 'multer'; // Explicitly import multer to make its namespace available for typing
 
 // Helper function to generate a CloudFront signed URL
-const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Promise<string> => {
-  const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-  const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
-  const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
+const generateCloudFrontSignedUrl = async (processedCloudFrontPath: string): Promise<string> => { // Ensure this parameter name is correct
+    const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
+    const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
+    const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
 
-  if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
-    throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
-  }
+    if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
+        throw new Error('CloudFront signing environment variables are not fully set (CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, CLOUDFRONT_KEY_PAIR_ID).');
+    }
 
-  // The URL that CloudFront will sign. This is the CloudFront distribution domain + S3 Key path.
     const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedCloudFrontPath}`;
 
-  // Set a long expiration time (e.g., 1 year from now)
-  // Max expiration is 7 days (604800 seconds) for direct S3 pre-signed URLs.
-  // For CloudFront signed URLs, the maximum is 365 days (or 7 days for custom policies, check docs).
-  // Let's use 1 year (approx 31,536,000 seconds) for app resources.
-  const dateLessThan = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
+    // --- CRITICAL DIAGNOSTIC LOGS START HERE ---
+    const serverCurrentTimeMs = Date.now();
+    const serverCurrentTimeISO = new Date(serverCurrentTimeMs).toISOString();
+    console.log('Server Date.now() (ms):', serverCurrentTimeMs);
+    console.log('Server current time (ISO):', serverCurrentTimeISO); // <--- THIS IS THE LOG I NEED
+    // --- CRITICAL DIAGNOSTIC LOGS END HERE ---
 
-  const signedUrl = getSignedUrl({
-    url: resourceUrl,
-    keyPairId: CLOUDFRONT_KEY_PAIR_ID,
-    privateKey: CLOUDFRONT_PRIVATE_KEY,
-    dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
-  });
+    const dateLessThan = new Date(serverCurrentTimeMs + 365 * 24 * 60 * 60 * 1000); // 1 year from server's 'now'
+    console.log('Expires Date (ISO):', dateLessThan.toISOString()); // Log the calculated expiration date
 
-  return signedUrl;
+    const signedUrl = getSignedUrl({
+        url: resourceUrl,
+        keyPairId: CLOUDFRONT_KEY_PAIR_ID,
+        privateKey: CLOUDFRONT_PRIVATE_KEY,
+        dateLessThan: dateLessThan.toISOString(), // Required format for dateLessThan
+    });
+
+    console.log('Resource URL being signed:', resourceUrl); // Log the full URL being signed
+
+    return signedUrl;
 };
-
 
 // Function to upload a file to S3 and save its metadata to the database
 export const uploadMedia = async (fileBuffer: Buffer, originalname: string, mimetype: string, fileSize: number): Promise<any> => {
