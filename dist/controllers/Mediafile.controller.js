@@ -1,6 +1,7 @@
 "use strict";
 // controllers/Mediafile.controller.ts
-// Updated to match the enhanced service with better error handling and batch processing
+// Updated to match the enhanced service with better error handling and batch processing,
+// and to support multi-type media handling (videos and static assets).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -125,21 +126,22 @@ const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         }
         const { originalname, mimetype, buffer, size } = file;
         console.log(`📤 Controller: Starting upload for ${originalname} (Size: ${(size / (1024 * 1024)).toFixed(2)} MB, MIME: ${mimetype})`);
-        // Call the enhanced service method to handle S3 upload, DB entry, and signed URL generation
+        // Call the enhanced service method to handle S3 upload, DB entry, and URL generation
         const mediaFileEntry = yield mediaFileService.uploadMedia(buffer, originalname, mimetype, size);
         console.log(`✅ Controller: Upload completed successfully for ${originalname} (ID: ${mediaFileEntry.id})`);
         // Respond with success status and relevant file metadata
         res.status(201).json({
             message: 'File uploaded successfully!',
-            fileUrl: mediaFileEntry.fileUrl, // Signed CloudFront URL for the processed file
+            fileUrl: mediaFileEntry.fileUrl, // This is the generated URL (signed for video, public for static)
             s3Key: mediaFileEntry.s3Key, // S3 key of the original uploaded file
-            processedPath: mediaFileEntry.processedPath, // CloudFront path for the processed file
+            s3Bucket: mediaFileEntry.s3Bucket, // The bucket where it was stored
+            processedPath: mediaFileEntry.processedPath, // Only for videos
             metadata: {
                 id: mediaFileEntry.id,
                 originalName: mediaFileEntry.originalName,
                 mimeType: mediaFileEntry.mimeType,
                 fileSize: mediaFileEntry.fileSize,
-                status: mediaFileEntry.status || 'processing', // Default to 'processing' if not explicitly set
+                status: mediaFileEntry.status,
                 createdAt: mediaFileEntry.createdAt
             },
             success: true,
@@ -154,7 +156,7 @@ const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 exports.uploadFile = uploadFile;
 /**
  * Controller for listing all media files.
- * Retrieves all media entries from the database and generates signed URLs for them.
+ * Retrieves all media entries from the database and generates appropriate URLs for them.
  * Provides a summary of file statuses (ready, error, processing).
  *
  * @param req The Express request object.
@@ -163,14 +165,14 @@ exports.uploadFile = uploadFile;
 const listMedia = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         console.log(`📋 Controller: Fetching media list...`);
-        // Call the service method to get all media files with their signed URLs
+        // Call the service method to get all media files with their generated URLs
         const mediaFiles = yield mediaFileService.getAllMedia();
         // Calculate a summary of file statuses for a quick overview
         const statusSummary = {
             total: mediaFiles.length,
             ready: mediaFiles.filter(f => f.status === 'ready').length,
             error: mediaFiles.filter(f => f.status === 'error').length,
-            processing: mediaFiles.filter(f => f.status === 'processing' || !f.status).length // Files without explicit status are considered processing
+            processing: mediaFiles.filter(f => f.status === 'processing').length
         };
         console.log(`✅ Controller: Retrieved ${mediaFiles.length} media files. Status summary:`, statusSummary);
         // Respond with the list of media files and the status summary
@@ -206,7 +208,6 @@ const deleteFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             });
         }
         // Basic ID format validation (e.g., for UUIDs or numeric IDs)
-        // Adjust regex based on your actual ID format (e.g., UUID: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
         if (!/^[0-9a-fA-F-]+$/.test(id)) { // Generic check for alphanumeric and hyphens
             return res.status(400).json({
                 message: 'Invalid media file ID format. Please provide a valid ID.',

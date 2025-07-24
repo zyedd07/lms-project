@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AWS_REGION = exports.PROCESSED_VIDEO_BUCKET_NAME = exports.RAW_VIDEO_BUCKET_NAME = exports.s3Client = void 0;
+exports.AWS_REGION = exports.STATIC_ASSETS_BUCKET_NAME = exports.PROCESSED_VIDEO_BUCKET_NAME = exports.RAW_VIDEO_BUCKET_NAME = exports.s3Client = void 0;
 // Import S3Client from AWS SDK v3
 const client_s3_1 = require("@aws-sdk/client-s3");
 // Configure AWS with your credentials and region
@@ -19,5 +19,7 @@ const RAW_VIDEO_BUCKET_NAME = process.env.RAW_VIDEO_BUCKET_NAME;
 exports.RAW_VIDEO_BUCKET_NAME = RAW_VIDEO_BUCKET_NAME;
 const PROCESSED_VIDEO_BUCKET_NAME = process.env.PROCESSED_VIDEO_BUCKET_NAME;
 exports.PROCESSED_VIDEO_BUCKET_NAME = PROCESSED_VIDEO_BUCKET_NAME;
+const STATIC_ASSETS_BUCKET_NAME = process.env.STATIC_ASSETS_BUCKET_NAME;
+exports.STATIC_ASSETS_BUCKET_NAME = STATIC_ASSETS_BUCKET_NAME;
 const AWS_REGION = process.env.AWS_REGION; // Still useful for metadata storage
 exports.AWS_REGION = AWS_REGION;

@@ -15,11 +15,15 @@ const s3Client = new S3Client({
 // Define separate bucket names for raw and processed videos
 const RAW_VIDEO_BUCKET_NAME: string = process.env.RAW_VIDEO_BUCKET_NAME as string;
 const PROCESSED_VIDEO_BUCKET_NAME: string = process.env.PROCESSED_VIDEO_BUCKET_NAME as string;
+const STATIC_ASSETS_BUCKET_NAME: string = process.env.STATIC_ASSETS_BUCKET_NAME as string;
+
 const AWS_REGION: string = process.env.AWS_REGION as string; // Still useful for metadata storage
 
 export {
   s3Client, // Export the new v3 S3Client instance
   RAW_VIDEO_BUCKET_NAME,
   PROCESSED_VIDEO_BUCKET_NAME,
+    STATIC_ASSETS_BUCKET_NAME, // Export the new static assets bucket name
+
   AWS_REGION,
 };

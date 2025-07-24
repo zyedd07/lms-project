@@ -1,25 +1,27 @@
 // controllers/Mediafile.controller.ts
-// Updated to match the enhanced service with better error handling and batch processing
+// Updated to match the enhanced service with better error handling and batch processing,
+// and to support multi-type media handling (videos and static assets).
 
 import { Request, Response } from 'express';
 import * as mediaFileService from '../services/Mediafile.service';
 import multer from 'multer';
+// Removed CloudfrontSignedCookiesOutput import as we are no longer using cookies
 
-// Enhanced interface to match the service response structure
+// Enhanced interface to match the service response structure for both videos and static assets
 interface MediaFileEntryResponse {
-  fileUrl: string | null;
-  s3Key: string;
+  fileUrl: string | null; // This will be the signed CloudFront URL for videos, or direct S3 URL for static assets
+  s3Key: string; // S3 key of the original uploaded file (raw video or static asset)
   id: string;
   originalName: string;
-  s3Bucket: string;
+  s3Bucket: string; // The S3 bucket where the original file was stored (raw video or static assets)
   s3Region: string;
   mimeType: string;
   fileSize: number;
   createdAt: Date;
   updatedAt: Date;
-  processedPath?: string;
-  originalS3Key?: string;
-  status?: 'ready' | 'error' | 'processing';
+  processedPath?: string; // Only relevant for videos (HLS master manifest path)
+  originalS3Key?: string; // This field might become redundant if s3Key stores the original.
+  status?: 'ready' | 'error' | 'processing'; // 'processing' for videos, 'ready' for static assets
   error?: string;
 }
 
@@ -118,7 +120,7 @@ export const uploadFile = async (req: Request, res: Response) => {
 
     console.log(`📤 Controller: Starting upload for ${originalname} (Size: ${(size / (1024 * 1024)).toFixed(2)} MB, MIME: ${mimetype})`);
 
-    // Call the enhanced service method to handle S3 upload, DB entry, and signed URL generation
+    // Call the enhanced service method to handle S3 upload, DB entry, and URL generation
     const mediaFileEntry: MediaFileEntryResponse = await mediaFileService.uploadMedia(
       buffer,
       originalname,
@@ -131,15 +133,16 @@ export const uploadFile = async (req: Request, res: Response) => {
     // Respond with success status and relevant file metadata
     res.status(201).json({ // 201 Created
       message: 'File uploaded successfully!',
-      fileUrl: mediaFileEntry.fileUrl, // Signed CloudFront URL for the processed file
+      fileUrl: mediaFileEntry.fileUrl, // This is the generated URL (signed for video, public for static)
       s3Key: mediaFileEntry.s3Key, // S3 key of the original uploaded file
-      processedPath: mediaFileEntry.processedPath, // CloudFront path for the processed file
+      s3Bucket: mediaFileEntry.s3Bucket, // The bucket where it was stored
+      processedPath: mediaFileEntry.processedPath, // Only for videos
       metadata: {
         id: mediaFileEntry.id,
         originalName: mediaFileEntry.originalName,
         mimeType: mediaFileEntry.mimeType,
         fileSize: mediaFileEntry.fileSize,
-        status: mediaFileEntry.status || 'processing', // Default to 'processing' if not explicitly set
+        status: mediaFileEntry.status,
         createdAt: mediaFileEntry.createdAt
       },
       success: true,
@@ -154,7 +157,7 @@ export const uploadFile = async (req: Request, res: Response) => {
 
 /**
  * Controller for listing all media files.
- * Retrieves all media entries from the database and generates signed URLs for them.
+ * Retrieves all media entries from the database and generates appropriate URLs for them.
  * Provides a summary of file statuses (ready, error, processing).
  *
  * @param req The Express request object.
@@ -164,7 +167,7 @@ export const listMedia = async (req: Request, res: Response) => {
   try {
     console.log(`📋 Controller: Fetching media list...`);
 
-    // Call the service method to get all media files with their signed URLs
+    // Call the service method to get all media files with their generated URLs
     const mediaFiles: MediaFileEntryResponse[] = await mediaFileService.getAllMedia();
 
     // Calculate a summary of file statuses for a quick overview
@@ -172,7 +175,7 @@ export const listMedia = async (req: Request, res: Response) => {
       total: mediaFiles.length,
       ready: mediaFiles.filter(f => f.status === 'ready').length,
       error: mediaFiles.filter(f => f.status === 'error').length,
-      processing: mediaFiles.filter(f => f.status === 'processing' || !f.status).length // Files without explicit status are considered processing
+      processing: mediaFiles.filter(f => f.status === 'processing').length
     };
 
     console.log(`✅ Controller: Retrieved ${mediaFiles.length} media files. Status summary:`, statusSummary);
@@ -212,7 +215,6 @@ export const deleteFile = async (req: Request, res: Response) => {
     }
 
     // Basic ID format validation (e.g., for UUIDs or numeric IDs)
-    // Adjust regex based on your actual ID format (e.g., UUID: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
     if (!/^[0-9a-fA-F-]+$/.test(id)) { // Generic check for alphanumeric and hyphens
       return res.status(400).json({
         message: 'Invalid media file ID format. Please provide a valid ID.',
