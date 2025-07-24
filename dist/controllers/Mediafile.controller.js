@@ -142,6 +142,8 @@ const uploadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 status: mediaFileEntry.status || 'processing', // Default to 'processing' if not explicitly set
                 createdAt: mediaFileEntry.createdAt
             },
+            // Include signed cookies directly in the response for the frontend to set
+            signedCookies: mediaFileEntry.signedCookies,
             success: true,
             timestamp: new Date().toISOString()
         });
