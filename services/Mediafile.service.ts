@@ -50,16 +50,20 @@ const generateCloudFrontSignedUrl = async (
     // For files that are processed asynchronously (e.g., by AWS MediaConvert),
     // this check might initially fail, which is expected.
     if (checkFileExists) {
-        // S3 key should not start with a leading slash for HeadObjectCommand
-        const s3Key = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
+        // S3 key should NOT have a leading slash for HeadObjectCommand.
+        // Also, it should match the *actual* S3 object key.
+        // If CloudFront path is /processed-videos/path/to/file.m3u8
+        // and S3 key is processed-videos/path/to/file.m3u8, then
+        // the cleanPath (which starts with /) needs its leading slash removed.
+        const s3KeyForHeadObject = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
         try {
             await s3Client.send(new HeadObjectCommand({
                 Bucket: s3BucketForCheck, // Use the provided bucket name for the check
-                Key: s3Key
+                Key: s3KeyForHeadObject // Use the correctly formatted S3 key
             }));
-            console.log(`✅ File verified in S3: ${s3Key} in bucket: ${s3BucketForCheck}`);
+            console.log(`✅ File verified in S3: ${s3KeyForHeadObject} in bucket: ${s3BucketForCheck}`);
         } catch (s3Error: any) {
-            console.warn(`⚠️  File may not exist in S3: ${s3Key} in bucket: ${s3BucketForCheck} - ${s3Error?.message || 'Unknown error'}. This might be expected if MediaConvert is still processing.`);
+            console.warn(`⚠️  File may not exist in S3: ${s3KeyForHeadObject} in bucket: ${s3BucketForCheck} - ${s3Error?.message || 'Unknown error'}. This might be expected if MediaConvert is still processing.`);
             // Do not throw an error here, as the file might be created by MediaConvert later.
         }
     }
@@ -190,12 +194,24 @@ export const uploadMedia = async (
             throw new Error('Could not derive base name for processed video from S3 key.');
         }
 
+        // FIX: Remove the redundant '/processed-videos/' prefix here.
+        // The CloudFront path should be relative to the distribution's origin,
+        // and the S3 bucket itself (PROCESSED_VIDEO_BUCKET_NAME) is the origin.
+        // If MediaConvert outputs to `processed-videos/` *within* that bucket,
+        // then the path should start with `processed-videos/`.
+        // The CloudFront path should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8`
+        // The S3 key for HeadObjectCommand should be `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8`
         const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
+
         console.log(`🎬 Expected processed video path for CloudFront: ${processedHlsPath}`);
+        console.log(`🔑 Expected S3 key for processed video: ${s3KeyForProcessedVideo}`);
+
 
         // Step 4: Generate a CloudFront signed URL for the *expected* processed file.
         // We set `checkFileExists` to `false` here because MediaConvert will create this file asynchronously.
         console.log(`🔐 Generating CloudFront signed URL for processed path...`);
+        // Pass the correct S3 key for the HeadObjectCommand check within generateCloudFrontSignedUrl
         const signedCloudFrontUrl = await generateCloudFrontSignedUrl(processedHlsPath, PROCESSED_VIDEO_BUCKET_NAME, false); // Pass processed bucket name
         console.log(`✅ Upload process completed successfully for ${originalname}`);
 
@@ -204,7 +220,8 @@ export const uploadMedia = async (
             ...mediaFileEntry.toJSON(),
             fileUrl: signedCloudFrontUrl, // This is the URL for the *processed* file
             processedPath: processedHlsPath, // The path on CloudFront for the processed file
-            originalS3Key: s3Key // The S3 key for the original uploaded file
+            originalS3Key: s3Key, // The S3 key for the original uploaded file
+            s3KeyForProcessedVideo: s3KeyForProcessedVideo // The S3 key for the processed video (for clarity)
         };
 
     } catch (error: any) {
@@ -279,11 +296,16 @@ export const getAllMedia = async (): Promise<any[]> => {
                     };
                 }
 
+                // FIX: Ensure this path is correct for CloudFront and S3 HeadObject.
+                // It should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for CloudFront
+                // And `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for S3 Key
                 const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+                const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
 
                 try {
                     // Generate signed URL. Here, we set `checkFileExists` to `true`
                     // because we expect these files to have been processed and exist in S3.
+                    // The generateCloudFrontSignedUrl function will handle the leading slash for S3 Key.
                     const signedCloudFrontUrl = await generateCloudFrontSignedUrl(processedHlsPath, PROCESSED_VIDEO_BUCKET_NAME, true); // Pass processed bucket name
 
                     console.log(`✅ [${index + 1}] Generated signed URL successfully for ${originalFilename}`);
@@ -291,6 +313,7 @@ export const getAllMedia = async (): Promise<any[]> => {
                         ...fileData,
                         fileUrl: signedCloudFrontUrl, // The signed URL for the processed file
                         processedPath: processedHlsPath, // The CloudFront path for the processed file
+                        s3KeyForProcessedVideo: s3KeyForProcessedVideo, // The S3 key for the processed video (for clarity)
                         status: 'ready' // Indicate successful processing
                     };
                 } catch (signingError: any) {
@@ -300,6 +323,7 @@ export const getAllMedia = async (): Promise<any[]> => {
                         fileUrl: null,
                         error: signingError?.message || 'Unknown signing error',
                         processedPath: processedHlsPath,
+                        s3KeyForProcessedVideo: s3KeyForProcessedVideo,
                         status: 'error' // Indicate an error for this specific file
                     };
                 }
@@ -469,6 +493,8 @@ export const testCloudFrontAccess = async (processedPath: string): Promise<{
         console.log(`🧪 Initiating CloudFront access test for path: ${processedPath}`);
 
         // Derive S3 key from the processed path for file existence check
+        // The CloudFront path starts with `/processed-videos/`, but the S3 key
+        // should start with `processed-videos/` (no leading slash).
         const s3Key = processedPath.startsWith('/') ? processedPath.substring(1) : processedPath;
         let fileExists = false;
 
@@ -476,7 +502,7 @@ export const testCloudFrontAccess = async (processedPath: string): Promise<{
         try {
             await s3Client.send(new HeadObjectCommand({
                 Bucket: PROCESSED_VIDEO_BUCKET_NAME, // Use the processed video bucket for this check
-                Key: s3Key
+                Key: s3Key // Use the correctly formatted S3 key
             }));
             fileExists = true;
             console.log(`✅ File confirmed to exist in S3: ${s3Key} in bucket: ${PROCESSED_VIDEO_BUCKET_NAME}`);
@@ -586,7 +612,12 @@ export const getMediaByFilename = async (filename: string): Promise<any> => {
             throw new Error('Could not derive base name for processed video from S3 key.');
         }
 
+        // FIX: Ensure this path is correct for CloudFront and S3 HeadObject.
+        // It should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for CloudFront
+        // And `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for S3 Key
         const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
+
 
         try {
             // Generate signed URL, checking for file existence
@@ -596,6 +627,7 @@ export const getMediaByFilename = async (filename: string): Promise<any> => {
                 ...fileData,
                 fileUrl: signedCloudFrontUrl,
                 processedPath: processedHlsPath,
+                s3KeyForProcessedVideo: s3KeyForProcessedVideo,
                 status: 'ready'
             };
         } catch (signingError: any) {
@@ -605,6 +637,7 @@ export const getMediaByFilename = async (filename: string): Promise<any> => {
                 fileUrl: null,
                 error: signingError?.message || 'Unknown signing error',
                 processedPath: processedHlsPath,
+                s3KeyForProcessedVideo: s3KeyForProcessedVideo,
                 status: 'error'
             };
         }
