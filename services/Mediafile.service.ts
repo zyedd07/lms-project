@@ -1,86 +1,142 @@
 // services/mediaFile.service.ts
 // COMPLETE FIXED VERSION - This addresses all the CloudFront 403 issues
-// Now updated to use CloudFront Signed Cookies for HLS playback.
 
 import { PutObjectCommand, DeleteObjectCommand, PutObjectCommandInput, DeleteObjectCommandInput, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedCookies, CloudfrontSignedCookiesOutput } from '@aws-sdk/cloudfront-signer'; // Changed from getSignedUrl to getSignedCookies, imported CloudfrontSignedCookiesOutput
-import { s3Client, RAW_VIDEO_BUCKET_NAME, PROCESSED_VIDEO_BUCKET_NAME, AWS_REGION } from '../config/aws';
+import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { s3Client, RAW_VIDEO_BUCKET_NAME, PROCESSED_VIDEO_BUCKET_NAME, AWS_REGION } from '../config/aws'; // Updated import
 import MediaFile from '../models/Mediafile.model';
 import * as multer from 'multer';
 
 /**
- * Generates CloudFront signed cookies for a given resource path.
- * These cookies allow access to all content under the specified resource pattern.
- * This is the recommended approach for HLS streaming with private content.
+ * Generates a CloudFront signed URL for a given processed file path.
+ * This function is critical for securely serving private content via CloudFront.
  *
- * @param resourcePath The CloudFront path pattern to sign (e.g., /processed-videos/*).
- * @returns A promise that resolves with an object containing the signed cookies.
- * @throws An error if CloudFront environment variables are missing or signing fails.
+ * @param processedCloudFrontPath The path to the file on CloudFront (e.g., /processed-videos/myvideo/index.m3u8).
+ * This path should be relative to the CloudFront distribution's root.
+ * @param s3BucketForCheck The S3 bucket name where the file is expected to exist for the HeadObjectCommand check.
+ * @param checkFileExists Optional. If true, performs a HeadObjectCommand on S3 to verify file existence before signing.
+ * Useful for debugging, but can be set to false for files that will be created later (e.g., by MediaConvert).
+ * @returns A promise that resolves with the generated signed URL.
+ * @throws An error if CloudFront environment variables are missing, the private key is malformed, or signing fails.
  */
-const getCloudFrontSignedCookies = async (resourcePath: string): Promise<CloudfrontSignedCookiesOutput> => { // Changed return type to CloudfrontSignedCookiesOutput
+const generateCloudFrontSignedUrl = async (
+    processedCloudFrontPath: string,
+    s3BucketForCheck: string, // New parameter to specify which S3 bucket to check
+    checkFileExists: boolean = true
+): Promise<string> => {
     // Retrieve CloudFront environment variables
+    const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
     const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
     const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID;
 
     // Validate environment variables are present
-    if (!CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
-        throw new Error('CloudFront environment variables missing: CLOUDFRONT_PRIVATE_KEY or CLOUDFRONT_KEY_PAIR_ID. Please ensure they are set in your .env file.');
+    if (!CLOUDFRONT_MEDIA_DOMAIN || !CLOUDFRONT_PRIVATE_KEY || !CLOUDFRONT_KEY_PAIR_ID) {
+        throw new Error('CloudFront environment variables missing: CLOUDFRONT_MEDIA_DOMAIN, CLOUDFRONT_PRIVATE_KEY, or CLOUDFRONT_KEY_PAIR_ID. Please ensure they are set in your .env file.');
     }
 
-    // Calculate expiration time for the signed cookies.
+    // Normalize the CloudFront path:
+    // 1. Ensure it starts with a forward slash.
+    // 2. Remove any multiple consecutive forward slashes (e.g., //, ///) to prevent issues.
+    const normalizedPath = processedCloudFrontPath.startsWith('/')
+        ? processedCloudFrontPath
+        : `/${processedCloudFrontPath}`;
+    const cleanPath = normalizedPath.replace(/\/+/g, '/'); // Replaces // with /
+
+    // Construct the full resource URL that CloudFront will serve
+    const resourceUrl = `https://${CLOUDFRONT_MEDIA_DOMAIN}${cleanPath}`;
+
+    // OPTIONAL: Check if the file exists in S3 before generating the signed URL.
+    // This helps in debugging 403 errors that might be due to non-existent files.
+    // For files that are processed asynchronously (e.g., by AWS MediaConvert),
+    // this check might initially fail, which is expected.
+    if (checkFileExists) {
+        // S3 key should NOT have a leading slash for HeadObjectCommand.
+        // Also, it should match the *actual* S3 object key.
+        // If CloudFront path is /processed-videos/path/to/file.m3u8
+        // and S3 key is processed-videos/path/to/file.m3u8, then
+        // the cleanPath (which starts with /) needs its leading slash removed.
+        const s3KeyForHeadObject = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
+        try {
+            await s3Client.send(new HeadObjectCommand({
+                Bucket: s3BucketForCheck, // Use the provided bucket name for the check
+                Key: s3KeyForHeadObject // Use the correctly formatted S3 key
+            }));
+            console.log(`✅ File verified in S3: ${s3KeyForHeadObject} in bucket: ${s3BucketForCheck}`);
+        } catch (s3Error: any) {
+            console.warn(`⚠️  File may not exist in S3: ${s3KeyForHeadObject} in bucket: ${s3BucketForCheck} - ${s3Error?.message || 'Unknown error'}. This might be expected if MediaConvert is still processing.`);
+            // Do not throw an error here, as the file might be created by MediaConvert later.
+        }
+    }
+
+    // Calculate expiration time for the signed URL.
     // A 2-year expiration is used here; adjust as per your security requirements.
     const currentTime = new Date();
     const expirationTime = new Date(currentTime.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from now
 
-    console.log('=== CloudFront Cookie Signing Process ===');
-    console.log('Resource Path Pattern to sign:', resourcePath);
+    console.log('=== CloudFront Signing Process ===');
+    console.log('Path to be signed:', cleanPath);
+    console.log('Full Resource URL:', resourceUrl);
     console.log('Current time (UTC):', currentTime.toISOString());
     console.log('Expiration time (UTC):', expirationTime.toISOString());
     console.log('Key Pair ID:', CLOUDFRONT_KEY_PAIR_ID);
 
     try {
-        // Ensure the private key is correctly formatted with actual newlines.
+        // CRITICAL FIX: Ensure the private key is correctly formatted with actual newlines.
+        // Environment variables often escape newlines (e.g., `\n` instead of actual newline characters).
         let formattedPrivateKey = CLOUDFRONT_PRIVATE_KEY;
+        // Replace escaped newlines with actual newline characters
         formattedPrivateKey = formattedPrivateKey.replace(/\\n/g, '\n');
 
+        // Validate that the private key includes the necessary BEGIN/END markers.
+        // This is a common source of 403 errors if the key is copied incorrectly.
         if (!formattedPrivateKey.includes('-----BEGIN') || !formattedPrivateKey.includes('-----END')) {
             throw new Error('CLOUDFRONT_PRIVATE_KEY must include "-----BEGIN PRIVATE KEY-----" and "-----END PRIVATE KEY-----" markers with proper newlines.');
         }
 
-        // Generate the signed cookies
-        const signedCookies = getSignedCookies({
-            url: resourcePath, // The resource URL pattern to sign (e.g., "https://d123.cloudfront.net/private/*")
+        // Generate the signed URL using the CloudFront signer library
+        const signedUrl = getSignedUrl({
+            url: resourceUrl,
             keyPairId: CLOUDFRONT_KEY_PAIR_ID,
             privateKey: formattedPrivateKey,
-            dateLessThan: expirationTime.toISOString(),
+            dateLessThan: expirationTime.toISOString(), // Use ISO string for consistency
         });
 
-        console.log('✅ Successfully generated signed cookies');
-        console.log('=== End CloudFront Cookie Signing ===\n');
+        // For debugging: Extract and log the 'Expires' parameter from the generated URL
+        const urlParams = new URL(signedUrl);
+        const expiresParam = urlParams.searchParams.get('Expires');
+        if (expiresParam) {
+            const expiresDate = new Date(parseInt(expiresParam) * 1000); // Expires is a Unix timestamp
+            console.log('URL Expires parameter (Parsed Date):', expiresDate.toISOString());
+        }
 
-        return signedCookies;
+        console.log('✅ Successfully generated signed URL');
+        console.log('=== End CloudFront Signing ===\n');
+
+        return signedUrl;
     } catch (signingError: any) {
-        console.error('❌ CloudFront cookie signing failed:', signingError);
+        console.error('❌ CloudFront signing failed:', signingError);
+        // Provide detailed information to help diagnose the issue
         console.error('Private key format check details:', {
             hasBeginMarker: CLOUDFRONT_PRIVATE_KEY.includes('-----BEGIN'),
             hasEndMarker: CLOUDFRONT_PRIVATE_KEY.includes('-----END'),
             length: CLOUDFRONT_PRIVATE_KEY.length,
             keyPairIdLength: CLOUDFRONT_KEY_PAIR_ID.length,
+            // Only log a snippet of the key, not the whole key for security
             privateKeySnippet: CLOUDFRONT_PRIVATE_KEY.substring(0, 50) + '...' + CLOUDFRONT_PRIVATE_KEY.substring(CLOUDFRONT_PRIVATE_KEY.length - 50)
         });
-        throw new Error(`CloudFront cookie signing failed: ${signingError?.message || 'Unknown signing error'}. Please check your private key format and CloudFront configuration.`);
+        throw new Error(`CloudFront signing failed: ${signingError?.message || 'Unknown signing error'}. Please check your private key format and CloudFront configuration.`);
     }
 };
 
 /**
  * Uploads a single media file to S3 and creates a corresponding database entry.
- * It now returns CloudFront signed cookies for the expected processed video path.
+ * It also generates a CloudFront signed URL for the expected processed video path.
  *
  * @param fileBuffer The buffer of the file to upload.
  * @param originalname The original name of the file.
  * @param mimetype The MIME type of the file.
  * @param fileSize The size of the file in bytes.
- * @returns A promise that resolves with the media file metadata, including the CloudFront signed cookies.
+ * @returns A promise that resolves with the media file metadata, including the signed CloudFront URL.
  * @throws An error if S3 upload or database operations fail.
  */
 export const uploadMedia = async (
@@ -89,167 +145,200 @@ export const uploadMedia = async (
     mimetype: string,
     fileSize: number
 ): Promise<any> => {
+    // Generate a unique S3 key using a timestamp and a sanitized version of the original filename.
     const timestamp = Date.now();
+    // Sanitize filename to remove characters that might cause issues in S3 keys or URLs.
     const sanitizedFilename = originalname.replace(/[^a-zA-Z0-9.-_]/g, '_');
     const s3Key = `uploads/${timestamp}_${sanitizedFilename}`;
 
     console.log(`🚀 Starting upload process for: ${originalname}`);
     console.log(`📁 S3 Key to be used: ${s3Key}`);
 
+    // Define parameters for the S3 PutObjectCommand
     const params: PutObjectCommandInput = {
-        Bucket: RAW_VIDEO_BUCKET_NAME,
+        Bucket: RAW_VIDEO_BUCKET_NAME, // Use the raw video bucket for uploads
         Key: s3Key,
         Body: fileBuffer,
         ContentType: mimetype,
-        Metadata: {
+        Metadata: { // Custom metadata for the S3 object
             'original-name': originalname,
             'upload-timestamp': timestamp.toString()
         }
     };
 
     try {
+        // Step 1: Upload the file to S3
         console.log(`📤 Uploading file to S3 bucket "${RAW_VIDEO_BUCKET_NAME}"...`);
         await s3Client.send(new PutObjectCommand(params));
         console.log(`✅ S3 upload successful: ${s3Key}`);
 
+        // Step 2: Create a database entry for the uploaded file
         console.log(`💾 Creating database entry for ${originalname}...`);
         const mediaFileEntry = await MediaFile.create({
             originalName: originalname,
             s3Key: s3Key,
-            s3Bucket: RAW_VIDEO_BUCKET_NAME,
+            s3Bucket: RAW_VIDEO_BUCKET_NAME, // Store the raw video bucket name
             s3Region: AWS_REGION,
-            fileUrl: `s3://${RAW_VIDEO_BUCKET_NAME}/${s3Key}`,
+            fileUrl: `s3://${RAW_VIDEO_BUCKET_NAME}/${s3Key}`, // S3 URI for the original file
             mimeType: mimetype,
             fileSize: fileSize,
         });
         console.log(`✅ Database entry created with ID: ${(mediaFileEntry as any).id}`);
 
-        const mediaConvertBaseName = s3Key.split('/').pop()?.split('.')[0] || '';
+        // Step 3: Determine the expected path for the processed video (e.g., HLS output from MediaConvert).
+        // This path is used to generate the CloudFront signed URL.
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+        const mediaConvertBaseName = s3Key.split('/').pop()?.split('.')[0] || ''; // Extract "TIMESTAMP_FILENAME" from "uploads/TIMESTAMP_FILENAME.ext"
+
         if (!mediaConvertBaseName) {
             throw new Error('Could not derive base name for processed video from S3 key.');
         }
 
+        // FIX: Remove the redundant '/processed-videos/' prefix here.
+        // The CloudFront path should be relative to the distribution's origin,
+        // and the S3 bucket itself (PROCESSED_VIDEO_BUCKET_NAME) is the origin.
+        // If MediaConvert outputs to `processed-videos/` *within* that bucket,
+        // then the path should start with `processed-videos/`.
         // The CloudFront path should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8`
         // The S3 key for HeadObjectCommand should be `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8`
         const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
-        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
 
         console.log(`🎬 Expected processed video path for CloudFront: ${processedHlsPath}`);
         console.log(`🔑 Expected S3 key for processed video: ${s3KeyForProcessedVideo}`);
 
-        // Generate CloudFront signed cookies for the processed video path pattern
-        // The pattern should cover all HLS components (master manifest, sub-manifests, .ts segments)
-        const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-        if (!CLOUDFRONT_MEDIA_DOMAIN) {
-            throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is missing.');
-        }
-        // Sign the entire processed-videos folder for simplicity with HLS
-        const resourcePathPattern = `https://${CLOUDFRONT_MEDIA_DOMAIN}/processed-videos/*`;
-        const signedCookies = await getCloudFrontSignedCookies(resourcePathPattern);
 
+        // Step 4: Generate a CloudFront signed URL for the *expected* processed file.
+        // We set `checkFileExists` to `false` here because MediaConvert will create this file asynchronously.
+        console.log(`🔐 Generating CloudFront signed URL for processed path...`);
+        // Pass the correct S3 key for the HeadObjectCommand check within generateCloudFrontSignedUrl
+        const signedCloudFrontUrl = await generateCloudFrontSignedUrl(processedHlsPath, PROCESSED_VIDEO_BUCKET_NAME, false); // Pass processed bucket name
         console.log(`✅ Upload process completed successfully for ${originalname}`);
 
-        // Return the database entry along with the base CloudFront URL (without signing params)
-        // and the signed cookies. The frontend will set these cookies.
+        // Return the database entry along with the signed CloudFront URL and other relevant paths.
         return {
             ...mediaFileEntry.toJSON(),
-            fileUrl: `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedHlsPath}`, // Base URL for the processed file
-            processedPath: processedHlsPath,
-            s3KeyForProcessedVideo: s3KeyForProcessedVideo,
-            status: 'processing', // Still processing by MediaConvert
-            signedCookies: signedCookies // Include the signed cookies in the response
+            fileUrl: signedCloudFrontUrl, // This is the URL for the *processed* file
+            processedPath: processedHlsPath, // The path on CloudFront for the processed file
+            originalS3Key: s3Key, // The S3 key for the original uploaded file
+            s3KeyForProcessedVideo: s3KeyForProcessedVideo // The S3 key for the processed video (for clarity)
         };
 
     } catch (error: any) {
         console.error(`❌ Upload failed for ${originalname}:`, error);
+
+        // Enhance error messages for common S3/CloudFront issues
         if (error?.name === 'NoSuchBucket') {
             throw new Error(`S3 bucket "${RAW_VIDEO_BUCKET_NAME}" does not exist or is not accessible. Check your RAW_VIDEO_BUCKET_NAME configuration.`);
         } else if (error?.name === 'AccessDenied') {
-            throw new Error('S3 access denied. Check IAM permissions for PutObject operation on your S3 bucket.'); // Corrected: removed extra 'new'
+            throw new Error('S3 access denied. Check IAM permissions for PutObject operation on your S3 bucket.');
         } else if (error?.message?.includes('CloudFront')) {
-            throw new Error(`CDN Configuration Error: ${error.message}`);
+            throw new Error(`CloudFront configuration or signing error during upload: ${error.message}`);
         } else if (error?.message?.includes('signing')) {
-            throw new Error(`Cookie signing failed during upload: ${error.message}. Check your CloudFront private key and key pair ID.`);
+            throw new Error(`URL signing failed during upload: ${error.message}. Check your CloudFront private key and key pair ID.`);
         }
-        throw error;
+
+        throw error; // Re-throw any other unhandled errors
     }
 };
 
 /**
- * Retrieves all media files from the database and generates CloudFront signed cookies for them.
- * This function now returns the base CloudFront URL and the signed cookies.
+ * Retrieves all media files from the database and generates CloudFront signed URLs for them.
+ * This function handles potential errors during URL signing for individual files.
  *
- * @returns A promise that resolves with an array of media file metadata, each including a base CloudFront URL and signed cookies.
+ * @returns A promise that resolves with an array of media file metadata, each including a signed CloudFront URL or an error status.
  */
 export const getAllMedia = async (): Promise<any[]> => {
     try {
         console.log(`📋 Fetching all media files from database...`);
         const mediaFiles = await MediaFile.findAll({
-            order: [['createdAt', 'DESC']],
+            order: [['createdAt', 'DESC']], // Order by creation date, newest first
         });
 
         console.log(`📊 Found ${mediaFiles.length} media files in database`);
 
         if (mediaFiles.length === 0) {
-            return [];
+            return []; // Return an empty array if no files are found
         }
 
-        const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-        if (!CLOUDFRONT_MEDIA_DOMAIN) {
-            throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is missing.');
-        }
+        // Process each media file to generate its signed CloudFront URL.
+        // Using Promise.allSettled would be more robust if you need to continue processing
+        // even if some promises fail, but Promise.all is fine if individual errors are handled.
+        const mediaFilesWithSignedUrls = await Promise.all(
+            mediaFiles.map(async (file, index) => {
+                const fileData = file.toJSON();
+                const originalFilename = fileData.originalName;
 
-        // Generate signed cookies once for all processed videos (assuming they are all under /processed-videos/*)
-        const resourcePathPattern = `https://${CLOUDFRONT_MEDIA_DOMAIN}/processed-videos/*`;
-        const signedCookies = await getCloudFrontSignedCookies(resourcePathPattern);
+                console.log(`[${index + 1}/${mediaFiles.length}] Processing file: ${originalFilename || fileData.s3Key}`);
 
-        const mediaFilesWithUrlsAndCookies = mediaFiles.map((file, index) => {
-            const fileData = file.toJSON();
-            const originalFilename = fileData.originalName;
+                // Basic validation: Ensure original filename exists for path generation
+                if (!originalFilename) {
+                    console.warn(`⚠️  [${index + 1}] Missing original filename for s3Key: ${fileData.s3Key}. Cannot generate processed path.`);
+                    return {
+                        ...fileData,
+                        fileUrl: null,
+                        error: 'Missing original filename for processed path generation',
+                        status: 'error' // Indicate an error for this specific file
+                    };
+                }
 
-            if (!originalFilename) {
-                console.warn(`⚠️  [${index + 1}] Missing original filename for s3Key: ${fileData.s3Key}. Cannot generate processed path.`);
-                return {
-                    ...fileData,
-                    fileUrl: null,
-                    error: 'Missing original filename for processed path generation',
-                    status: 'error'
-                };
-            }
+                // Re-derive the processed HLS path consistently based on the stored s3Key.
+                // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+                const mediaConvertBaseName = fileData.s3Key.split('/').pop()?.split('.')[0] || '';
 
-            const mediaConvertBaseName = fileData.s3Key.split('/').pop()?.split('.')[0] || '';
-            if (!mediaConvertBaseName) {
-                console.warn(`⚠️  [${index + 1}] Could not derive base name for processed video from s3Key: ${fileData.s3Key}.`);
-                return {
-                    ...fileData,
-                    fileUrl: null,
-                    error: 'Could not derive processed video path from s3Key',
-                    status: 'error'
-                };
-            }
+                if (!mediaConvertBaseName) {
+                    console.warn(`⚠️  [${index + 1}] Could not derive base name for processed video from s3Key: ${fileData.s3Key}.`);
+                    return {
+                        ...fileData,
+                        fileUrl: null,
+                        error: 'Could not derive processed video path from s3Key',
+                        status: 'error'
+                    };
+                }
 
-            const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
-            const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+                // FIX: Ensure this path is correct for CloudFront and S3 HeadObject.
+                // It should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for CloudFront
+                // And `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for S3 Key
+                const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+                const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
 
-            console.log(`✅ [${index + 1}] Generated base URL for ${originalFilename}`);
-            return {
-                ...fileData,
-                fileUrl: `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedHlsPath}`, // Base URL
-                processedPath: processedHlsPath,
-                s3KeyForProcessedVideo: s3KeyForProcessedVideo,
-                status: fileData.status || 'processing', // Preserve existing status or default
-                signedCookies: signedCookies // Attach signed cookies to each item for frontend to use
-            };
-        });
+                try {
+                    // Generate signed URL. Here, we set `checkFileExists` to `true`
+                    // because we expect these files to have been processed and exist in S3.
+                    // The generateCloudFrontSignedUrl function will handle the leading slash for S3 Key.
+                    const signedCloudFrontUrl = await generateCloudFrontSignedUrl(processedHlsPath, PROCESSED_VIDEO_BUCKET_NAME, true); // Pass processed bucket name
 
-        const successCount = mediaFilesWithUrlsAndCookies.filter(f => f.status === 'ready').length;
-        const errorCount = mediaFilesWithUrlsAndCookies.filter(f => f.status === 'error').length;
+                    console.log(`✅ [${index + 1}] Generated signed URL successfully for ${originalFilename}`);
+                    return {
+                        ...fileData,
+                        fileUrl: signedCloudFrontUrl, // The signed URL for the processed file
+                        processedPath: processedHlsPath, // The CloudFront path for the processed file
+                        s3KeyForProcessedVideo: s3KeyForProcessedVideo, // The S3 key for the processed video (for clarity)
+                        status: 'ready' // Indicate successful processing
+                    };
+                } catch (signingError: any) {
+                    console.error(`❌ [${index + 1}] Signing failed for ${originalFilename}:`, signingError?.message || 'Unknown error');
+                    return {
+                        ...fileData,
+                        fileUrl: null,
+                        error: signingError?.message || 'Unknown signing error',
+                        processedPath: processedHlsPath,
+                        s3KeyForProcessedVideo: s3KeyForProcessedVideo,
+                        status: 'error' // Indicate an error for this specific file
+                    };
+                }
+            })
+        );
+
+        // Log a summary of the processing results
+        const successCount = mediaFilesWithSignedUrls.filter(f => f.status === 'ready').length;
+        const errorCount = mediaFilesWithSignedUrls.filter(f => f.status === 'error').length;
         console.log(`📈 Media file processing complete - Successful: ${successCount}, Failed: ${errorCount}`);
 
-        return mediaFilesWithUrlsAndCookies;
+        return mediaFilesWithSignedUrls;
     } catch (error) {
         console.error('❌ Error in getAllMedia service:', error);
-        throw error;
+        throw error; // Re-throw the error for higher-level handling
     }
 };
 
@@ -262,29 +351,33 @@ export const getAllMedia = async (): Promise<any[]> => {
  */
 export const deleteMedia = async (fileId: string): Promise<{ message: string }> => {
     try {
+        // Find the media file in the database
         const mediaFile = await MediaFile.findByPk(fileId);
+
         if (!mediaFile) {
             const error = new Error(`Media file with ID ${fileId} not found.`);
-            (error as any).statusCode = 404;
+            (error as any).statusCode = 404; // Custom status code for HTTP responses
             throw error;
         }
 
+        // Define parameters for the S3 DeleteObjectCommand
         const params: DeleteObjectCommandInput = {
-            Bucket: (mediaFile as any).s3Bucket,
-            Key: (mediaFile as any).s3Key,
+            Bucket: (mediaFile as any).s3Bucket, // This will be RAW_VIDEO_BUCKET_NAME as stored during upload
+            Key: (mediaFile as any).s3Key, // S3 key of the original file
         };
 
         console.log(`🗑️ Deleting file from S3: ${(mediaFile as any).s3Key}`);
         await s3Client.send(new DeleteObjectCommand(params));
         console.log(`✅ Successfully deleted from S3.`);
 
+        // Delete the entry from the database
         await mediaFile.destroy();
         console.log(`✅ Successfully deleted media file entry from database: ${fileId}`);
 
         return { message: 'Media file deleted successfully.' };
     } catch (error) {
         console.error(`❌ Error in deleteMedia service for ID ${fileId}:`, error);
-        throw error;
+        throw error; // Re-throw the error
     }
 };
 
@@ -311,6 +404,7 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<{
     const uploadedFilesMetadata: any[] = [];
     const errors: any[] = [];
 
+    // Process files sequentially to manage resource usage and avoid potential rate limiting.
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fileNumber = i + 1;
@@ -320,6 +414,7 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<{
         console.log(`🎭 MIME type: ${file.mimetype}`);
 
         try {
+            // Call the single file upload function
             const result = await uploadMedia(
                 file.buffer,
                 file.originalname,
@@ -346,11 +441,14 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<{
             });
         }
 
+        // Add a small delay between uploads to prevent overwhelming S3/CloudFront with requests.
+        // Adjust the delay as needed based on your expected throughput and AWS service limits.
         if (i < files.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
         }
     }
 
+    // Final summary of the batch upload operation
     console.log(`\n📊 Batch upload completed:`);
     console.log(`✅ Successful uploads: ${uploadedFilesMetadata.length}`);
     console.log(`❌ Failed uploads: ${errors.length}`);
@@ -374,18 +472,19 @@ export const uploadMultipleMedia = async (files: multer.File[]): Promise<{
     };
 };
 
+// NEW UTILITY FUNCTIONS FOR DEBUGGING AND VALIDATION
+
 /**
- * Tests CloudFront access for a given processed path by attempting to generate signed cookies
+ * Tests CloudFront access for a given processed path by attempting to generate a signed URL
  * and optionally checking for file existence in S3.
  * This is a helpful diagnostic tool for CloudFront 403 issues.
  *
  * @param processedPath The CloudFront path to test (e.g., /processed-videos/myvideo/index.m3u8).
- * @returns An object indicating success/failure, the base URL, signed cookies, error message, and file existence status.
+ * @returns An object indicating success/failure, the signed URL (if successful), error message, and file existence status.
  */
 export const testCloudFrontAccess = async (processedPath: string): Promise<{
     success: boolean;
-    baseUrl?: string; // Changed from signedUrl to baseUrl
-    signedCookies?: CloudfrontSignedCookiesOutput; // Corrected type here
+    signedUrl?: string;
     error?: string;
     fileExists?: boolean;
     s3Key?: string;
@@ -393,33 +492,31 @@ export const testCloudFrontAccess = async (processedPath: string): Promise<{
     try {
         console.log(`🧪 Initiating CloudFront access test for path: ${processedPath}`);
 
+        // Derive S3 key from the processed path for file existence check
+        // The CloudFront path starts with `/processed-videos/`, but the S3 key
+        // should start with `processed-videos/` (no leading slash).
         const s3Key = processedPath.startsWith('/') ? processedPath.substring(1) : processedPath;
         let fileExists = false;
 
+        // Check if the file exists in S3 (should check in the processed videos bucket)
         try {
             await s3Client.send(new HeadObjectCommand({
-                Bucket: PROCESSED_VIDEO_BUCKET_NAME,
-                Key: s3Key
+                Bucket: PROCESSED_VIDEO_BUCKET_NAME, // Use the processed video bucket for this check
+                Key: s3Key // Use the correctly formatted S3 key
             }));
             fileExists = true;
             console.log(`✅ File confirmed to exist in S3: ${s3Key} in bucket: ${PROCESSED_VIDEO_BUCKET_NAME}`);
         } catch (s3Error: any) {
             console.log(`❌ File NOT found in S3: ${s3Key} in bucket: ${PROCESSED_VIDEO_BUCKET_NAME} - ${s3Error?.message || 'Unknown S3 error'}`);
+            // Do not throw, just report status
         }
 
-        const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-        if (!CLOUDFRONT_MEDIA_DOMAIN) {
-            throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is missing.');
-        }
-
-        // Generate signed cookies for the path pattern that covers the test path
-        const resourcePathPattern = `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedPath.substring(0, processedPath.lastIndexOf('/') + 1)}*`; // Sign the folder
-        const signedCookies = await getCloudFrontSignedCookies(resourcePathPattern);
+        // Attempt to generate a signed URL (without re-checking file existence within generateCloudFrontSignedUrl)
+        const signedUrl = await generateCloudFrontSignedUrl(processedPath, PROCESSED_VIDEO_BUCKET_NAME, false); // Pass processed bucket name
 
         return {
             success: true,
-            baseUrl: `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedPath}`, // Base URL
-            signedCookies,
+            signedUrl,
             fileExists,
             s3Key
         };
@@ -454,6 +551,7 @@ export const validateEnvironmentVariables = (): { valid: boolean; missing: strin
         if (!value) {
             missing.push(envVar);
         } else {
+            // Add specific validation checks for each environment variable
             if (envVar === 'CLOUDFRONT_PRIVATE_KEY') {
                 if (!value.includes('-----BEGIN') || !value.includes('-----END')) {
                     warnings.push(`CLOUDFRONT_PRIVATE_KEY may be missing "-----BEGIN PRIVATE KEY-----" or "-----END PRIVATE KEY-----" markers. Ensure it's copied correctly.`);
@@ -469,6 +567,7 @@ export const validateEnvironmentVariables = (): { valid: boolean; missing: strin
         }
     });
 
+    // Also validate the new bucket environment variables
     if (!process.env.RAW_VIDEO_BUCKET_NAME) {
         missing.push('RAW_VIDEO_BUCKET_NAME');
     }
@@ -484,10 +583,11 @@ export const validateEnvironmentVariables = (): { valid: boolean; missing: strin
 };
 
 /**
- * Retrieves a single media file by its original filename from the database and generates CloudFront signed cookies for it.
+ * Retrieves a single media file by its original filename from the database and generates a signed CloudFront URL for it.
+ * Useful for debugging specific files.
  *
  * @param filename The original filename of the media file to retrieve.
- * @returns A promise that resolves with the media file metadata, including the base URL and signed cookies.
+ * @returns A promise that resolves with the media file metadata, including the signed URL, or an error status.
  * @throws An error if the media file is not found.
  */
 export const getMediaByFilename = async (filename: string): Promise<any> => {
@@ -500,37 +600,47 @@ export const getMediaByFilename = async (filename: string): Promise<any> => {
         });
 
         if (!mediaFile) {
-            throw new Error(`Media file not found with original filename: ${filename}`); // Corrected: removed extra 'new'
+            throw new Error(`Media file not found with original filename: ${filename}`);
         }
 
         const fileData = mediaFile.toJSON();
+        // Re-derive the processed HLS path consistently based on the stored s3Key.
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
         const mediaConvertBaseName = fileData.s3Key.split('/').pop()?.split('.')[0] || '';
 
         if (!mediaConvertBaseName) {
             throw new Error('Could not derive base name for processed video from S3 key.');
         }
 
+        // FIX: Ensure this path is correct for CloudFront and S3 HeadObject.
+        // It should be `/processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for CloudFront
+        // And `processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8` for S3 Key
         const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
-        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
+        const s3KeyForProcessedVideo = `processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`; // This is the actual S3 key
 
-        const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
-        if (!CLOUDFRONT_MEDIA_DOMAIN) {
-            throw new Error('CLOUDFRONT_MEDIA_DOMAIN environment variable is missing.');
+
+        try {
+            // Generate signed URL, checking for file existence
+            const signedCloudFrontUrl = await generateCloudFrontSignedUrl(processedHlsPath, PROCESSED_VIDEO_BUCKET_NAME, true); // Pass processed bucket name
+            console.log(`✅ Successfully retrieved and signed URL for ${filename}`);
+            return {
+                ...fileData,
+                fileUrl: signedCloudFrontUrl,
+                processedPath: processedHlsPath,
+                s3KeyForProcessedVideo: s3KeyForProcessedVideo,
+                status: 'ready'
+            };
+        } catch (signingError: any) {
+            console.error(`❌ Signing failed for ${filename}:`, signingError?.message || 'Unknown error');
+            return {
+                ...fileData,
+                fileUrl: null,
+                error: signingError?.message || 'Unknown signing error',
+                processedPath: processedHlsPath,
+                s3KeyForProcessedVideo: s3KeyForProcessedVideo,
+                status: 'error'
+            };
         }
-
-        // Generate signed cookies for the processed video path pattern
-        const resourcePathPattern = `https://${CLOUDFRONT_MEDIA_DOMAIN}/processed-videos/*`;
-        const signedCookies = await getCloudFrontSignedCookies(resourcePathPattern);
-
-        console.log(`✅ Successfully retrieved and generated cookies for ${filename}`);
-        return {
-            ...fileData,
-            fileUrl: `https://${CLOUDFRONT_MEDIA_DOMAIN}${processedHlsPath}`, // Base URL
-            processedPath: processedHlsPath,
-            s3KeyForProcessedVideo: s3KeyForProcessedVideo,
-            status: fileData.status || 'ready', // Assume ready if fetched
-            signedCookies: signedCookies // Attach signed cookies
-        };
     } catch (error: any) {
         console.error(`❌ Error in getMediaByFilename service for ${filename}:`, error);
         throw error;

@@ -4,7 +4,6 @@
 import { Request, Response } from 'express';
 import * as mediaFileService from '../services/Mediafile.service';
 import multer from 'multer';
-import { CloudfrontSignedCookiesOutput } from '@aws-sdk/cloudfront-signer'; // Import CloudfrontSignedCookiesOutput
 
 // Enhanced interface to match the service response structure
 interface MediaFileEntryResponse {
@@ -22,7 +21,6 @@ interface MediaFileEntryResponse {
   originalS3Key?: string;
   status?: 'ready' | 'error' | 'processing';
   error?: string;
-  signedCookies?: CloudfrontSignedCookiesOutput; // Added signedCookies property
 }
 
 // Enhanced interface for batch upload results
@@ -144,8 +142,6 @@ export const uploadFile = async (req: Request, res: Response) => {
         status: mediaFileEntry.status || 'processing', // Default to 'processing' if not explicitly set
         createdAt: mediaFileEntry.createdAt
       },
-      // Include signed cookies directly in the response for the frontend to set
-      signedCookies: mediaFileEntry.signedCookies,
       success: true,
       timestamp: new Date().toISOString()
     });
