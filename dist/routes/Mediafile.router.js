@@ -53,4 +53,7 @@ router.get('/list', authMiddleware.isAuth, mediaFileController.listMedia);
 // DELETE /api/media/delete/:id
 // Requires authentication to delete media
 router.delete('/delete/:id', authMiddleware.isAuth, mediaFileController.deleteFile);
+router.post('/test-cloudfront', authMiddleware.isAuth, mediaFileController.testCloudFrontAccess);
+router.get('/validate-env', authMiddleware.isAuth, mediaFileController.validateEnvironment);
+router.get('/by-filename/:filename', authMiddleware.isAuth, mediaFileController.getMediaByFilename);
 exports.default = router; // Use default export for the router
