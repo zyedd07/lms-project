@@ -1,4 +1,3 @@
-
 // Import S3Client from AWS SDK v3
 import { S3Client } from '@aws-sdk/client-s3';
 
@@ -13,12 +12,14 @@ const s3Client = new S3Client({
   },
 });
 
-// Correct way to export multiple named items from an object literal in TypeScript
-const S3_BUCKET_NAME: string = process.env.S3_BUCKET_NAME as string;
+// Define separate bucket names for raw and processed videos
+const RAW_VIDEO_BUCKET_NAME: string = process.env.RAW_VIDEO_BUCKET_NAME as string;
+const PROCESSED_VIDEO_BUCKET_NAME: string = process.env.PROCESSED_VIDEO_BUCKET_NAME as string;
 const AWS_REGION: string = process.env.AWS_REGION as string; // Still useful for metadata storage
 
 export {
   s3Client, // Export the new v3 S3Client instance
-  S3_BUCKET_NAME,
+  RAW_VIDEO_BUCKET_NAME,
+  PROCESSED_VIDEO_BUCKET_NAME,
   AWS_REGION,
 };

@@ -17,7 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMediaByFilename = exports.validateEnvironmentVariables = exports.testCloudFrontAccess = exports.uploadMultipleMedia = exports.deleteMedia = exports.getAllMedia = exports.uploadMedia = void 0;
 const client_s3_1 = require("@aws-sdk/client-s3");
 const cloudfront_signer_1 = require("@aws-sdk/cloudfront-signer");
-const aws_1 = require("../config/aws");
+const aws_1 = require("../config/aws"); // Updated import
 const Mediafile_model_1 = __importDefault(require("../models/Mediafile.model"));
 /**
  * Generates a CloudFront signed URL for a given processed file path.
@@ -25,12 +25,14 @@ const Mediafile_model_1 = __importDefault(require("../models/Mediafile.model"));
  *
  * @param processedCloudFrontPath The path to the file on CloudFront (e.g., /processed-videos/myvideo/index.m3u8).
  * This path should be relative to the CloudFront distribution's root.
+ * @param s3BucketForCheck The S3 bucket name where the file is expected to exist for the HeadObjectCommand check.
  * @param checkFileExists Optional. If true, performs a HeadObjectCommand on S3 to verify file existence before signing.
  * Useful for debugging, but can be set to false for files that will be created later (e.g., by MediaConvert).
  * @returns A promise that resolves with the generated signed URL.
  * @throws An error if CloudFront environment variables are missing, the private key is malformed, or signing fails.
  */
-const generateCloudFrontSignedUrl = (processedCloudFrontPath_1, ...args_1) => __awaiter(void 0, [processedCloudFrontPath_1, ...args_1], void 0, function* (processedCloudFrontPath, checkFileExists = true) {
+const generateCloudFrontSignedUrl = (processedCloudFrontPath_1, s3BucketForCheck_1, ...args_1) => __awaiter(void 0, [processedCloudFrontPath_1, s3BucketForCheck_1, ...args_1], void 0, function* (processedCloudFrontPath, s3BucketForCheck, // New parameter to specify which S3 bucket to check
+checkFileExists = true) {
     // Retrieve CloudFront environment variables
     const CLOUDFRONT_MEDIA_DOMAIN = process.env.CLOUDFRONT_MEDIA_DOMAIN;
     const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY;
@@ -57,13 +59,13 @@ const generateCloudFrontSignedUrl = (processedCloudFrontPath_1, ...args_1) => __
         const s3Key = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
         try {
             yield aws_1.s3Client.send(new client_s3_1.HeadObjectCommand({
-                Bucket: aws_1.S3_BUCKET_NAME,
+                Bucket: s3BucketForCheck, // Use the provided bucket name for the check
                 Key: s3Key
             }));
-            console.log(`✅ File verified in S3: ${s3Key}`);
+            console.log(`✅ File verified in S3: ${s3Key} in bucket: ${s3BucketForCheck}`);
         }
         catch (s3Error) {
-            console.warn(`⚠️  File may not exist in S3: ${s3Key} - ${(s3Error === null || s3Error === void 0 ? void 0 : s3Error.message) || 'Unknown error'}. This might be expected if MediaConvert is still processing.`);
+            console.warn(`⚠️  File may not exist in S3: ${s3Key} in bucket: ${s3BucketForCheck} - ${(s3Error === null || s3Error === void 0 ? void 0 : s3Error.message) || 'Unknown error'}. This might be expected if MediaConvert is still processing.`);
             // Do not throw an error here, as the file might be created by MediaConvert later.
         }
     }
@@ -142,7 +144,7 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
     console.log(`📁 S3 Key to be used: ${s3Key}`);
     // Define parameters for the S3 PutObjectCommand
     const params = {
-        Bucket: aws_1.S3_BUCKET_NAME,
+        Bucket: aws_1.RAW_VIDEO_BUCKET_NAME, // Use the raw video bucket for uploads
         Key: s3Key,
         Body: fileBuffer,
         ContentType: mimetype,
@@ -153,7 +155,7 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
     };
     try {
         // Step 1: Upload the file to S3
-        console.log(`📤 Uploading file to S3 bucket "${aws_1.S3_BUCKET_NAME}"...`);
+        console.log(`📤 Uploading file to S3 bucket "${aws_1.RAW_VIDEO_BUCKET_NAME}"...`);
         yield aws_1.s3Client.send(new client_s3_1.PutObjectCommand(params));
         console.log(`✅ S3 upload successful: ${s3Key}`);
         // Step 2: Create a database entry for the uploaded file
@@ -161,9 +163,9 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         const mediaFileEntry = yield Mediafile_model_1.default.create({
             originalName: originalname,
             s3Key: s3Key,
-            s3Bucket: aws_1.S3_BUCKET_NAME,
+            s3Bucket: aws_1.RAW_VIDEO_BUCKET_NAME, // Store the raw video bucket name
             s3Region: aws_1.AWS_REGION,
-            fileUrl: `s3://${aws_1.S3_BUCKET_NAME}/${s3Key}`, // S3 URI for the original file
+            fileUrl: `s3://${aws_1.RAW_VIDEO_BUCKET_NAME}/${s3Key}`, // S3 URI for the original file
             mimeType: mimetype,
             fileSize: fileSize,
         });
@@ -180,7 +182,7 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         // Step 4: Generate a CloudFront signed URL for the *expected* processed file.
         // We set `checkFileExists` to `false` here because MediaConvert will create this file asynchronously.
         console.log(`🔐 Generating CloudFront signed URL for processed path...`);
-        const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, false);
+        const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, aws_1.PROCESSED_VIDEO_BUCKET_NAME, false); // Pass processed bucket name
         console.log(`✅ Upload process completed successfully for ${originalname}`);
         // Return the database entry along with the signed CloudFront URL and other relevant paths.
         return Object.assign(Object.assign({}, mediaFileEntry.toJSON()), { fileUrl: signedCloudFrontUrl, processedPath: processedHlsPath, originalS3Key: s3Key // The S3 key for the original uploaded file
@@ -190,7 +192,7 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         console.error(`❌ Upload failed for ${originalname}:`, error);
         // Enhance error messages for common S3/CloudFront issues
         if ((error === null || error === void 0 ? void 0 : error.name) === 'NoSuchBucket') {
-            throw new Error(`S3 bucket "${aws_1.S3_BUCKET_NAME}" does not exist or is not accessible. Check your S3_BUCKET_NAME configuration.`);
+            throw new Error(`S3 bucket "${aws_1.RAW_VIDEO_BUCKET_NAME}" does not exist or is not accessible. Check your RAW_VIDEO_BUCKET_NAME configuration.`);
         }
         else if ((error === null || error === void 0 ? void 0 : error.name) === 'AccessDenied') {
             throw new Error('S3 access denied. Check IAM permissions for PutObject operation on your S3 bucket.');
@@ -246,7 +248,7 @@ const getAllMedia = () => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 // Generate signed URL. Here, we set `checkFileExists` to `true`
                 // because we expect these files to have been processed and exist in S3.
-                const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, true);
+                const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, aws_1.PROCESSED_VIDEO_BUCKET_NAME, true); // Pass processed bucket name
                 console.log(`✅ [${index + 1}] Generated signed URL successfully for ${originalFilename}`);
                 return Object.assign(Object.assign({}, fileData), { fileUrl: signedCloudFrontUrl, processedPath: processedHlsPath, status: 'ready' // Indicate successful processing
                  });
@@ -287,7 +289,7 @@ const deleteMedia = (fileId) => __awaiter(void 0, void 0, void 0, function* () {
         }
         // Define parameters for the S3 DeleteObjectCommand
         const params = {
-            Bucket: mediaFile.s3Bucket,
+            Bucket: mediaFile.s3Bucket, // This will be RAW_VIDEO_BUCKET_NAME as stored during upload
             Key: mediaFile.s3Key, // S3 key of the original file
         };
         console.log(`🗑️ Deleting file from S3: ${mediaFile.s3Key}`);
@@ -382,21 +384,21 @@ const testCloudFrontAccess = (processedPath) => __awaiter(void 0, void 0, void 0
         // Derive S3 key from the processed path for file existence check
         const s3Key = processedPath.startsWith('/') ? processedPath.substring(1) : processedPath;
         let fileExists = false;
-        // Check if the file exists in S3
+        // Check if the file exists in S3 (should check in the processed videos bucket)
         try {
             yield aws_1.s3Client.send(new client_s3_1.HeadObjectCommand({
-                Bucket: aws_1.S3_BUCKET_NAME,
+                Bucket: aws_1.PROCESSED_VIDEO_BUCKET_NAME, // Use the processed video bucket for this check
                 Key: s3Key
             }));
             fileExists = true;
-            console.log(`✅ File confirmed to exist in S3: ${s3Key}`);
+            console.log(`✅ File confirmed to exist in S3: ${s3Key} in bucket: ${aws_1.PROCESSED_VIDEO_BUCKET_NAME}`);
         }
         catch (s3Error) {
-            console.log(`❌ File NOT found in S3: ${s3Key} - ${(s3Error === null || s3Error === void 0 ? void 0 : s3Error.message) || 'Unknown S3 error'}`);
+            console.log(`❌ File NOT found in S3: ${s3Key} in bucket: ${aws_1.PROCESSED_VIDEO_BUCKET_NAME} - ${(s3Error === null || s3Error === void 0 ? void 0 : s3Error.message) || 'Unknown S3 error'}`);
             // Do not throw, just report status
         }
         // Attempt to generate a signed URL (without re-checking file existence within generateCloudFrontSignedUrl)
-        const signedUrl = yield generateCloudFrontSignedUrl(processedPath, false);
+        const signedUrl = yield generateCloudFrontSignedUrl(processedPath, aws_1.PROCESSED_VIDEO_BUCKET_NAME, false); // Pass processed bucket name
         return {
             success: true,
             signedUrl,
@@ -450,6 +452,13 @@ const validateEnvironmentVariables = () => {
             }
         }
     });
+    // Also validate the new bucket environment variables
+    if (!process.env.RAW_VIDEO_BUCKET_NAME) {
+        missing.push('RAW_VIDEO_BUCKET_NAME');
+    }
+    if (!process.env.PROCESSED_VIDEO_BUCKET_NAME) {
+        missing.push('PROCESSED_VIDEO_BUCKET_NAME');
+    }
     return {
         valid: missing.length === 0,
         missing,
@@ -487,7 +496,7 @@ const getMediaByFilename = (filename) => __awaiter(void 0, void 0, void 0, funct
         const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
         try {
             // Generate signed URL, checking for file existence
-            const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, true);
+            const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, aws_1.PROCESSED_VIDEO_BUCKET_NAME, true); // Pass processed bucket name
             console.log(`✅ Successfully retrieved and signed URL for ${filename}`);
             return Object.assign(Object.assign({}, fileData), { fileUrl: signedCloudFrontUrl, processedPath: processedHlsPath, status: 'ready' });
         }
