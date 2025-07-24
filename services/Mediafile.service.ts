@@ -178,12 +178,14 @@ export const uploadMedia = async (
 
         // Step 3: Determine the expected path for the processed video (e.g., HLS output from MediaConvert).
         // This path is used to generate the CloudFront signed URL.
-        const filenameWithoutExtension = sanitizedFilename
-            .split('.')
-            .slice(0, -1) // Remove the last part (extension)
-            .join('.');
-        // Assuming MediaConvert outputs HLS to a specific path structure
-        const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+        const mediaConvertBaseName = s3Key.split('/').pop()?.split('.')[0] || ''; // Extract "TIMESTAMP_FILENAME" from "uploads/TIMESTAMP_FILENAME.ext"
+
+        if (!mediaConvertBaseName) {
+            throw new Error('Could not derive base name for processed video from S3 key.');
+        }
+
+        const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
         console.log(`🎬 Expected processed video path for CloudFront: ${processedHlsPath}`);
 
         // Step 4: Generate a CloudFront signed URL for the *expected* processed file.
@@ -258,15 +260,21 @@ export const getAllMedia = async (): Promise<any[]> => {
                     };
                 }
 
-                // Sanitize the filename consistently with the upload process to derive the processed path.
-                const sanitizedFilename = originalFilename.replace(/[^a-zA-Z0-9.-_]/g, '_');
-                const filenameWithoutExtension = sanitizedFilename
-                    .split('.')
-                    .slice(0, -1)
-                    .join('.');
+                // Re-derive the processed HLS path consistently based on the stored s3Key.
+                // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+                const mediaConvertBaseName = fileData.s3Key.split('/').pop()?.split('.')[0] || '';
 
-                // Construct the expected processed HLS path on CloudFront.
-                const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+                if (!mediaConvertBaseName) {
+                    console.warn(`⚠️  [${index + 1}] Could not derive base name for processed video from s3Key: ${fileData.s3Key}.`);
+                    return {
+                        ...fileData,
+                        fileUrl: null,
+                        error: 'Could not derive processed video path from s3Key',
+                        status: 'error'
+                    };
+                }
+
+                const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
 
                 try {
                     // Generate signed URL. Here, we set `checkFileExists` to `true`
@@ -329,12 +337,11 @@ export const deleteMedia = async (fileId: string): Promise<{ message: string }> 
             Key: (mediaFile as any).s3Key, // S3 key of the original file
         };
 
-        // Step 1: Delete the file from S3
         console.log(`🗑️ Deleting file from S3: ${(mediaFile as any).s3Key}`);
         await s3Client.send(new DeleteObjectCommand(params));
         console.log(`✅ Successfully deleted from S3.`);
 
-        // Step 2: Delete the entry from the database
+        // Delete the entry from the database
         await mediaFile.destroy();
         console.log(`✅ Successfully deleted media file entry from database: ${fileId}`);
 
@@ -558,10 +565,15 @@ export const getMediaByFilename = async (filename: string): Promise<any> => {
         }
 
         const fileData = mediaFile.toJSON();
-        // Re-derive the processed HLS path consistently
-        const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-_]/g, '_');
-        const filenameWithoutExtension = sanitizedFilename.split('.').slice(0, -1).join('.');
-        const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+        // Re-derive the processed HLS path consistently based on the stored s3Key.
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+        const mediaConvertBaseName = fileData.s3Key.split('/').pop()?.split('.')[0] || '';
+
+        if (!mediaConvertBaseName) {
+            throw new Error('Could not derive base name for processed video from S3 key.');
+        }
+
+        const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
 
         try {
             // Generate signed URL, checking for file existence

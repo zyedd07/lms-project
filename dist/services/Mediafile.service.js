@@ -132,7 +132,7 @@ const generateCloudFrontSignedUrl = (processedCloudFrontPath_1, ...args_1) => __
  * @throws An error if S3 upload or database operations fail.
  */
 const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     // Generate a unique S3 key using a timestamp and a sanitized version of the original filename.
     const timestamp = Date.now();
     // Sanitize filename to remove characters that might cause issues in S3 keys or URLs.
@@ -170,12 +170,12 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         console.log(`✅ Database entry created with ID: ${mediaFileEntry.id}`);
         // Step 3: Determine the expected path for the processed video (e.g., HLS output from MediaConvert).
         // This path is used to generate the CloudFront signed URL.
-        const filenameWithoutExtension = sanitizedFilename
-            .split('.')
-            .slice(0, -1) // Remove the last part (extension)
-            .join('.');
-        // Assuming MediaConvert outputs HLS to a specific path structure
-        const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+        const mediaConvertBaseName = ((_a = s3Key.split('/').pop()) === null || _a === void 0 ? void 0 : _a.split('.')[0]) || ''; // Extract "TIMESTAMP_FILENAME" from "uploads/TIMESTAMP_FILENAME.ext"
+        if (!mediaConvertBaseName) {
+            throw new Error('Could not derive base name for processed video from S3 key.');
+        }
+        const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
         console.log(`🎬 Expected processed video path for CloudFront: ${processedHlsPath}`);
         // Step 4: Generate a CloudFront signed URL for the *expected* processed file.
         // We set `checkFileExists` to `false` here because MediaConvert will create this file asynchronously.
@@ -195,10 +195,10 @@ const uploadMedia = (fileBuffer, originalname, mimetype, fileSize) => __awaiter(
         else if ((error === null || error === void 0 ? void 0 : error.name) === 'AccessDenied') {
             throw new Error('S3 access denied. Check IAM permissions for PutObject operation on your S3 bucket.');
         }
-        else if ((_a = error === null || error === void 0 ? void 0 : error.message) === null || _a === void 0 ? void 0 : _a.includes('CloudFront')) {
+        else if ((_b = error === null || error === void 0 ? void 0 : error.message) === null || _b === void 0 ? void 0 : _b.includes('CloudFront')) {
             throw new Error(`CloudFront configuration or signing error during upload: ${error.message}`);
         }
-        else if ((_b = error === null || error === void 0 ? void 0 : error.message) === null || _b === void 0 ? void 0 : _b.includes('signing')) {
+        else if ((_c = error === null || error === void 0 ? void 0 : error.message) === null || _c === void 0 ? void 0 : _c.includes('signing')) {
             throw new Error(`URL signing failed during upload: ${error.message}. Check your CloudFront private key and key pair ID.`);
         }
         throw error; // Re-throw any other unhandled errors
@@ -225,6 +225,7 @@ const getAllMedia = () => __awaiter(void 0, void 0, void 0, function* () {
         // Using Promise.allSettled would be more robust if you need to continue processing
         // even if some promises fail, but Promise.all is fine if individual errors are handled.
         const mediaFilesWithSignedUrls = yield Promise.all(mediaFiles.map((file, index) => __awaiter(void 0, void 0, void 0, function* () {
+            var _a;
             const fileData = file.toJSON();
             const originalFilename = fileData.originalName;
             console.log(`[${index + 1}/${mediaFiles.length}] Processing file: ${originalFilename || fileData.s3Key}`);
@@ -234,14 +235,14 @@ const getAllMedia = () => __awaiter(void 0, void 0, void 0, function* () {
                 return Object.assign(Object.assign({}, fileData), { fileUrl: null, error: 'Missing original filename for processed path generation', status: 'error' // Indicate an error for this specific file
                  });
             }
-            // Sanitize the filename consistently with the upload process to derive the processed path.
-            const sanitizedFilename = originalFilename.replace(/[^a-zA-Z0-9.-_]/g, '_');
-            const filenameWithoutExtension = sanitizedFilename
-                .split('.')
-                .slice(0, -1)
-                .join('.');
-            // Construct the expected processed HLS path on CloudFront.
-            const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+            // Re-derive the processed HLS path consistently based on the stored s3Key.
+            // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+            const mediaConvertBaseName = ((_a = fileData.s3Key.split('/').pop()) === null || _a === void 0 ? void 0 : _a.split('.')[0]) || '';
+            if (!mediaConvertBaseName) {
+                console.warn(`⚠️  [${index + 1}] Could not derive base name for processed video from s3Key: ${fileData.s3Key}.`);
+                return Object.assign(Object.assign({}, fileData), { fileUrl: null, error: 'Could not derive processed video path from s3Key', status: 'error' });
+            }
+            const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
             try {
                 // Generate signed URL. Here, we set `checkFileExists` to `true`
                 // because we expect these files to have been processed and exist in S3.
@@ -289,11 +290,10 @@ const deleteMedia = (fileId) => __awaiter(void 0, void 0, void 0, function* () {
             Bucket: mediaFile.s3Bucket,
             Key: mediaFile.s3Key, // S3 key of the original file
         };
-        // Step 1: Delete the file from S3
         console.log(`🗑️ Deleting file from S3: ${mediaFile.s3Key}`);
         yield aws_1.s3Client.send(new client_s3_1.DeleteObjectCommand(params));
         console.log(`✅ Successfully deleted from S3.`);
-        // Step 2: Delete the entry from the database
+        // Delete the entry from the database
         yield mediaFile.destroy();
         console.log(`✅ Successfully deleted media file entry from database: ${fileId}`);
         return { message: 'Media file deleted successfully.' };
@@ -466,6 +466,7 @@ exports.validateEnvironmentVariables = validateEnvironmentVariables;
  * @throws An error if the media file is not found.
  */
 const getMediaByFilename = (filename) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         console.log(`🔍 Attempting to retrieve media file by filename: ${filename}`);
         const mediaFile = yield Mediafile_model_1.default.findOne({
@@ -477,10 +478,13 @@ const getMediaByFilename = (filename) => __awaiter(void 0, void 0, void 0, funct
             throw new Error(`Media file not found with original filename: ${filename}`);
         }
         const fileData = mediaFile.toJSON();
-        // Re-derive the processed HLS path consistently
-        const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-_]/g, '_');
-        const filenameWithoutExtension = sanitizedFilename.split('.').slice(0, -1).join('.');
-        const processedHlsPath = `/processed-videos/${filenameWithoutExtension}/index.m3u8`;
+        // Re-derive the processed HLS path consistently based on the stored s3Key.
+        // Based on S3 listing: processed-videos/TIMESTAMP_FILENAME/TIMESTAMP_FILENAME.m3u8
+        const mediaConvertBaseName = ((_a = fileData.s3Key.split('/').pop()) === null || _a === void 0 ? void 0 : _a.split('.')[0]) || '';
+        if (!mediaConvertBaseName) {
+            throw new Error('Could not derive base name for processed video from S3 key.');
+        }
+        const processedHlsPath = `/processed-videos/${mediaConvertBaseName}/${mediaConvertBaseName}.m3u8`;
         try {
             // Generate signed URL, checking for file existence
             const signedCloudFrontUrl = yield generateCloudFrontSignedUrl(processedHlsPath, true);
