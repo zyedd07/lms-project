@@ -27,20 +27,15 @@ const REFRESH_THRESHOLD = 7 * 24 * 60 * 60; // 7 days in seconds - refresh if to
 /**
  * Helper function to generate a new JWT token with 30-day expiry
  */
-export const generateToken = (payload: JwtUserPayload, expiresIn: string = TOKEN_EXPIRY): string => {
+export const generateToken = (payload: JwtUserPayload, expiresIn: string | number = TOKEN_EXPIRY): string => {
     const secretKey = process.env.SECRET_KEY;
     
     if (!secretKey) {
         throw new Error('SECRET_KEY is not defined in environment variables');
     }
     
-    // Define options with explicit type
-    const options: SignOptions = {
-        expiresIn: expiresIn
-    };
-    
     // Cast payload to object to satisfy jwt.sign type requirements
-    return jwt.sign(payload as object, secretKey, options);
+    return jwt.sign(payload as object, secretKey, { expiresIn: expiresIn as string | number });
 };
 
 /**
