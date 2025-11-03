@@ -1,7 +1,7 @@
 // middleware/auth.ts
 
 import { Response, NextFunction } from 'express';
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { AuthenticatedRequest, JwtUserPayload } from '../utils/types';
 import HttpError from '../utils/httpError';
 
@@ -27,7 +27,7 @@ const REFRESH_THRESHOLD = 7 * 24 * 60 * 60; // 7 days in seconds - refresh if to
 /**
  * Helper function to generate a new JWT token with 30-day expiry
  */
-export const generateToken = (payload: JwtUserPayload, expiresIn: string | number = TOKEN_EXPIRY): string => {
+export const generateToken = (payload: JwtUserPayload, expiresIn = TOKEN_EXPIRY): string => {
     const secretKey = process.env.SECRET_KEY;
     
     if (!secretKey) {
@@ -50,7 +50,8 @@ export const generateToken = (payload: JwtUserPayload, expiresIn: string | numbe
         country: payload.country
     };
     
-    return jwt.sign(tokenPayload, secretKey, { expiresIn });
+    // Type assertion to satisfy jwt.sign - expiresIn accepts string like '30d'
+    return jwt.sign(tokenPayload, secretKey, { expiresIn } as any);
 };
 
 /**
