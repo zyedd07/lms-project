@@ -14,6 +14,12 @@ declare module '../utils/types' {
     }
 }
 
+// Extend JwtUserPayload to include JWT standard claims
+interface JwtPayloadWithClaims extends JwtUserPayload {
+    iat?: number;  // issued at
+    exp?: number;  // expiration time
+}
+
 // Configuration
 const TOKEN_EXPIRY = '30d'; // 30 days
 const REFRESH_THRESHOLD = 7 * 24 * 60 * 60; // 7 days in seconds - refresh if token expires within 7 days
@@ -22,14 +28,20 @@ const REFRESH_THRESHOLD = 7 * 24 * 60 * 60; // 7 days in seconds - refresh if to
  * Helper function to generate a new JWT token with 30-day expiry
  */
 export const generateToken = (payload: JwtUserPayload, expiresIn: string = TOKEN_EXPIRY): string => {
-    return jwt.sign(payload, process.env.SECRET_KEY as string, { expiresIn });
+    const secretKey = process.env.SECRET_KEY;
+    
+    if (!secretKey) {
+        throw new Error('SECRET_KEY is not defined in environment variables');
+    }
+    
+    return jwt.sign(payload, secretKey, { expiresIn });
 };
 
 /**
  * Helper function to check if token needs refresh
  * Returns true if token expires within REFRESH_THRESHOLD
  */
-const shouldRefreshToken = (decoded: JwtUserPayload): boolean => {
+const shouldRefreshToken = (decoded: JwtPayloadWithClaims): boolean => {
     if (!decoded.exp) return false;
     
     const now = Math.floor(Date.now() / 1000);
@@ -61,24 +73,41 @@ export const isAuth = async (req: AuthenticatedRequest, res: Response, next: Nex
     }
 
     try {
+        const secretKey = process.env.SECRET_KEY;
+        
+        if (!secretKey) {
+            throw new Error('SECRET_KEY is not defined');
+        }
+
         // Verify token - this will throw if expired
-        const decoded = jwt.verify(token, process.env.SECRET_KEY as string) as JwtUserPayload;
+        const decoded = jwt.verify(token, secretKey) as JwtPayloadWithClaims;
         
         // Token is valid - attach user to request
         req.user = decoded;
-        console.log("isAuth: Token valid. User:", req.user.email, "Expires:", new Date(decoded.exp! * 1000).toISOString());
+        console.log("isAuth: Token valid. User:", req.user.email, "Expires:", decoded.exp ? new Date(decoded.exp * 1000).toISOString() : 'N/A');
         
         // Check if token should be refreshed (sliding window)
         if (shouldRefreshToken(decoded)) {
             console.log("isAuth: Token expiring soon. Issuing new 30-day token for:", decoded.email);
             
             // Generate new token with fresh 30-day expiry
-            const newToken = generateToken({
-                userId: decoded.userId,
+            // Only include the user payload fields, not iat/exp
+            const userPayload: JwtUserPayload = {
+                id: decoded.id,
+                name: decoded.name,
                 email: decoded.email,
+                phone: decoded.phone,
                 role: decoded.role,
-                status: decoded.status
-            });
+                profilePicture: decoded.profilePicture,
+                dateOfBirth: decoded.dateOfBirth,
+                address: decoded.address,
+                rollNo: decoded.rollNo,
+                collegeName: decoded.collegeName,
+                university: decoded.university,
+                country: decoded.country
+            };
+            
+            const newToken = generateToken(userPayload);
             
             // Send new token in response headers
             res.setHeader('X-New-Token', newToken);
@@ -134,18 +163,35 @@ export const refreshTokenController = async (req: AuthenticatedRequest, res: Res
     }
 
     try {
+        const secretKey = process.env.SECRET_KEY;
+        
+        if (!secretKey) {
+            throw new Error('SECRET_KEY is not defined');
+        }
+
         // Verify token - must be valid, not expired
-        const decoded = jwt.verify(token, process.env.SECRET_KEY as string) as JwtUserPayload;
+        const decoded = jwt.verify(token, secretKey) as JwtPayloadWithClaims;
         
         console.log("Token refresh requested for user:", decoded.email);
 
         // Generate new token with fresh 30-day expiry
-        const newToken = generateToken({
-            userId: decoded.userId,
+        // Only include the user payload fields, not iat/exp
+        const userPayload: JwtUserPayload = {
+            id: decoded.id,
+            name: decoded.name,
             email: decoded.email,
+            phone: decoded.phone,
             role: decoded.role,
-            status: decoded.status
-        });
+            profilePicture: decoded.profilePicture,
+            dateOfBirth: decoded.dateOfBirth,
+            address: decoded.address,
+            rollNo: decoded.rollNo,
+            collegeName: decoded.collegeName,
+            university: decoded.university,
+            country: decoded.country
+        };
+
+        const newToken = generateToken(userPayload);
 
         console.log("Token refreshed successfully. New 30-day expiry for:", decoded.email);
 
@@ -153,10 +199,18 @@ export const refreshTokenController = async (req: AuthenticatedRequest, res: Res
             message: 'Token refreshed successfully',
             token: newToken,
             user: {
-                id: decoded.userId,
+                id: decoded.id,
+                name: decoded.name,
                 email: decoded.email,
+                phone: decoded.phone,
                 role: decoded.role,
-                status: decoded.status
+                profilePicture: decoded.profilePicture,
+                dateOfBirth: decoded.dateOfBirth,
+                address: decoded.address,
+                rollNo: decoded.rollNo,
+                collegeName: decoded.collegeName,
+                university: decoded.university,
+                country: decoded.country
             }
         });
 
