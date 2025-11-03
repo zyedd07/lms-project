@@ -46,8 +46,15 @@ try {
   throw error;
 }
 const supabase = supabaseClient;
-
-
+const generateDeviceToken = (): string => {
+  return crypto.randomBytes(32).toString('hex');
+};
+const getDeviceInfo = (req: any): string => {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const platform = req.headers['x-platform'] || 'Unknown';
+  const deviceModel = req.headers['x-device-model'] || 'Unknown';
+  return `${platform} - ${deviceModel} - ${userAgent.substring(0, 100)}`;
+};
 // --- Jitsi Private Key Setup ---
 const JITSI_PRIVATE_KEY_FILE_PATH = process.env.NODE_ENV === 'production'
     ? '/etc/secrets/jitsi_private_key.pem' // Render's path for Secret Files
@@ -120,52 +127,78 @@ export const createUserService = async (params: CreateUserServiceParams) => {
 /**
  * Authenticates a user and returns their complete data profile and a JWT.
  */
-export const loginUserService = async ({ email, password }: LoginUserServiceParams) => {
-    const user = await User.findOne({
-        where: { email },
-        attributes: [
-            'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password', 'status', // Include status
-            'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country'
-        ]
-    });
-    if (!user) {
-        throw new HttpError("User does not exist", 400);
-    }
-    const isPasswordMatch = await bcrypt.compare(password, user.get("password") as string);
-    if (!isPasswordMatch) {
-        throw new HttpError("Invalid password", 400);
-    }
+export const loginUserService = async (
+  { email, password }: LoginUserServiceParams,
+  req?: any // Pass the request object to get device info
+) => {
+  const user = await User.findOne({
+    where: { email },
+    attributes: [
+      'id', 'name', 'email', 'phone', 'role', 'profilePicture', 'password', 'status',
+      'dateOfBirth', 'address', 'rollNo', 'collegeName', 'university', 'country',
+      // 🚨 FIX: Must include device fields to ensure update works properly
+      'deviceToken', 
+      'deviceId' 
+    ]
+  });
 
-    // --- CHECK USER STATUS ---
-    const userStatus = user.get('status');
-    if (userStatus === 'pending') {
-        throw new HttpError("Your account is awaiting admin approval. Please check back later.", 403); // Updated message
-    }
-    if (userStatus === 'rejected') {
-        throw new HttpError("Your account has been rejected. Please contact support.", 403);
-    }
+  if (!user) {
+    throw new HttpError("User does not exist", 400);
+  }
 
-    const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
+  const isPasswordMatch = await bcrypt.compare(password, user.get("password") as string);
+  if (!isPasswordMatch) {
+    throw new HttpError("Invalid password", 400);
+  }
 
-    // JWT payload should be minimal for security and performance
-    const jwtPayload = {
-        id: user.get("id"),
-        name: user.get("name"),
-        email: user.get("email"),
-        role: user.get("role"),
-        status: user.get("status"), // Include status in JWT for client-side checks
-    };
+  // Check user status
+  const userStatus = user.get('status');
+  if (userStatus === 'pending') {
+    throw new HttpError("Your account is awaiting admin approval. Please check back later.", 403);
+  }
+  if (userStatus === 'rejected') {
+    throw new HttpError("Your account has been rejected. Please contact support.", 403);
+  }
 
-    const jwtOptions: SignOptions = { expiresIn: '7d' };
-    const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+  // === GENERATE NEW DEVICE TOKEN ===
+  const newDeviceToken = generateDeviceToken();
+  const deviceId = req?.headers['x-device-id'] as string | undefined;
+  const deviceInfo = req ? getDeviceInfo(req) : 'Unknown Device';
 
-    // Ensure password is not returned in the user object
-    const userResponse = user.toJSON();
-    delete userResponse.password;
-    delete userResponse.passwordResetToken;
-    delete userResponse.passwordResetExpires;
+  // Update user with new device token (invalidates old sessions)
+  // This update should now successfully write the data to the DB
+  await user.update({
+    deviceToken: newDeviceToken,
+    deviceId: deviceId || null,
+    lastLoginAt: new Date(),
+    lastLoginDevice: deviceInfo
+  });
 
-    return { user: userResponse, token };
+  console.log(`User ${email} logged in. New device token issued. Old sessions invalidated.`);
+
+  // Generate JWT
+  const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
+  const jwtPayload = {
+    id: user.get("id"),
+    name: user.get("name"),
+    email: user.get("email"),
+    role: user.get("role"),
+    status: user.get("status"),
+  };
+  const jwtOptions: SignOptions = { expiresIn: '7d' };
+  const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
+
+  // Prepare user response
+  const userResponse = user.toJSON();
+  delete userResponse.password;
+  delete userResponse.passwordResetToken;
+  delete userResponse.passwordResetExpires;
+
+  return {
+    user: userResponse,
+    token,
+    deviceToken: newDeviceToken // Send device token to client
+  };
 };
 /**
  * --- UPDATED SERVICE ---
@@ -371,8 +404,7 @@ export const deleteUserService = async (id: string) => {
     await user.destroy();
     return true;
 };
-export const googleSignInService = async (idToken: string) => {
-    // You must add your Google Client ID to your environment variables
+export const googleSignInService = async (idToken: string, req?: any) => {
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
     const ticket = await client.verifyIdToken({
@@ -396,9 +428,8 @@ export const googleSignInService = async (idToken: string) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(randomPassword, salt);
 
-        // Set role and status for Google Sign-In registration
-        const initialRole = 'student'; // Default role for social logins unless specified
-        const initialStatus = 'approved'; // Social logins are typically approved immediately
+        const initialRole = 'student';
+        const initialStatus = 'approved';
 
         user = await User.create({
             name,
@@ -406,7 +437,7 @@ export const googleSignInService = async (idToken: string) => {
             password: passwordHash,
             profilePicture: picture,
             role: initialRole,
-            status: initialStatus, // Set status here
+            status: initialStatus,
             phone: null,
             dateOfBirth: null,
             address: '',
@@ -414,46 +445,65 @@ export const googleSignInService = async (idToken: string) => {
             collegeName: '',
             university: '',
             country: '',
-            // designation is mapped to role, so no need to set both
         });
     } else {
-        // If user already exists, update their profile picture if provided by Google
-        // and ensure their status is approved if they were previously pending from a different registration method
+        // Update existing user
         if (picture && user.get('profilePicture') !== picture) {
             user.set('profilePicture', picture);
         }
-        // Ensure their status is approved if they were pending or rejected
         if (user.get('status') !== 'approved') {
-            user.set('status', 'approved'); // Social logins usually imply direct approval
+            user.set('status', 'approved');
         }
         await user.save();
     }
 
+    // === GENERATE DEVICE TOKEN FOR GOOGLE LOGIN ===
+    const newDeviceToken = generateDeviceToken();
+    const deviceId = req?.headers['x-device-id'] as string | undefined;
+    const deviceInfo = req ? getDeviceInfo(req) : 'Unknown Device (Google Login)';
 
-    // User exists or was just created, now issue our app's JWT
+    await user.update({
+        deviceToken: newDeviceToken,
+        deviceId: deviceId || null,
+        lastLoginAt: new Date(),
+        lastLoginDevice: deviceInfo
+    });
+
+    console.log(`User ${email} logged in via Google. Device token issued.`);
+
+    // Generate JWT
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
     const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
         email: user.get("email"),
         role: user.get("role"),
-        status: user.get("status"), // Include status in JWT
+        status: user.get("status"),
     };
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
 
-    return { user: user.toJSON(), token };
+    const userResponse = user.toJSON();
+    delete userResponse.password;
+    delete userResponse.passwordResetToken;
+    delete userResponse.passwordResetExpires;
+
+    return { 
+        user: userResponse, 
+        token,
+        deviceToken: newDeviceToken // Send device token to client
+    };
 };
+
 
 /**
  * --- NEW SERVICE ---
  * Handles user sign-in or registration via a Facebook Access Token.
  * @param accessToken The access token received from the Facebook Login flow on the client.
  */
-export const facebookSignInService = async (accessToken: string) => {
+export const facebookSignInService = async (accessToken: string, req?: any) => {
     let facebookUserData;
     try {
-        // Step 1: Verify the token and get user data from Facebook
         const { data } = await axios.get(
             `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
         );
@@ -477,7 +527,6 @@ export const facebookSignInService = async (accessToken: string) => {
     const { email, name } = facebookUserData;
     const picture = facebookUserData.picture?.data?.url;
 
-    // Step 2: Find or create the user in your database
     let user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -485,9 +534,8 @@ export const facebookSignInService = async (accessToken: string) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(randomPassword, salt);
 
-        // Set role and status for Facebook Sign-In registration
-        const initialRole = 'student'; // Default role for social logins
-        const initialStatus = 'approved'; // Social logins are typically approved immediately
+        const initialRole = 'student';
+        const initialStatus = 'approved';
 
         user = await User.create({
             name,
@@ -495,7 +543,7 @@ export const facebookSignInService = async (accessToken: string) => {
             password: passwordHash,
             profilePicture: picture,
             role: initialRole,
-            status: initialStatus, // Set status here
+            status: initialStatus,
             phone: null,
             dateOfBirth: null,
             address: '',
@@ -503,35 +551,53 @@ export const facebookSignInService = async (accessToken: string) => {
             collegeName: '',
             university: '',
             country: '',
-            // designation is mapped to role, so no need to set both
         });
     } else {
-        // If user already exists, update their profile picture if provided by Facebook
-        // and ensure their status is approved if they were previously pending from a different registration method
         if (picture && user.get('profilePicture') !== picture) {
             user.set('profilePicture', picture);
         }
-        // Ensure their status is approved if they were pending or rejected
         if (user.get('status') !== 'approved') {
-            user.set('status', 'approved'); // Social logins usually imply direct approval
+            user.set('status', 'approved');
         }
         await user.save();
     }
 
+    // === GENERATE DEVICE TOKEN FOR FACEBOOK LOGIN ===
+    const newDeviceToken = generateDeviceToken();
+    const deviceId = req?.headers['x-device-id'] as string | undefined;
+    const deviceInfo = req ? getDeviceInfo(req) : 'Unknown Device (Facebook Login)';
 
-    // Step 4: Issue your app's JWT
+    await user.update({
+        deviceToken: newDeviceToken,
+        deviceId: deviceId || null,
+        lastLoginAt: new Date(),
+        lastLoginDevice: deviceInfo
+    });
+
+    console.log(`User ${email} logged in via Facebook. Device token issued.`);
+
+    // Generate JWT
     const APP_SECRET_KEY: string = process.env.SECRET_KEY || 'default-secret-key';
     const jwtPayload = {
         id: user.get("id"),
         name: user.get("name"),
         email: user.get("email"),
         role: user.get("role"),
-        status: user.get("status"), // Include status in JWT
+        status: user.get("status"),
     };
     const jwtOptions: SignOptions = { expiresIn: '7d' };
     const token = jwt.sign(jwtPayload, APP_SECRET_KEY, jwtOptions);
 
-    return { user: user.toJSON(), token };
+    const userResponse = user.toJSON();
+    delete userResponse.password;
+    delete userResponse.passwordResetToken;
+    delete userResponse.passwordResetExpires;
+
+    return { 
+        user: userResponse, 
+        token,
+        deviceToken: newDeviceToken // Send device token to client
+    };
 };
 
 export const getPendingTeachersService = async () => {

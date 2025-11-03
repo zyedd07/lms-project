@@ -66,7 +66,11 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
         if (!email || !password) {
             throw new HttpError("Please provide both email and password", 400);
         }
-        const response = await loginUserService({ email, password });
+        
+        // Pass request object to service to get device info
+        const response = await loginUserService({ email, password }, req);
+        
+        // Response now includes deviceToken
         res.status(200).json(response);
     } catch (error) {
         next(error);
@@ -79,11 +83,12 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
  */
 export const googleSignIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { token } = req.body; // This is the idToken from the client
+        const { token } = req.body;
         if (!token) {
             throw new HttpError("Google token is required.", 400);
         }
-        const response = await googleSignInService(token);
+        // Pass request object to service to get device info
+        const response = await googleSignInService(token, req);
         res.status(200).json(response);
     } catch (error) {
         next(error);
@@ -96,13 +101,14 @@ export const googleSignIn = async (req: Request, res: Response, next: NextFuncti
  */
 export const facebookSignIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { token } = req.body; // This is the accessToken from the client
-        console.log("Received Facebook Access Token:", token); // <-- ADD THIS LINE
+        const { token } = req.body;
+        console.log("Received Facebook Access Token:", token);
 
         if (!token) {
             throw new HttpError("Facebook token is required.", 400);
         }
-        const response = await facebookSignInService(token);
+        // Pass request object to service to get device info
+        const response = await facebookSignInService(token, req);
         res.status(200).json(response);
     } catch (error) {
         next(error);
@@ -399,6 +405,36 @@ export const rejectTeacher = async (req: AuthenticatedRequest, res: Response, ne
             success: true,
             message: "Teacher account rejected successfully.",
             data: rejectedTeacher
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Controller for user logout - clears device token
+ */
+export const logoutUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user || !req.user.id) {
+            throw new HttpError("User not authenticated.", 401);
+        }
+
+        const userId = req.user.id;
+        
+        // Clear device token from database
+        const user = await User.findByPk(userId);
+        if (user) {
+            await user.update({
+                deviceToken: null,
+                deviceId: null
+            });
+            console.log(`User ${req.user.email} logged out. Device token cleared.`);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Logout successful'
         });
     } catch (error) {
         next(error);

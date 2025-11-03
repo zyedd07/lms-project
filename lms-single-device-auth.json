@@ -1,0 +1,747 @@
+{
+  "info": {
+    "name": "LMS API - Single Device Authentication",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Complete API testing suite for LMS backend with single device authentication.\n\n## How to Use:\n1. Update environment variables (base_url, test_email, test_password)\n2. Run requests in order to test the full authentication flow\n3. Watch console logs for detailed test results\n\n## Test Flow:\n- Login from Device 1 → Works ✅\n- Access API from Device 1 → Works ✅  \n- Login from Device 2 → Works ✅ (Device 1 gets logged out)\n- Try access from Device 1 → Fails ❌ (DEVICE_MISMATCH)\n- Access from Device 2 → Works ✅",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1.1 Login Device 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Test response status",
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Test response structure",
+                  "pm.test(\"✅ Response has token\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Response has deviceToken\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('deviceToken');",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Response has user object\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    pm.expect(jsonData.user).to.have.property('email');",
+                  "    pm.expect(jsonData.user).to.have.property('id');",
+                  "});",
+                  "",
+                  "// Save tokens to environment",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"auth_token_device1\", jsonData.token);",
+                  "    pm.environment.set(\"device_token_device1\", jsonData.deviceToken);",
+                  "    pm.environment.set(\"user_id\", jsonData.user.id);",
+                  "    pm.environment.set(\"user_email\", jsonData.user.email);",
+                  "    ",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"✅ DEVICE 1 LOGIN SUCCESSFUL\");",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"User:\", jsonData.user.email);",
+                  "    console.log(\"Role:\", jsonData.user.role);",
+                  "    console.log(\"Auth Token:\", jsonData.token.substring(0, 30) + \"...\");",
+                  "    console.log(\"Device Token:\", jsonData.deviceToken.substring(0, 30) + \"...\");",
+                  "    console.log(\"========================================\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_1}}",
+                "description": "Unique device identifier"
+              },
+              {
+                "key": "X-Platform",
+                "value": "iOS",
+                "description": "Device platform"
+              },
+              {
+                "key": "X-Device-Model",
+                "value": "iPhone 13 Pro",
+                "description": "Device model"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["user", "login"]
+            },
+            "description": "**Login from Device 1**\n\nThis should:\n- Authenticate the user\n- Generate a JWT token\n- Generate a device token\n- Store device info in database\n\nExpected Response:\n```json\n{\n  \"user\": { ... },\n  \"token\": \"jwt_token_here\",\n  \"deviceToken\": \"device_token_here\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Get Profile from Device 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Profile retrieved successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    console.log(\"✅ Device 1 can access API successfully\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device1}}",
+                "description": "JWT token from login"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device1}}",
+                "description": "Device token from login"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_1}}",
+                "description": "Device identifier"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Access API from Device 1**\n\nThis should succeed because:\n- Valid JWT token\n- Valid device token\n- Device token matches database\n\nExpected: 200 OK"
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 Login Device 2 (Same User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ New device token issued\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.deviceToken).to.exist;",
+                  "    ",
+                  "    var device1Token = pm.environment.get(\"device_token_device1\");",
+                  "    pm.expect(jsonData.deviceToken).to.not.eql(device1Token);",
+                  "});",
+                  "",
+                  "// Save Device 2 tokens",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"auth_token_device2\", jsonData.token);",
+                  "    pm.environment.set(\"device_token_device2\", jsonData.deviceToken);",
+                  "    ",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"✅ DEVICE 2 LOGIN SUCCESSFUL\");",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"New Auth Token:\", jsonData.token.substring(0, 30) + \"...\");",
+                  "    console.log(\"New Device Token:\", jsonData.deviceToken.substring(0, 30) + \"...\");",
+                  "    console.log(\"\");",
+                  "    console.log(\"⚠️  DEVICE 1 IS NOW LOGGED OUT\");",
+                  "    console.log(\"The old device token has been invalidated.\");",
+                  "    console.log(\"========================================\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}",
+                "description": "Different device ID"
+              },
+              {
+                "key": "X-Platform",
+                "value": "Android"
+              },
+              {
+                "key": "X-Device-Model",
+                "value": "Samsung Galaxy S21"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["user", "login"]
+            },
+            "description": "**Login from Device 2 (Same User)**\n\nThis should:\n- Generate NEW device token\n- Invalidate Device 1's session\n- Store new device info in database\n\n**Critical:** Device 1 will no longer be able to access the API after this."
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 Try Access from Device 1 (Should FAIL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 401 (Unauthorized)\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ DEVICE_MISMATCH error returned\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.code).to.eql(\"DEVICE_MISMATCH\");",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Requires login flag is set\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.requiresLogin).to.be.true;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 401) {",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"✅ DEVICE 1 CORRECTLY DENIED ACCESS\");",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"Error Code:\", pm.response.json().code);",
+                  "    console.log(\"Message:\", pm.response.json().message);",
+                  "    console.log(\"\");",
+                  "    console.log(\"This is EXPECTED behavior!\");",
+                  "    console.log(\"Device 1 was logged out when Device 2 logged in.\");",
+                  "    console.log(\"========================================\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device1}}",
+                "description": "OLD token from Device 1"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device1}}",
+                "description": "OLD device token (now invalid)"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_1}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Try to access API from Device 1**\n\n**This SHOULD FAIL with:**\n- Status: 401\n- Code: DEVICE_MISMATCH\n- Message: \"Session invalid. You have been logged in from another device.\"\n\nThis proves the single-device authentication is working!"
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 Verify Device 2 Still Works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Profile retrieved successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    console.log(\"✅ Device 2 can still access API (current active device)\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device2}}"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device2}}"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Verify Device 2 can access API**\n\nThis should succeed because Device 2 is the currently logged-in device."
+          },
+          "response": []
+        }
+      ],
+      "description": "Test the complete single-device authentication flow"
+    },
+    {
+      "name": "Token Refresh",
+      "item": [
+        {
+          "name": "2.1 Refresh Token (Sliding Window)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ New token issued\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// Update stored token",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    var oldToken = pm.environment.get(\"auth_token_device2\");",
+                  "    pm.environment.set(\"auth_token_device2\", jsonData.token);",
+                  "    ",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"✅ TOKEN REFRESHED SUCCESSFULLY\");",
+                  "    console.log(\"========================================\");",
+                  "    console.log(\"Old Token:\", oldToken.substring(0, 30) + \"...\");",
+                  "    console.log(\"New Token:\", jsonData.token.substring(0, 30) + \"...\");",
+                  "    console.log(\"\");",
+                  "    console.log(\"Session extended by another 30 days\");",
+                  "    console.log(\"========================================\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device2}}",
+                "description": "Device token required for refresh"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{auth_token_device2}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["user", "refresh-token"]
+            },
+            "description": "**Refresh JWT Token (Sliding Window)**\n\nThis extends the session by another 30 days.\n\nAlso happens automatically when:\n- Token expires within 7 days\n- User makes any API call\n- Backend sends new token in X-New-Token header"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Scenarios",
+      "item": [
+        {
+          "name": "3.1 Missing Device Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ DEVICE_TOKEN_MISSING error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.code).to.eql(\"DEVICE_TOKEN_MISSING\");",
+                  "});",
+                  "",
+                  "console.log(\"✅ Missing device token correctly rejected\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device2}}",
+                "description": "Valid JWT token"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Test: Missing Device Token**\n\nRequest has valid JWT but NO device token.\n\nExpected:\n- Status: 401\n- Code: DEVICE_TOKEN_MISSING"
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Wrong Device Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ DEVICE_MISMATCH error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.code).to.eql(\"DEVICE_MISMATCH\");",
+                  "});",
+                  "",
+                  "console.log(\"✅ Wrong device token correctly rejected\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device2}}"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "wrong-fake-device-token-12345",
+                "description": "Invalid device token"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Test: Wrong Device Token**\n\nRequest has valid JWT but WRONG device token.\n\nExpected:\n- Status: 401\n- Code: DEVICE_MISMATCH"
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 No JWT Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ NO_TOKEN error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.code).to.eql(\"NO_TOKEN\");",
+                  "});",
+                  "",
+                  "console.log(\"✅ Missing JWT token correctly rejected\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device2}}"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Test: No JWT Token**\n\nRequest has device token but NO JWT token.\n\nExpected:\n- Status: 401\n- Code: NO_TOKEN"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test various error scenarios"
+    },
+    {
+      "name": "Logout",
+      "item": [
+        {
+          "name": "4.1 Logout Device 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Logout successful\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "console.log(\"========================================\");",
+                  "console.log(\"✅ LOGOUT SUCCESSFUL\");",
+                  "console.log(\"========================================\");",
+                  "console.log(\"Device token cleared from database\");",
+                  "console.log(\"All future requests will fail until login\");",
+                  "console.log(\"========================================\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device2}}"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device2}}"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/logout",
+              "host": ["{{base_url}}"],
+              "path": ["user", "logout"]
+            },
+            "description": "**Logout from Device 2**\n\nThis clears the device token from the database.\nAll subsequent API calls will fail until user logs in again."
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 Try Access After Logout (Should FAIL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"✅ Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"✅ Access denied after logout\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var validCodes = [\"NO_ACTIVE_SESSION\", \"DEVICE_MISMATCH\"];",
+                  "    pm.expect(validCodes).to.include(jsonData.code);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Access correctly denied after logout\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token_device2}}"
+              },
+              {
+                "key": "X-Device-Token",
+                "value": "{{device_token_device2}}"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "**Try to access after logout**\n\nThis should fail because device token was cleared.\n\nExpected:\n- Status: 401\n- Code: NO_ACTIVE_SESSION or DEVICE_MISMATCH"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Google OAuth",
+      "item": [
+        {
+          "name": "5.1 Google Sign-In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Device-Id",
+                "value": "{{device_id_1}}"
+              },
+              {
+                "key": "X-Platform",
+                "value": "iOS"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"YOUR_GOOGLE_ID_TOKEN_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/google-signin",
+              "host": ["{{base_url}}"],
+              "path": ["user", "google-signin"]
+            },
+            "description": "**Google Sign-In**\n\nReplace `YOUR_GOOGLE_ID_TOKEN_HERE` with actual Google ID token.\n\nReturns:\n- user object\n- JWT token\n- device token"
+          },
+          "response": []
+        }
+      ],
+      "description": "OAuth authentication tests (requires actual OAuth tokens)"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate unique device IDs if not set",
+          "if (!pm.environment.get(\"device_id_1\")) {",
+          "    pm.environment.set(\"device_id_1\", \"iOS-device-\" + Date.now());",
+          "}",
+          "",
+          "if (!pm.environment.get(\"device_id_2\")) {",
+          "    pm.environment.set(\"device_id_2\", \"Android-device-\" + (Date.now() + 1));",
+          "}",
+          "",
+          "console.log(\"Device 1 ID:\", pm.environment.get(\"device_id_1\"));",
+          "console.log(\"Device 2 ID:\", pm.environment.get(\"device_id_2\"));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://lms-backend-api-c3ys.onrender.com",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "avc@gmail.com",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "your_password_here",
+      "type": "string"
+    },
+    {
+      "key": "device_id_1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "device_id_2",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
