@@ -34,8 +34,23 @@ export const generateToken = (payload: JwtUserPayload, expiresIn: string | numbe
         throw new Error('SECRET_KEY is not defined in environment variables');
     }
     
-    // Cast payload to object to satisfy jwt.sign type requirements
-    return jwt.sign(payload as object, secretKey, { expiresIn: expiresIn as string | number });
+    // Create a plain object from the payload to avoid type issues
+    const tokenPayload = {
+        id: payload.id,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        role: payload.role,
+        profilePicture: payload.profilePicture,
+        dateOfBirth: payload.dateOfBirth,
+        address: payload.address,
+        rollNo: payload.rollNo,
+        collegeName: payload.collegeName,
+        university: payload.university,
+        country: payload.country
+    };
+    
+    return jwt.sign(tokenPayload, secretKey, { expiresIn });
 };
 
 /**
