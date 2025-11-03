@@ -1,7 +1,7 @@
 // middleware/auth.ts
 
 import { Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { AuthenticatedRequest, JwtUserPayload } from '../utils/types';
 import HttpError from '../utils/httpError';
 
@@ -34,8 +34,13 @@ export const generateToken = (payload: JwtUserPayload, expiresIn: string = TOKEN
         throw new Error('SECRET_KEY is not defined in environment variables');
     }
     
+    // Define options with explicit type
+    const options: SignOptions = {
+        expiresIn: expiresIn
+    };
+    
     // Cast payload to object to satisfy jwt.sign type requirements
-    return jwt.sign(payload as object, secretKey, { expiresIn });
+    return jwt.sign(payload as object, secretKey, options);
 };
 
 /**
