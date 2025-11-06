@@ -1,234 +1,252 @@
 // services/PaymentProcessing.service.ts
-import { v4 as uuidv4 } from 'uuid'; // For generating unique transaction IDs
 import HttpError from '../utils/httpError';
-import Order from '../models/Order.model'; // Import the Order model
-import Course from '../models/Course.model'; // Assuming you have a Course model
-import TestSeries from '../models/TestSeries.model'; // Assuming you have a TestSeries model
-import Qbank from '../models/QuestionBank.model'; // Assuming you have a Qbank model
-import Webinar from '../models/webinar.model'; // Assuming you have a Webinar model
-import User from '../models/User.model'; // Import the User model
-import {
-    getPaymentGatewaySettingByIdForBackend, // To get full gateway details including secrets
-} from './PaymentGateway.service'; // Import from your existing PaymentGateway service
-// Importing only the four specified types from utils/types
-import {
-    CreateOrderParams,
-    OrderCreationResult,
-    InitiatePaymentParams,
-    PaymentInitiationResult
-} from '../utils/types';
-import axios from 'axios'; // Import axios for making HTTP requests to PhonePe
-import crypto from 'crypto'; // Import crypto for SHA256 hashing
+import Order from '../models/Order.model';
+import Payment from '../models/Payment.model';
+import Course from '../models/Course.model';
+import Qbank from '../models/QuestionBank.model';
+import TestSeries from '../models/TestSeries.model';
+import Webinar from '../models/webinar.model';
+import User from '../models/User.model';
+import PaymentGatewaySetting from '../models/PaymentGatewaySetting.model';
+import { v4 as uuidv4 } from 'uuid';
+
+interface CreateOrderInput {
+    userId: string;
+    courseId?: string;
+    testSeriesId?: string;
+    qbankId?: string;
+    webinarId?: string;
+    price: number;
+}
+
+interface InitiatePaymentInput {
+    orderId: string;
+    gatewayName: string;
+}
 
 /**
- * Creates a new order record in the database.
- * This is the first step when a user clicks "Enroll Now" for a paid course.
+ * Service to create a new order for a product.
+ * Validates product exists, price matches, and creates order record.
  */
-export const createOrder = async (params: CreateOrderParams): Promise<OrderCreationResult> => { // Applied specified types
-    const { userId, courseId, testSeriesId, qbankId, webinarId, price } = params;
+export const createOrder = async (input: CreateOrderInput) => {
+    const { userId, courseId, testSeriesId, qbankId, webinarId, price } = input;
 
-    let confirmedPrice: number; // Explicitly type as number
-    let productType: string; // Explicitly type as string
-    let product: any; // Keep as any, as specific model types are not provided
+    // Validate user exists
+    const user = await User.findByPk(userId);
+    if (!user) {
+        throw new HttpError('User not found.', 404);
+    }
+
+    // Determine product type and validate
+    let productId: string;
+    let productType: string;
+    let actualPrice: number;
+    let productName: string;
 
     if (courseId) {
-        product = await Course.findByPk(courseId);
+        const course = await Course.findByPk(courseId);
+        if (!course) throw new HttpError('Course not found.', 404);
+        productId = courseId;
         productType = 'course';
+        actualPrice = parseFloat(course.get('price') as string);
+        productName = course.get('name') as string;
     } else if (testSeriesId) {
-        product = await TestSeries.findByPk(testSeriesId);
-        productType = 'test series';
+        const testSeries = await TestSeries.findByPk(testSeriesId);
+        if (!testSeries) throw new HttpError('Test Series not found.', 404);
+        productId = testSeriesId;
+        productType = 'testSeries';
+        actualPrice = parseFloat(testSeries.get('price') as string);
+        productName = testSeries.get('name') as string;
     } else if (qbankId) {
-        product = await Qbank.findByPk(qbankId);
-        productType = 'QBank';
+        const qbank = await Qbank.findByPk(qbankId);
+        if (!qbank) throw new HttpError('Question Bank not found.', 404);
+        productId = qbankId;
+        productType = 'qbank';
+        actualPrice = parseFloat(qbank.get('price') as string);
+        productName = qbank.get('name') as string;
     } else if (webinarId) {
-        product = await Webinar.findByPk(webinarId);
+        const webinar = await Webinar.findByPk(webinarId);
+        if (!webinar) throw new HttpError('Webinar not found.', 404);
+        productId = webinarId;
         productType = 'webinar';
+        actualPrice = parseFloat(webinar.get('price') as any);
+        productName = webinar.get('title') as string;
     } else {
-        throw new HttpError('No product ID provided for order creation.', 400);
+        throw new HttpError('No valid product ID provided.', 400);
     }
 
-    if (!product) {
-        throw new HttpError(`${productType.charAt(0).toUpperCase() + productType.slice(1)} not found.`, 404);
+    // Validate price matches (with small tolerance for floating point)
+    if (Math.abs(actualPrice - price) > 0.01) {
+        throw new HttpError(
+            `Price mismatch. Expected ${actualPrice}, received ${price}.`,
+            400
+        );
     }
 
-    // --- FIX: Convert product.price to number BEFORE validation ---
-    const rawProductPrice = product.price; // Get the raw value from Sequelize
-    const productPriceAsNumber = parseFloat(rawProductPrice); // Convert it to a number
-
-    // Now, validate the converted number
-    if (typeof productPriceAsNumber !== 'number' || isNaN(productPriceAsNumber)) {
-        // Log the problematic value for debugging
-        console.error(`DEBUG: Problematic product.price: Value=${rawProductPrice}, Type=${typeof rawProductPrice}`);
-        throw new HttpError(`Invalid price defined for ${productType}.`, 500);
-    }
-
-    confirmedPrice = productPriceAsNumber; // Use the parsed number for confirmation
-
-    if (parseFloat(price.toString()) !== confirmedPrice) {
-        throw new HttpError(`Price mismatch for ${productType}. Expected ${confirmedPrice}, received ${price}.`, 400);
-    }
-
-    try {
-        // Cast newOrder to any here to allow access to its properties without explicit model typing
-        const newOrder: any = await Order.create({
+    // Check if user already has a pending order for this product
+    const existingOrder = await Order.findOne({
+        where: {
             userId,
-            courseId,
-            testSeriesId,
-            qbankId,
-            webinarId,
-            price: confirmedPrice,
-            status: 'created',
-        });
-
-        return {
-            success: true,
-            message: 'Order created successfully.',
-            orderId: newOrder.id, // Now accessible due to 'any' cast
-            confirmedPrice: parseFloat(newOrder.price.toString()), // Now accessible due to 'any' cast
-        };
-    } catch (error: any) {
-        console.error('Error creating order:', error);
-        if (error instanceof HttpError) {
-            throw error;
+            [productType + 'Id']: productId,
+            status: 'pending'
         }
-        throw new HttpError(error.message || 'Failed to create order.', 500);
+    });
+
+    if (existingOrder) {
+        // Return existing order instead of creating duplicate
+        return {
+            message: 'Order already exists for this product.',
+            orderId: existingOrder.get('id') as string,
+            confirmedPrice: parseFloat(existingOrder.get('amount') as string),
+        };
     }
+
+    // Create new order
+    const newOrder = await Order.create({
+        id: uuidv4(),
+        userId,
+        [productType + 'Id']: productId,
+        amount: actualPrice,
+        status: 'pending',
+        productType, // Store product type for reference
+        productName, // Store product name for easy reference
+    });
+
+    console.log(`Order created successfully: ${newOrder.get('id')} for user ${userId}`);
+
+    return {
+        message: 'Order created successfully.',
+        orderId: newOrder.get('id') as string,
+        confirmedPrice: actualPrice,
+    };
 };
 
-
 /**
- * Initiates a payment transaction with the selected payment gateway.
+ * Service to initiate payment for an existing order.
+ * Creates payment record and returns transaction details.
+ * For UPI flow, this just creates the payment record - actual payment happens via UPI app.
  */
-export const initiatePayment = async (params: InitiatePaymentParams): Promise<PaymentInitiationResult> => { // Applied specified types
-    const { orderId, gatewayName } = params;
+export const initiatePayment = async (input: InitiatePaymentInput) => {
+    const { orderId, gatewayName } = input;
 
-    // Cast order to any here to allow access to its properties without explicit model typing
-    let order: any = await Order.findByPk(orderId);
+    // Validate order exists and is pending
+    const order = await Order.findByPk(orderId);
     if (!order) {
         throw new HttpError('Order not found.', 404);
     }
-    // Access 'status' property directly (now accessible due to 'any' cast)
-    if (order.status !== 'created' && order.status !== 'pending') {
-        throw new HttpError(`Order status is '${order.status}'. Cannot process payment.`, 400);
+
+    if (order.get('status') !== 'pending') {
+        throw new HttpError('Order is not in pending status.', 400);
     }
 
-    await order.update({ status: 'pending' });
+    // Validate gateway exists and is active
+    const gateway = await PaymentGatewaySetting.findOne({
+        where: { gatewayName, isActive: true }
+    });
 
-    try {
-        const activeGateway = await getPaymentGatewaySettingByIdForBackend(gatewayName);
-
-        // --- DEBUGGING LOG ---
-        console.log('DEBUG: activeGateway fetched:', activeGateway);
-        console.log('DEBUG: activeGateway.apiKey:', activeGateway.apiKey);
-        console.log('DEBUG: activeGateway.apiSecret:', activeGateway.apiSecret ? '***masked***' : 'N/A'); // Mask secret for logs
-        console.log('DEBUG: activeGateway.paymentUrl:', activeGateway.paymentUrl);
-        console.log('DEBUG: activeGateway.successUrl:', activeGateway.successUrl);
-        console.log('DEBUG: activeGateway.failureUrl:', activeGateway.failureUrl);
-        // --- END DEBUGGING LOG ---
-
-        if (!activeGateway) {
-            throw new HttpError(`Payment gateway '${gatewayName}' not found or not configured for processing.`, 404);
-        }
-
-        if (!activeGateway.isActive) {
-            throw new HttpError(`Selected payment gateway '${gatewayName}' is not active.`, 400);
-        }
-
-        const PHONEPE_MERCHANT_ID = activeGateway.apiKey;
-        const PHONEPE_SALT_KEY = activeGateway.apiSecret;
-        const PHONEPE_SALT_INDEX = '1';
-
-        // --- Validation check ---
-        if (!PHONEPE_MERCHANT_ID || !PHONEPE_SALT_KEY || !activeGateway.paymentUrl || !activeGateway.successUrl || !activeGateway.failureUrl) {
-            // This is the error message being thrown
-            throw new HttpError('PhonePe gateway configuration is incomplete. Missing API Key, Secret, or URLs.', 500);
-        }
-
-        // --- CONSTRUCT CALLBACK URL DYNAMICALLY ---
-        
-        const merchantTransactionId = `MTID_${uuidv4()}`;
-        const amountInPaise = Math.round(order.price * 100);
-
-        let user: any = await User.findByPk(order.userId);
-        if (!user || !user.phone) {
-            throw new HttpError('User phone number not found for payment processing.', 400);
-        }
-        const userMobileNumber = user.phone;
-
-        const payload = {
-            merchantId: PHONEPE_MERCHANT_ID,
-            merchantTransactionId: merchantTransactionId,
-            merchantUserId: order.userId,
-            amount: amountInPaise,
-            redirectUrl: activeGateway.successUrl,
-            redirectMode: 'REDIRECT',
-            callbackUrl: activeGateway.failureUrl, // Use the dynamically constructed callbackUrl
-            mobileNumber: userMobileNumber,
-            paymentInstrument: {
-                type: 'PAY_PAGE'
-            }
-        };
-
-        const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString('base64');
-        const stringToHash = payloadBase64 + '/pg/v1/pay' + PHONEPE_SALT_KEY;
-        const checksum = crypto.createHash('sha256').update(stringToHash).digest('hex') + '###' + PHONEPE_SALT_INDEX;
-
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-VERIFY': checksum,
-            'X-MERCHANT-ID': PHONEPE_MERCHANT_ID,
-            'accept': 'application/json'
-        };
-
-        console.log('PhonePe Request Payload:', JSON.stringify(payload, null, 2));
-        console.log('PhonePe Request Headers:', headers);
-
-        let phonePeResponse;
-        try {
-            phonePeResponse = await axios.post(activeGateway.paymentUrl, { request: payloadBase64 }, { headers });
-            console.log('PhonePe API Response:', phonePeResponse.data);
-        } catch (phonePeError: any) {
-            console.error('PhonePe API Call Error:', phonePeError.response?.data || phonePeError.message);
-            throw new HttpError(phonePeError.response?.data?.message || 'Failed to communicate with payment gateway.', 502);
-        }
-
-        if (phonePeResponse.data && phonePeResponse.data.success && phonePeResponse.data.data.instrumentResponse) {
-            const redirectUrl = phonePeResponse.data.data.instrumentResponse.redirectInfo.url;
-            const phonePeTransactionId = phonePeResponse.data.data.transactionId;
-
-            await order.update({
-                status: 'pending',
-                transactionId: phonePeTransactionId,
-                gatewayName: activeGateway.gatewayName,
-            });
-
-            return {
-                success: true,
-                message: 'Payment initiated successfully. Redirecting to PhonePe.',
-                redirectUrl: redirectUrl,
-                transactionId: phonePeTransactionId,
-                orderId: order.id,
-            };
-        } else {
-            const errorMessage = phonePeResponse.data.message || 'Payment initiation failed with PhonePe.';
-            await order.update({
-                status: 'failed',
-                transactionId: merchantTransactionId,
-                gatewayName: activeGateway.gatewayName,
-            });
-            throw new HttpError(errorMessage, 400);
-        }
-
-    } catch (error: any) {
-        console.error('Error in initiatePayment service:', error);
-        if (order && order.status === 'pending') {
-             order.update({
-                status: 'failed',
-            }).catch((e: any) => console.error("Failed to update order status to failed:", e));
-        }
-        if (error instanceof HttpError) {
-            throw error;
-        }
-        throw new HttpError(error.message || 'Failed to process payment.', 500);
+    if (!gateway) {
+        throw new HttpError('Payment gateway not found or inactive.', 400);
     }
+
+    // Generate unique transaction ID
+    const transactionId = `TXN_${Date.now()}_${uuidv4().substring(0, 8)}`;
+
+    // Create payment record
+    const payment = await Payment.create({
+        id: uuidv4(),
+        userId: order.get('userId') as string,
+        orderId: orderId,
+        courseId: order.get('courseId') as string | null,
+        testSeriesId: order.get('testSeriesId') as string | null,
+        qbankId: order.get('qbankId') as string | null,
+        webinarId: order.get('webinarId') as string | null,
+        amount: order.get('amount') as number,
+        gatewayName,
+        transactionId,
+        status: 'pending',
+    });
+
+    console.log(`Payment initiated: ${transactionId} for order ${orderId}`);
+
+    // For UPI flow, we don't redirect to payment page
+    // Instead, the mobile app will show UPI options
+    // Admin will verify payment manually later
+
+    return {
+        message: 'Payment initiated. Please complete payment via UPI.',
+        transactionId,
+        orderId,
+        amount: order.get('amount') as number,
+        currency: gateway.get('currency') as string || 'INR',
+    };
+};
+
+/**
+ * Get customer details for payment confirmation
+ */
+export const getCustomerDetails = async (userId: string) => {
+    const user = await User.findByPk(userId, {
+        attributes: ['id', 'name', 'email', 'phone']
+    });
+
+    if (!user) {
+        throw new HttpError('User not found.', 404);
+    }
+
+    return {
+        id: user.get('id'),
+        name: user.get('name'),
+        email: user.get('email'),
+        phone: user.get('phone'),
+    };
+};
+
+/**
+ * Get order details by ID
+ */
+export const getOrderDetails = async (orderId: string) => {
+    const order = await Order.findByPk(orderId, {
+        include: [
+            { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+            { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+            { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+            { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+            { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
+        ]
+    });
+
+    if (!order) {
+        throw new HttpError('Order not found.', 404);
+    }
+
+    return order;
+};
+
+/**
+ * Update customer details for an order
+ * (stores customer info like name, phone, email for payment reference)
+ */
+export const updateOrderCustomerDetails = async (
+    orderId: string,
+    customerDetails: { name: string; phone: string; email: string }
+) => {
+    const order = await Order.findByPk(orderId);
+    
+    if (!order) {
+        throw new HttpError('Order not found.', 404);
+    }
+
+    // Update order with customer details
+    await order.update({
+        customerName: customerDetails.name,
+        customerPhone: customerDetails.phone,
+        customerEmail: customerDetails.email,
+    });
+
+    console.log(`Customer details updated for order: ${orderId}`);
+
+    return {
+        success: true,
+        message: 'Customer details updated successfully.',
+    };
 };

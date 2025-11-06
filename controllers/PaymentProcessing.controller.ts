@@ -1,44 +1,56 @@
-// controllers/PaymentProcessing.controller.ts
+// controllers/PaymentProcessing.controller.ts (Updated)
 import { Request, Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth'; // Assuming your auth middleware
+import { AuthenticatedRequest } from '../middleware/auth';
 import HttpError from '../utils/httpError';
-import { createOrder, initiatePayment } from '../services/PaymentProcessing.service'; // Import the new service functions
-import Order from '../models/Order.model'; // Import your Payment model
-import User from '../models/User.model'; // Import User model for association
-import Course from '../models/Course.model'; // Import product models for association
+import { 
+    createOrder, 
+    initiatePayment, 
+    updateOrderCustomerDetails,
+    getOrderDetails 
+} from '../services/PaymentProcessing.service';
+import Order from '../models/Order.model';
+import Payment from '../models/Payment.model';
+import User from '../models/User.model';
+import Course from '../models/Course.model';
 import Qbank from '../models/QuestionBank.model';
 import TestSeries from '../models/TestSeries.model';
 import Webinar from '../models/webinar.model';
+
 /**
  * @route POST /api/payments/create-order
- * @desc Creates a new order record for a course enrollment.
+ * @desc Creates a new order record for a product enrollment.
  * @access Private (Authenticated User)
  */
-export const createOrderController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const createOrderController = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
     try {
         if (!req.user?.id) {
             throw new HttpError('Authentication required to create an order.', 401);
         }
 
-        // Destructure price and other product IDs from the request body
         const { courseId, testSeriesId, qbankId, webinarId, price } = req.body;
 
-        // Basic validation: ensure at least one product ID is provided and price is valid
+        // Validation
         if (
             (!courseId && !testSeriesId && !qbankId && !webinarId) ||
             price === undefined || price === null || isNaN(parseFloat(price))
         ) {
-            throw new HttpError('Missing required order details: product ID (courseId, testSeriesId, qbankId, or webinarId) and valid price.', 400);
+            throw new HttpError(
+                'Missing required order details: product ID and valid price.',
+                400
+            );
         }
 
-        // Call the service to create the order
         const result = await createOrder({
-            userId: req.user.id, // Get userId from authenticated request
+            userId: req.user.id,
             courseId,
             testSeriesId,
             qbankId,
             webinarId,
-            price: parseFloat(price), // Ensure price is a number
+            price: parseFloat(price),
         });
 
         res.status(201).json({
@@ -49,16 +61,20 @@ export const createOrderController = async (req: AuthenticatedRequest, res: Resp
         });
 
     } catch (error: any) {
-        next(error); // Pass error to the error handling middleware
+        next(error);
     }
 };
 
 /**
  * @route POST /api/payments/process-transaction
- * @desc Initiates a payment transaction with the selected payment gateway for an existing order.
+ * @desc Initiates a payment transaction for an existing order.
  * @access Private (Authenticated User)
  */
-export const processPaymentController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const processPaymentController = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
     try {
         if (!req.user?.id) {
             throw new HttpError('Authentication required to process payment.', 401);
@@ -66,12 +82,13 @@ export const processPaymentController = async (req: AuthenticatedRequest, res: R
 
         const { orderId, gatewayName } = req.body;
 
-        // Basic validation
         if (!orderId || !gatewayName) {
-            throw new HttpError('Missing required payment processing details: orderId, gatewayName.', 400);
+            throw new HttpError(
+                'Missing required payment processing details: orderId, gatewayName.',
+                400
+            );
         }
 
-        // Call the service to initiate the payment
         const result = await initiatePayment({
             orderId,
             gatewayName,
@@ -82,45 +99,176 @@ export const processPaymentController = async (req: AuthenticatedRequest, res: R
             message: result.message,
             transactionId: result.transactionId,
             orderId: result.orderId,
-            // No redirectUrl is returned for in-app direct processing in this flow
+            amount: result.amount,
+            currency: result.currency,
         });
 
     } catch (error: any) {
-        next(error); // Pass error to the error handling middleware
+        next(error);
     }
 };
 
-    export const getCompletedPayments = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        try {
-            // This check should ideally be handled by your `authorizeAdmin` middleware.
-            // It's a good practice to have it, but the middleware is the primary gatekeeper.
-            if (req.user?.role !== 'admin') {
-                throw new HttpError("Forbidden: Only administrators can view completed payments.", 403);
-            }
-
-            const completedPayments = await Order.findAll({
-                where: {
-                    status: 'successful' // Querying for 'successful' payments
-                },
-                include: [
-                    { model: User, as: 'user', attributes: ['id', 'name', 'email'] }, // Include user details
-                    // Include product details (use 'required: false' for LEFT JOIN)
-                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
-                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
-                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
-                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
-                ],
-                order: [['createdAt', 'DESC']] // Latest payments first
-            });
-
-            res.status(200).json({
-                success: true,
-                message: "Successfully fetched completed payments.",
-                data: completedPayments
-            });
-
-        } catch (error) {
-            console.error("Error fetching completed payments:", error);
-            next(error); // Pass error to your global error handling middleware
+/**
+ * @route POST /api/payments/update-customer-details
+ * @desc Update customer details for an order
+ * @access Private (Authenticated User)
+ */
+export const updateCustomerDetailsController = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        if (!req.user?.id) {
+            throw new HttpError('Authentication required.', 401);
         }
-    };
+
+        const { orderId, name, phone, email } = req.body;
+
+        if (!orderId || !name || !phone || !email) {
+            throw new HttpError(
+                'Missing required fields: orderId, name, phone, email.',
+                400
+            );
+        }
+
+        // Verify order belongs to user
+        const order = await Order.findOne({
+            where: { id: orderId, userId: req.user.id }
+        });
+
+        if (!order) {
+            throw new HttpError('Order not found or unauthorized.', 404);
+        }
+
+        const result = await updateOrderCustomerDetails(orderId, {
+            name,
+            phone,
+            email
+        });
+
+        res.status(200).json(result);
+
+    } catch (error: any) {
+        next(error);
+    }
+};
+
+/**
+ * @route GET /api/payments/order/:orderId
+ * @desc Get order details
+ * @access Private (Authenticated User)
+ */
+export const getOrderDetailsController = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        if (!req.user?.id) {
+            throw new HttpError('Authentication required.', 401);
+        }
+
+        const { orderId } = req.params;
+
+        const order = await getOrderDetails(orderId);
+
+        // Verify order belongs to user (unless admin)
+        if (order.get('userId') !== req.user.id && req.user.role !== 'admin') {
+            throw new HttpError('Unauthorized access to order.', 403);
+        }
+
+        res.status(200).json({
+            success: true,
+            data: order
+        });
+
+    } catch (error: any) {
+        next(error);
+    }
+};
+
+/**
+ * @route GET /api/payments/user/history
+ * @desc Get user's payment history
+ * @access Private (Authenticated User)
+ */
+export const getUserPaymentHistoryController = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        if (!req.user?.id) {
+            throw new HttpError('Authentication required.', 401);
+        }
+
+        const payments = await Payment.findAll({
+            where: { userId: req.user.id },
+            include: [
+                {
+                    model: Order,
+                    as: 'order',
+                    include: [
+                        { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+                        { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+                        { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+                        { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
+                    ]
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Payment history fetched successfully.',
+            data: payments
+        });
+
+    } catch (error: any) {
+        next(error);
+    }
+};
+
+/**
+ * @route GET /api/payments/completed
+ * @desc Get all completed payments (Admin only)
+ * @access Private (Admin Only)
+ */
+export const getCompletedPayments = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        if (req.user?.role !== 'admin') {
+            throw new HttpError(
+                'Forbidden: Only administrators can view completed payments.',
+                403
+            );
+        }
+
+        const completedPayments = await Order.findAll({
+            where: { status: 'successful' },
+            include: [
+                { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+                { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+                { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+                { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+                { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Successfully fetched completed payments.',
+            data: completedPayments
+        });
+
+    } catch (error) {
+        console.error('Error fetching completed payments:', error);
+        next(error);
+    }
+};

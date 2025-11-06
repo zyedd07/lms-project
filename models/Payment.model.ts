@@ -1,4 +1,4 @@
-// Revised Payment.model.ts to handle multiple product types
+// models/Payment.model.ts (Updated with admin verification fields)
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
 
@@ -11,11 +11,23 @@ const Payment = sequelize.define('Payment', {
     userId: {
         type: DataTypes.UUID,
         allowNull: false,
+        references: {
+            model: 'Users',
+            key: 'id'
+        }
     },
-    // Make product IDs nullable, only one should be filled per payment
+    orderId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: 'Orders',
+            key: 'id'
+        }
+    },
+    // Product IDs (duplicated from order for quick reference)
     courseId: {
         type: DataTypes.UUID,
-        allowNull: true, // Allow null if it's not a course payment
+        allowNull: true,
     },
     qbankId: {
         type: DataTypes.UUID,
@@ -33,30 +45,60 @@ const Payment = sequelize.define('Payment', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
     },
-    gatewayName: { // e.g., 'phonepe', 'stripe'
+    gatewayName: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    transactionId: { // This would be the merchantTransactionId from PhonePe
+    transactionId: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true, // Ensures unique transaction IDs from gateway
+        unique: true,
     },
-    gatewayTransactionId: { // The actual transaction ID from the payment gateway (e.g., PhonePe's transactionId)
+    gatewayTransactionId: {
         type: DataTypes.STRING,
         allowNull: true,
+        comment: 'Actual UPI transaction ID verified by admin'
     },
     status: {
-        type: DataTypes.ENUM('pending', 'successful', 'failed', 'refunded'), // Added 'refunded'
+        type: DataTypes.ENUM('pending', 'successful', 'failed', 'refunded'),
         allowNull: false,
-        defaultValue: 'pending', // Default status for new payments
+        defaultValue: 'pending',
     },
-    // Consider adding a 'metadata' JSONB field for raw webhook payloads for debugging
-    // webhookPayload: {
-    //     type: DataTypes.JSONB,
-    //     allowNull: true,
-    // },
-}, { timestamps: true });
-
+    // Admin verification fields
+    verifiedBy: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+            model: 'Users',
+            key: 'id'
+        },
+        comment: 'Admin user ID who verified the payment'
+    },
+    verifiedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Timestamp when payment was verified'
+    },
+    adminNotes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: 'Notes added by admin during verification'
+    },
+    // Optional: Store raw payment proof (screenshot URL, etc.)
+    paymentProofUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'URL to payment screenshot/proof uploaded by user'
+    },
+}, { 
+    timestamps: true,
+    indexes: [
+        { fields: ['userId'] },
+        { fields: ['orderId'] },
+        { fields: ['status'] },
+        { fields: ['transactionId'] },
+        { fields: ['verifiedBy'] },
+    ]
+});
 
 export default Payment;
