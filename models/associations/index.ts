@@ -3,6 +3,7 @@ import Course from "../Course.model";
 import CourseLiveLecture from "../CourseLiveLecture.model";
 import CourseTeacher from "../CourseTeacher.model";
 import CourseTestSeries from "../CourseTestSeries.model";
+// UserCourse is the new join table, replacing Enrollment
 import UserCourse from "../UserCourse.model"; 
 import Lecture from "../Lecture.model";
 import LiveLecture from "../LiveLecture.model";
@@ -23,182 +24,86 @@ import UserQbank from "../UserQbank.model";
 import QuestionBank from "../QuestionBank.model";
 import TermsSection from "../TermsOfService.model";
 import HelpCenterSection from "../HelpCenter.model";
-import UserWebinar from "../UserWebinar.model";
-import Webinar from "../webinar.model";
+import UserWebinar from "../UserWebinar.model"
+import Webinar from "../webinar.model"
 import Order from "../Order.model";
+
+
 
 const initAssociation = () => {
 
-    // ============================================
-    // ORDER ASSOCIATIONS
-    // ============================================
-    
-    // Order belongs to User
     Order.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(Order, { foreignKey: 'userId', as: 'orders' });
+Order.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+Order.belongsTo(QuestionBank, { foreignKey: 'qbankId', as: 'qbank' });
+Order.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
+Order.belongsTo(Webinar, { foreignKey: 'webinarId', as: 'webinar' });
+UserWebinar.belongsTo(User, { foreignKey: 'userId' });
+// A UserWebinar belongs to a Webinar
+UserWebinar.belongsTo(Webinar, { foreignKey: 'webinarId' });
 
-    // Order belongs to Products (one of these will be filled per order)
-    Order.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-    Course.hasMany(Order, { foreignKey: 'courseId', as: 'orders' });
+// Define inverse associations (optional, but good for comprehensive model relationships)
+// A User can have many UserWebinars
+User.hasMany(UserWebinar, { foreignKey: 'userId' });
+// A Webinar can have many UserWebinars
+Webinar.hasMany(UserWebinar, { foreignKey: 'webinarId' });
 
-    Order.belongsTo(QuestionBank, { foreignKey: 'qbankId', as: 'qbank' });
-    QuestionBank.hasMany(Order, { foreignKey: 'qbankId', as: 'orders' });
 
-    Order.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
-    TestSeries.hasMany(Order, { foreignKey: 'testSeriesId', as: 'orders' });
+    User.hasMany(UserCourse, { foreignKey: 'userId' });
+    UserCourse.belongsTo(User, { foreignKey: 'userId' });
+    Course.hasMany(UserCourse, { foreignKey: 'courseId' });
+    UserCourse.belongsTo(Course, { foreignKey: 'courseId' });
 
-    Order.belongsTo(Webinar, { foreignKey: 'webinarId', as: 'webinar' });
-    Webinar.hasMany(Order, { foreignKey: 'webinarId', as: 'orders' });
+    // --- User and Test Series Enrollment ---
+    User.hasMany(UserTestSeries, { foreignKey: 'userId' });
+    UserTestSeries.belongsTo(User, { foreignKey: 'userId' });
+    TestSeries.hasMany(UserTestSeries, { foreignKey: 'testSeriesId' });
+    UserTestSeries.belongsTo(TestSeries, { foreignKey: 'testSeriesId' });
 
-    // Order has many Payments
-    Order.hasMany(Payment, { foreignKey: 'orderId', as: 'payments' });
+    // --- User and Q-Bank Enrollment ---
+    User.hasMany(UserQbank, { foreignKey: 'userId' });
+    UserQbank.belongsTo(User, { foreignKey: 'userId' });
+    QuestionBank.hasMany(UserQbank, { foreignKey: 'qbankId' });
+    UserQbank.belongsTo(QuestionBank, { foreignKey: 'qbankId' });
 
-    // ============================================
-    // PAYMENT ASSOCIATIONS
-    // ============================================
-    
-    // Payment belongs to User
-    Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(Payment, { foreignKey: 'userId', as: 'payments' });
+    User.hasMany(Payment, { foreignKey: 'userId' });
+    Payment.belongsTo(User, { foreignKey: 'userId' });
 
-    // Payment belongs to Order
-    Payment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
-
-    // Payment belongs to Products (duplicated from order for quick reference)
-    Payment.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-    Course.hasMany(Payment, { foreignKey: 'courseId', as: 'payments' });
-
-    Payment.belongsTo(QuestionBank, { foreignKey: 'qbankId', as: 'qbank' });
-    QuestionBank.hasMany(Payment, { foreignKey: 'qbankId', as: 'payments' });
-
-    Payment.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
-    TestSeries.hasMany(Payment, { foreignKey: 'testSeriesId', as: 'payments' });
-
-    Payment.belongsTo(Webinar, { foreignKey: 'webinarId', as: 'webinar' });
-    Webinar.hasMany(Payment, { foreignKey: 'webinarId', as: 'payments' });
-
-    // Payment verified by Admin (User)
-    Payment.belongsTo(User, { foreignKey: 'verifiedBy', as: 'verifier' });
-    User.hasMany(Payment, { foreignKey: 'verifiedBy', as: 'verifiedPayments' });
-
-    // ============================================
-    // USER WEBINAR ASSOCIATIONS
-    // ============================================
-    
-    UserWebinar.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(UserWebinar, { foreignKey: 'userId', as: 'webinarEnrollments' });
-
-    UserWebinar.belongsTo(Webinar, { foreignKey: 'webinarId', as: 'webinar' });
-    Webinar.hasMany(UserWebinar, { foreignKey: 'webinarId', as: 'enrollments' });
-
-    UserWebinar.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
-    Payment.hasOne(UserWebinar, { foreignKey: 'paymentId', as: 'webinarEnrollment' });
-
-    // ============================================
-    // USER COURSE ASSOCIATIONS
-    // ============================================
-    
-    UserCourse.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(UserCourse, { foreignKey: 'userId', as: 'courseEnrollments' });
-
-    UserCourse.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-    Course.hasMany(UserCourse, { foreignKey: 'courseId', as: 'enrollments' });
-
-    UserCourse.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
-    Payment.hasOne(UserCourse, { foreignKey: 'paymentId', as: 'courseEnrollment' });
-
-    // ============================================
-    // USER TEST SERIES ASSOCIATIONS
-    // ============================================
-    
-    UserTestSeries.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(UserTestSeries, { foreignKey: 'userId', as: 'testSeriesEnrollments' });
-
-    UserTestSeries.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
-    TestSeries.hasMany(UserTestSeries, { foreignKey: 'testSeriesId', as: 'enrollments' });
-
-    UserTestSeries.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
-    Payment.hasOne(UserTestSeries, { foreignKey: 'paymentId', as: 'testSeriesEnrollment' });
-
-    // ============================================
-    // USER QBANK ASSOCIATIONS
-    // ============================================
-    
-    UserQbank.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-    User.hasMany(UserQbank, { foreignKey: 'userId', as: 'qbankEnrollments' });
-
-    UserQbank.belongsTo(QuestionBank, { foreignKey: 'qbankId', as: 'qbank' });
-    QuestionBank.hasMany(UserQbank, { foreignKey: 'qbankId', as: 'enrollments' });
-
-    UserQbank.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
-    Payment.hasOne(UserQbank, { foreignKey: 'paymentId', as: 'qbankEnrollment' });
-
-    // ============================================
-    // COURSE ASSOCIATIONS
-    // ============================================
+    Course.hasMany(Payment, { foreignKey: 'courseId' });
+    Payment.belongsTo(Course, { foreignKey: 'courseId' });
 
     // Course and LiveLecture relationship
-    Course.belongsToMany(LiveLecture, { through: CourseLiveLecture, foreignKey: 'courseId', as: 'liveLectures' });
-    LiveLecture.belongsToMany(Course, { through: CourseLiveLecture, foreignKey: 'liveLectureId', as: 'courses' });
+    Course.belongsToMany(LiveLecture, { through: CourseLiveLecture, foreignKey: 'courseId' });
+    LiveLecture.belongsToMany(Course, { through: CourseLiveLecture, foreignKey: 'liveLectureId' });
 
     // Course and TestSeries relationship
-    Course.belongsToMany(TestSeries, { through: CourseTestSeries, foreignKey: 'courseId', as: 'testSeries' });
-    TestSeries.belongsToMany(Course, { through: CourseTestSeries, foreignKey: 'testSeriesId', as: 'courses' });
+    Course.belongsToMany(TestSeries, { through: CourseTestSeries, foreignKey: 'courseId' });
+    TestSeries.belongsToMany(Course, { through: CourseTestSeries, foreignKey: 'testSeriesId' });
 
     // Course and Teacher relationship
     Course.belongsToMany(Teacher, { through: CourseTeacher, foreignKey: 'courseId', as: 'teachers' });
     Teacher.belongsToMany(Course, { through: CourseTeacher, foreignKey: 'teacherId', as: 'courses' });
 
-    Course.hasMany(CourseTeacher, { foreignKey: 'courseId', as: 'courseTeachers' });
+    Course.hasMany(CourseTeacher, { foreignKey: 'courseId', as: 'courses' });
     CourseTeacher.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 
-    Teacher.hasMany(CourseTeacher, { foreignKey: 'teacherId', as: 'teacherCourses' });
+    Teacher.hasMany(CourseTeacher, { foreignKey: 'teacherId', as: 'teacher' });
     CourseTeacher.belongsTo(Teacher, { foreignKey: 'teacherId', as: 'teacher' });
 
-    // Course and Category
     Course.belongsTo(Categories, { foreignKey: 'categoryId', as: 'category' });
     Categories.hasMany(Course, { foreignKey: 'categoryId', as: 'courses' });
 
-    // Course and Lectures
-    Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
-    Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-
-    // Course uploader
-    Course.belongsTo(User, { foreignKey: 'uploaderId', as: 'uploader' });
-    User.hasMany(Course, { foreignKey: 'uploaderId', as: 'uploadedCourses' });
-
-    // ============================================
-    // TEST SERIES ASSOCIATIONS
-    // ============================================
-    
     // TestSeries and Test
     TestSeries.hasMany(Test, { foreignKey: 'testSeriesId', as: 'tests' });
     Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId', as: 'testSeries' });
 
-    // TestSeries creator
-    TestSeries.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
-    User.hasMany(TestSeries, { foreignKey: 'createdBy', as: 'createdTestSeries' });
-
-    // ============================================
-    // TEST AND QUESTION ASSOCIATIONS
-    // ============================================
-    
     // Test and Question
     Test.hasMany(Question, { foreignKey: 'testId', as: 'testQuestions' });
     Question.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
 
-    // ============================================
-    // QUESTION BANK ASSOCIATIONS
-    // ============================================
-    
-    // QuestionBank uploader
-    QuestionBank.belongsTo(User, { foreignKey: 'uploadedBy', as: 'uploader' });
-    User.hasMany(QuestionBank, { foreignKey: 'uploadedBy', as: 'uploadedQbanks' });
+    Lecture.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+    Course.hasMany(Lecture, { foreignKey: 'courseId', as: 'lectures' });
 
-    // ============================================
-    // BRAND ASSOCIATIONS
-    // ============================================
-    
+    // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
     Brand.belongsTo(BrandCategory, {
         foreignKey: 'brandCategoryId',
         as: 'brandCategory'
@@ -218,11 +123,9 @@ const initAssociation = () => {
         foreignKey: 'companyId',
         as: 'brands'
     });
+    // --- END NEW ASSOCIATIONS ---
 
-    // ============================================
-    // NOTIFICATION ASSOCIATIONS
-    // ============================================
-    
+    // --- NOTIFICATION ASSOCIATIONS ---
     User.hasMany(Notification, {
         foreignKey: 'userId',
         as: 'notifications'
@@ -232,11 +135,9 @@ const initAssociation = () => {
         foreignKey: 'userId',
         as: 'user'
     });
+    // --- END NOTIFICATION ASSOCIATIONS ---
 
-    // ============================================
-    // DRUG INDEX ASSOCIATIONS
-    // ============================================
-    
+    // --- DRUG INDEX ASSOCIATIONS ---
     Drug.belongsTo(DrugCategory, {
         foreignKey: 'categoryId',
         as: 'category'
@@ -246,6 +147,19 @@ const initAssociation = () => {
         foreignKey: 'categoryId',
         as: 'drugs'
     });
+    // --- END DRUG INDEX ASSOCIATIONS ---
+
+    // --- FIX: ASSOCIATIONS FOR UPLOADER/CREATOR ---
+    // Course uploader
+    Course.belongsTo(User, { foreignKey: 'uploaderId', as: 'uploader' });
+    // TestSeries creator
+    TestSeries.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+    // QuestionBank uploader
+    QuestionBank.belongsTo(User, { foreignKey: 'uploadedBy', as: 'uploader' });
+    // Question creator (assuming Question has a createdBy field referencing User)
+    // If your Question model has a 'createdBy' field that links to User, add this:
+    // Question.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+    // --- END FIX ---
 };
 
 export default initAssociation;
