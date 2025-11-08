@@ -12,16 +12,15 @@ const Order = sequelize.define('Order', {
         type: DataTypes.UUID,
         allowNull: false,
         references: {
-            model: 'Users',
+            model: 'users',  // ✅ Also lowercase
             key: 'id'
         }
     },
-    // Product IDs - only one should be filled per order
     courseId: {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-            model: 'Courses',
+            model: 'courses',  // ✅ Lowercase
             key: 'id'
         }
     },
@@ -29,7 +28,7 @@ const Order = sequelize.define('Order', {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-            model: 'Qbanks',
+            model: 'qbanks',  // ✅ Lowercase
             key: 'id'
         }
     },
@@ -37,7 +36,7 @@ const Order = sequelize.define('Order', {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-            model: 'TestSeries',
+            model: 'test_series',  // ✅ Snake case
             key: 'id'
         }
     },
@@ -45,7 +44,7 @@ const Order = sequelize.define('Order', {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-            model: 'Webinars',
+            model: 'webinars',  // ✅ Lowercase
             key: 'id'
         }
     },
@@ -58,7 +57,6 @@ const Order = sequelize.define('Order', {
         allowNull: false,
         defaultValue: 'pending',
     },
-    // Customer details captured from form
     customerName: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -71,9 +69,8 @@ const Order = sequelize.define('Order', {
         type: DataTypes.STRING,
         allowNull: true,
     },
-    // Product metadata for easy reference
     productType: {
-        type: DataTypes.STRING, // 'course', 'qbank', 'testSeries', 'webinar'
+        type: DataTypes.STRING,
         allowNull: true,
     },
     productName: {
@@ -81,16 +78,17 @@ const Order = sequelize.define('Order', {
         allowNull: true,
     },
 }, { 
-    tableName: 'orders',      // ✅ Force lowercase table name
-    freezeTableName: true,     // ✅ Prevent Sequelize from modifying the name
+    tableName: 'orders',
+    freezeTableName: true,
+    underscored: true,        // ✅ Convert camelCase to snake_case
     timestamps: true,
     indexes: [
-        { fields: ['userId'] },
+        { fields: ['user_id'] },      // ✅ Use snake_case in indexes
         { fields: ['status'] },
-        { fields: ['courseId'] },
-        { fields: ['qbankId'] },
-        { fields: ['testSeriesId'] },
-        { fields: ['webinarId'] },
+        { fields: ['course_id'] },
+        { fields: ['qbank_id'] },
+        { fields: ['test_series_id'] },
+        { fields: ['webinar_id'] },
     ]
 });
 

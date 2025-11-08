@@ -1,116 +1,117 @@
+// models/Order.model.ts
 import { DataTypes } from "sequelize";
-import { sequelize } from "."; // Assuming './index' exports your Sequelize instance
+import { sequelize } from ".";
 
-const User = sequelize.define('User', {
+const Order = sequelize.define('Order', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    name: {
-        type: DataTypes.STRING,
+    userId: {
+        type: DataTypes.UUID,
         allowNull: false,
-    },
-    email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-        validate: {
-            isEmail: true,
+        field: 'userid',  // ✅ Map to lowercase column
+        references: {
+            model: 'users',
+            key: 'id'
         }
     },
-    password: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    phone: {
-        type: DataTypes.STRING,
+    // Product IDs - only one should be filled per order
+    courseId: {
+        type: DataTypes.UUID,
         allowNull: true,
-        unique: true,
+        field: 'courseid',  // ✅ Map to lowercase column
+        references: {
+            model: 'courses',
+            key: 'id'
+        }
     },
-    role: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'student'
-    },
-    profilePicture: {
-        type: DataTypes.STRING,
+    qbankId: {
+        type: DataTypes.UUID,
         allowNull: true,
+        field: 'qbankid',  // ✅ Map to lowercase column
+        references: {
+            model: 'qbanks',
+            key: 'id'
+        }
+    },
+    testSeriesId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'testseriesid',  // ✅ Map to lowercase column
+        references: {
+            model: 'testseries',
+            key: 'id'
+        }
+    },
+    webinarId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'webinarid',  // ✅ Map to lowercase column
+        references: {
+            model: 'webinars',
+            key: 'id'
+        }
+    },
+    amount: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
     },
     status: {
-        type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+        type: DataTypes.ENUM('pending', 'successful', 'failed', 'cancelled'),
         allowNull: false,
         defaultValue: 'pending',
     },
-    dateOfBirth: {
-        type: DataTypes.DATEONLY,
-        allowNull: true,
-    },
-    address: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-    },
-    rollNo: {
+    // Customer details captured from form
+    customerName: {
         type: DataTypes.STRING,
         allowNull: true,
+        field: 'customername',  // ✅ Map to lowercase column
     },
-    collegeName: {
+    customerEmail: {
         type: DataTypes.STRING,
         allowNull: true,
+        field: 'customeremail',  // ✅ Map to lowercase column
     },
-    university: {
+    customerPhone: {
         type: DataTypes.STRING,
         allowNull: true,
+        field: 'customerphone',  // ✅ Map to lowercase column
     },
-    country: {
+    // Product metadata for easy reference
+    productType: {
+        type: DataTypes.STRING, // 'course', 'qbank', 'testSeries', 'webinar'
+        allowNull: true,
+        field: 'producttype',  // ✅ Map to lowercase column
+    },
+    productName: {
         type: DataTypes.STRING,
         allowNull: true,
+        field: 'productname',  // ✅ Map to lowercase column
     },
-    passwordResetToken: {
-        type: DataTypes.STRING,
-        allowNull: true,
-    },
-    passwordResetExpires: {
+    createdAt: {
         type: DataTypes.DATE,
-        allowNull: true,
+        allowNull: false,
+        field: 'createdat',  // ✅ Map to lowercase column
     },
-    permissions: {
-        type: DataTypes.JSONB,
-        allowNull: true,
-        defaultValue: {
-            courses: true,
-            tests: true,
-            qbank: true,
-            webinars: true,
-            drugIndex: true,
-            article: true,
-            brand: true,
-            mediaLibrary: true
-        }
-    },
-    // === NEW DEVICE TOKEN FIELDS ===
-    deviceToken: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        comment: 'Unique token for current active device session'
-    },
-    deviceId: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        comment: 'Device identifier from client'
-    },
-    lastLoginAt: {
+    updatedAt: {
         type: DataTypes.DATE,
-        allowNull: true,
-        comment: 'Timestamp of last successful login'
+        allowNull: false,
+        field: 'updatedat',  // ✅ Map to lowercase column
     },
-    lastLoginDevice: {
-        type: DataTypes.STRING(500),
-        allowNull: true,
-        comment: 'Device information from last login'
-    }
-}, {
+}, { 
+    tableName: 'orders',       // ✅ Force lowercase table name
+    freezeTableName: true,     // ✅ Prevent pluralization
     timestamps: true,
+    indexes: [
+        { fields: ['userid'] },
+        { fields: ['status'] },
+        { fields: ['courseid'] },
+        { fields: ['qbankid'] },
+        { fields: ['testseriesid'] },
+        { fields: ['webinarid'] },
+    ]
 });
 
-export default User;
+export default Order;
