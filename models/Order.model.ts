@@ -81,6 +81,8 @@ const Order = sequelize.define('Order', {
         allowNull: true,
     },
 }, { 
+    tableName: 'orders',      // ✅ Force lowercase table name
+    freezeTableName: true,     // ✅ Prevent Sequelize from modifying the name
     timestamps: true,
     indexes: [
         { fields: ['userId'] },
