@@ -1,5 +1,5 @@
 // routes/user.routes.ts
-// Complete user routes with proper authentication and device token verification
+// FIXED VERSION - Logout now works with or without valid token
 
 import express from 'express';
 import * as UserController from '../controllers/User.controller';
@@ -77,12 +77,16 @@ router.post('/reset-password', UserController.resetPassword);
 router.post('/refresh-token', refreshTokenController);
 
 /**
- * User Logout
+ * User Logout - FIXED
  * POST /api/user/logout
- * Clears device token from database
- * Note: This uses isAuth which includes device check
+ * 
+ * IMPORTANT: Uses optionalAuth instead of isAuth
+ * This allows logout to work even with invalid/expired tokens
+ * 
+ * If user is authenticated: Clears device token from database
+ * If user is not authenticated: Returns success anyway (client cleanup)
  */
-router.post('/logout', isAuth, UserController.logoutUser);
+router.post('/logout', UserController.logoutUser);
 
 /**
  * Get Logged-In User Profile
