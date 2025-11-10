@@ -1,4 +1,4 @@
-// services/AdminPaymentVerification.service.ts (Fixed)
+import { Model } from 'sequelize'; // Keep this import for the base Model type reference
 import HttpError from '../utils/httpError';
 import Payment from '../models/Payment.model';
 import Order from '../models/Order.model';
@@ -13,6 +13,70 @@ import UserTestSeries from '../models/UserTestSeries.model';
 import UserWebinar from '../models/UserWebinar.model';
 import { sendEmail } from '../utils/email';
 
+// --- Type Definitions for Clarity (FIXED) ---
+
+// 1. Define Attribute Interfaces (Model properties)
+interface PaymentAttributes {
+    id: string;
+    userId: string;
+    status: 'pending' | 'successful' | 'failed';
+    amount: string;
+    transactionId: string;
+    gatewayTransactionId: string | null;
+    adminNotes: string | null;
+    verifiedBy: string | null;
+    verifiedAt: Date | null;
+}
+
+interface OrderAttributes {
+    id: string;
+    userId: string;
+    status: 'pending' | 'successful' | 'failed' | 'cancelled';
+    amount: string;
+    courseId: string | null;
+    qbankId: string | null;
+    testSeriesId: string | null;
+    webinarId: string | null;
+    productName: string | null;
+}
+
+interface UserAttributes {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+}
+
+// 2. Define Instance Interfaces (Model methods + Associations)
+// These explicitly list the methods/accessors used, avoiding the generic Model conflicts.
+
+interface PaymentInstance extends PaymentAttributes {
+    // Association Getters
+    get(key: 'order'): OrderInstance;
+    get(key: 'user'): UserInstance;
+    // Attribute Getter (Simplified to avoid overload conflict)
+    get(key: keyof PaymentAttributes): any; 
+    
+    // Sequelize Update method signature
+    update(values: Partial<PaymentAttributes> & { adminNotes: string | null; verifiedBy: string; verifiedAt: Date }, options?: any): Promise<PaymentInstance>;
+}
+
+interface OrderInstance extends OrderAttributes {
+    // Attribute Getter (Simplified to avoid overload conflict)
+    get(key: keyof OrderAttributes): any; 
+    
+    // Sequelize Update method signature
+    update(values: Partial<OrderAttributes>, options?: any): Promise<OrderInstance>;
+}
+
+interface UserInstance extends UserAttributes {
+    // Attribute Getter (Simplified)
+    get(key: keyof UserAttributes): any;
+}
+
+
+// --- Verification Logic ---
+
 interface VerifyPaymentInput {
     paymentId: string;
     adminId: string;
@@ -24,12 +88,13 @@ interface VerifyPaymentInput {
 export const verifyPayment = async (input: VerifyPaymentInput) => {
     const { paymentId, adminId, status, adminNotes, gatewayTransactionId } = input;
 
-    const payment = await Payment.findByPk(paymentId, {
+    // 1. Fetch Payment, Order, and User details
+    const payment = (await Payment.findByPk(paymentId, {
         include: [
             { model: Order, as: 'order' },
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
         ]
-    });
+    })) as unknown as PaymentInstance | null; // Cast safely
 
     if (!payment) {
         throw new HttpError('Payment record not found.', 404);
@@ -42,31 +107,32 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
         );
     }
 
-    const order = payment.get('order') as any;
+    const order = payment.get('order') as OrderInstance;
     if (!order) {
         throw new HttpError('Associated order not found.', 404);
     }
 
-    // Update payment status with proper field names
+    // 2. Update payment and order status
     await payment.update({
         status,
+        // If gatewayTransactionId is provided in input, use it, otherwise use the existing one (if any)
         gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
-        adminNotes,
+        adminNotes: adminNotes ?? null, 
         verifiedBy: adminId,
         verifiedAt: new Date(),
     });
 
-    // Update order status
     await order.update({ status });
 
     console.log(`Payment ${paymentId} verified by admin ${adminId} as ${status}`);
 
+    // 3. Post-verification actions (Grant access and send email)
+    const user = payment.get('user') as UserInstance;
+
     if (status === 'successful') {
         await grantProductAccess(payment, order);
-        const user = payment.get('user') as any;
         await sendPaymentConfirmationEmail(user, order, payment);
     } else {
-        const user = payment.get('user') as any;
         await sendPaymentRejectionEmail(user, order, payment, adminNotes);
     }
 
@@ -78,16 +144,18 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     };
 };
 
-const grantProductAccess = async (payment: any, order: any) => {
+// --- Product Access Granting ---
+
+const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance) => {
     const userId = payment.get('userId') as string;
     
-    // Use proper field names (lowercase)
+    // Check which product ID exists on the Order and grant access via findOrCreate
     if (order.get('courseId')) {
         await UserCourse.findOrCreate({
-            where: { userId, courseId: order.get('courseId') },
+            where: { userId, courseId: order.get('courseId') as string },
             defaults: { 
                 userId, 
-                courseId: order.get('courseId'),
+                courseId: order.get('courseId') as string,
                 enrolledAt: new Date(),
                 paymentId: payment.get('id')
             }
@@ -95,10 +163,10 @@ const grantProductAccess = async (payment: any, order: any) => {
         console.log(`User ${userId} enrolled in course ${order.get('courseId')}`);
     } else if (order.get('qbankId')) {
         await UserQbank.findOrCreate({
-            where: { userId, qbankId: order.get('qbankId') },
+            where: { userId, qbankId: order.get('qbankId') as string },
             defaults: { 
                 userId, 
-                qbankId: order.get('qbankId'),
+                qbankId: order.get('qbankId') as string,
                 enrolledAt: new Date(),
                 paymentId: payment.get('id')
             }
@@ -106,10 +174,10 @@ const grantProductAccess = async (payment: any, order: any) => {
         console.log(`User ${userId} enrolled in qbank ${order.get('qbankId')}`);
     } else if (order.get('testSeriesId')) {
         await UserTestSeries.findOrCreate({
-            where: { userId, testSeriesId: order.get('testSeriesId') },
+            where: { userId, testSeriesId: order.get('testSeriesId') as string },
             defaults: { 
                 userId, 
-                testSeriesId: order.get('testSeriesId'),
+                testSeriesId: order.get('testSeriesId') as string,
                 enrolledAt: new Date(),
                 paymentId: payment.get('id')
             }
@@ -117,10 +185,10 @@ const grantProductAccess = async (payment: any, order: any) => {
         console.log(`User ${userId} enrolled in test series ${order.get('testSeriesId')}`);
     } else if (order.get('webinarId')) {
         await UserWebinar.findOrCreate({
-            where: { userId, webinarId: order.get('webinarId') },
+            where: { userId, webinarId: order.get('webinarId') as string },
             defaults: { 
                 userId, 
-                webinarId: order.get('webinarId'),
+                webinarId: order.get('webinarId') as string,
                 enrolledAt: new Date(),
                 paymentId: payment.get('id')
             }
@@ -128,6 +196,8 @@ const grantProductAccess = async (payment: any, order: any) => {
         console.log(`User ${userId} enrolled in webinar ${order.get('webinarId')}`);
     }
 };
+
+// --- Payment Listing & Details ---
 
 export const getAllPayments = async (
     status?: string,
@@ -147,6 +217,7 @@ export const getAllPayments = async (
                 model: Order, 
                 as: 'order',
                 include: [
+                    // Eagerly loads product name using Order's associations
                     { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
                     { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
                     { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
@@ -179,6 +250,7 @@ export const getPaymentDetails = async (paymentId: string) => {
                 model: Order, 
                 as: 'order',
                 include: [
+                    // Eagerly loads product name using Order's associations
                     { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
                     { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
                     { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
@@ -195,12 +267,15 @@ export const getPaymentDetails = async (paymentId: string) => {
     return payment;
 };
 
-const sendPaymentConfirmationEmail = async (user: any, order: any, payment: any) => {
-    const productName = order.get('productName') || 'Product';
+// --- Email Utility Functions ---
+
+const sendPaymentConfirmationEmail = async (user: UserInstance, order: OrderInstance, payment: PaymentInstance) => {
+    // Fallback logic for productName if null
+    const productName = order.get('productName') || 'Product'; 
     
     try {
         await sendEmail({
-            to: user.get('email'),
+            to: user.get('email') as string,
             subject: 'Payment Confirmed - Access Granted',
             html: `
                 <h2>Payment Confirmed!</h2>
@@ -224,16 +299,16 @@ const sendPaymentConfirmationEmail = async (user: any, order: any, payment: any)
 };
 
 const sendPaymentRejectionEmail = async (
-    user: any, 
-    order: any, 
-    payment: any, 
+    user: UserInstance, 
+    order: OrderInstance, 
+    payment: PaymentInstance, 
     reason?: string
 ) => {
     const productName = order.get('productName') || 'Product';
     
     try {
         await sendEmail({
-            to: user.get('email'),
+            to: user.get('email') as string,
             subject: 'Payment Verification Failed',
             html: `
                 <h2>Payment Verification Failed</h2>

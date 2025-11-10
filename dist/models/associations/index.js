@@ -8,7 +8,6 @@ const Course_model_1 = __importDefault(require("../Course.model"));
 const CourseLiveLecture_model_1 = __importDefault(require("../CourseLiveLecture.model"));
 const CourseTeacher_model_1 = __importDefault(require("../CourseTeacher.model"));
 const CourseTestSeries_model_1 = __importDefault(require("../CourseTestSeries.model"));
-// UserCourse is the new join table, replacing Enrollment
 const UserCourse_model_1 = __importDefault(require("../UserCourse.model"));
 const Lecture_model_1 = __importDefault(require("../Lecture.model"));
 const LiveLecture_model_1 = __importDefault(require("../LiveLecture.model"));
@@ -31,44 +30,52 @@ const UserWebinar_model_1 = __importDefault(require("../UserWebinar.model"));
 const webinar_model_1 = __importDefault(require("../webinar.model"));
 const Order_model_1 = __importDefault(require("../Order.model"));
 const initAssociation = () => {
-    Order_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
-    Order_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
-    Order_model_1.default.belongsTo(QuestionBank_model_1.default, { foreignKey: 'qbankId', as: 'qbank' });
-    Order_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId', as: 'testSeries' });
-    Order_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarId', as: 'webinar' });
+    // ===== ORDER ASSOCIATIONS (MUST BE FIRST) =====
+    // Order belongs to User
+    Order_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userid', as: 'user' });
+    User_model_1.default.hasMany(Order_model_1.default, { foreignKey: 'userid', as: 'orders' });
+    // Order belongs to Products (only one will be filled per order)
+    Order_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseid', as: 'course' });
+    Order_model_1.default.belongsTo(QuestionBank_model_1.default, { foreignKey: 'qbankid', as: 'qbank' });
+    Order_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testseriesid', as: 'testSeries' });
+    Order_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarid', as: 'webinar' });
+    // ===== PAYMENT ASSOCIATIONS =====
+    // Payment belongs to Order
+    Payment_model_1.default.belongsTo(Order_model_1.default, { foreignKey: 'orderid', as: 'order' });
+    Order_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'orderid', as: 'payments' });
+    // Payment belongs to User
+    Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userid', as: 'user' });
+    User_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'userid', as: 'payments' });
+    // Payment verified by Admin (User)
+    Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'verifiedby', as: 'verifier' });
+    // Legacy Payment-Course association (if needed for backward compatibility)
+    Course_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'courseid' });
+    Payment_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseid' });
+    // ===== USER WEBINAR ASSOCIATIONS =====
     UserWebinar_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
-    // A UserWebinar belongs to a Webinar
     UserWebinar_model_1.default.belongsTo(webinar_model_1.default, { foreignKey: 'webinarId' });
-    // Define inverse associations (optional, but good for comprehensive model relationships)
-    // A User can have many UserWebinars
     User_model_1.default.hasMany(UserWebinar_model_1.default, { foreignKey: 'userId' });
-    // A Webinar can have many UserWebinars
     webinar_model_1.default.hasMany(UserWebinar_model_1.default, { foreignKey: 'webinarId' });
+    // ===== USER COURSE ASSOCIATIONS =====
     User_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'userId' });
     UserCourse_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     Course_model_1.default.hasMany(UserCourse_model_1.default, { foreignKey: 'courseId' });
     UserCourse_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId' });
-    // --- User and Test Series Enrollment ---
+    // ===== USER TEST SERIES ASSOCIATIONS =====
     User_model_1.default.hasMany(UserTestSeries_model_1.default, { foreignKey: 'userId' });
     UserTestSeries_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     TestSeries_model_1.default.hasMany(UserTestSeries_model_1.default, { foreignKey: 'testSeriesId' });
     UserTestSeries_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId' });
-    // --- User and Q-Bank Enrollment ---
+    // ===== USER QBANK ASSOCIATIONS =====
     User_model_1.default.hasMany(UserQbank_model_1.default, { foreignKey: 'userId' });
     UserQbank_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
     QuestionBank_model_1.default.hasMany(UserQbank_model_1.default, { foreignKey: 'qbankId' });
     UserQbank_model_1.default.belongsTo(QuestionBank_model_1.default, { foreignKey: 'qbankId' });
-    User_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'userId' });
-    Payment_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId' });
-    Course_model_1.default.hasMany(Payment_model_1.default, { foreignKey: 'courseId' });
-    Payment_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId' });
-    // Course and LiveLecture relationship
+    // ===== COURSE ASSOCIATIONS =====
     Course_model_1.default.belongsToMany(LiveLecture_model_1.default, { through: CourseLiveLecture_model_1.default, foreignKey: 'courseId' });
     LiveLecture_model_1.default.belongsToMany(Course_model_1.default, { through: CourseLiveLecture_model_1.default, foreignKey: 'liveLectureId' });
-    // Course and TestSeries relationship
     Course_model_1.default.belongsToMany(TestSeries_model_1.default, { through: CourseTestSeries_model_1.default, foreignKey: 'courseId' });
     TestSeries_model_1.default.belongsToMany(Course_model_1.default, { through: CourseTestSeries_model_1.default, foreignKey: 'testSeriesId' });
-    // Course and Teacher relationship
     Course_model_1.default.belongsToMany(Teacher_model_1.default, { through: CourseTeacher_model_1.default, foreignKey: 'courseId', as: 'teachers' });
     Teacher_model_1.default.belongsToMany(Course_model_1.default, { through: CourseTeacher_model_1.default, foreignKey: 'teacherId', as: 'courses' });
     Course_model_1.default.hasMany(CourseTeacher_model_1.default, { foreignKey: 'courseId', as: 'courses' });
@@ -77,15 +84,16 @@ const initAssociation = () => {
     CourseTeacher_model_1.default.belongsTo(Teacher_model_1.default, { foreignKey: 'teacherId', as: 'teacher' });
     Course_model_1.default.belongsTo(Categories_model_1.default, { foreignKey: 'categoryId', as: 'category' });
     Categories_model_1.default.hasMany(Course_model_1.default, { foreignKey: 'categoryId', as: 'courses' });
-    // TestSeries and Test
+    // ===== TEST SERIES ASSOCIATIONS =====
     TestSeries_model_1.default.hasMany(Test_model_1.default, { foreignKey: 'testSeriesId', as: 'tests' });
     Test_model_1.default.belongsTo(TestSeries_model_1.default, { foreignKey: 'testSeriesId', as: 'testSeries' });
-    // Test and Question
+    // ===== TEST AND QUESTION ASSOCIATIONS =====
     Test_model_1.default.hasMany(Question_model_1.default, { foreignKey: 'testId', as: 'testQuestions' });
     Question_model_1.default.belongsTo(Test_model_1.default, { foreignKey: 'testId', as: 'test' });
+    // ===== LECTURE ASSOCIATIONS =====
     Lecture_model_1.default.belongsTo(Course_model_1.default, { foreignKey: 'courseId', as: 'course' });
     Course_model_1.default.hasMany(Lecture_model_1.default, { foreignKey: 'courseId', as: 'lectures' });
-    // --- NEW ASSOCIATIONS FOR BRAND, BRANDCATEGORY, AND COMPANY ---
+    // ===== BRAND ASSOCIATIONS =====
     Brand_model_1.default.belongsTo(BrandCategory_model_1.default, {
         foreignKey: 'brandCategoryId',
         as: 'brandCategory'
@@ -102,8 +110,7 @@ const initAssociation = () => {
         foreignKey: 'companyId',
         as: 'brands'
     });
-    // --- END NEW ASSOCIATIONS ---
-    // --- NOTIFICATION ASSOCIATIONS ---
+    // ===== NOTIFICATION ASSOCIATIONS =====
     User_model_1.default.hasMany(Notification_model_1.default, {
         foreignKey: 'userId',
         as: 'notifications'
@@ -112,8 +119,7 @@ const initAssociation = () => {
         foreignKey: 'userId',
         as: 'user'
     });
-    // --- END NOTIFICATION ASSOCIATIONS ---
-    // --- DRUG INDEX ASSOCIATIONS ---
+    // ===== DRUG INDEX ASSOCIATIONS =====
     Drug_model_1.default.belongsTo(DrugCategory_model_1.default, {
         foreignKey: 'categoryId',
         as: 'category'
@@ -122,17 +128,9 @@ const initAssociation = () => {
         foreignKey: 'categoryId',
         as: 'drugs'
     });
-    // --- END DRUG INDEX ASSOCIATIONS ---
-    // --- FIX: ASSOCIATIONS FOR UPLOADER/CREATOR ---
-    // Course uploader
+    // ===== UPLOADER/CREATOR ASSOCIATIONS =====
     Course_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'uploaderId', as: 'uploader' });
-    // TestSeries creator
     TestSeries_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'createdBy', as: 'creator' });
-    // QuestionBank uploader
     QuestionBank_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'uploadedBy', as: 'uploader' });
-    // Question creator (assuming Question has a createdBy field referencing User)
-    // If your Question model has a 'createdBy' field that links to User, add this:
-    // Question.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
-    // --- END FIX ---
 };
 exports.default = initAssociation;

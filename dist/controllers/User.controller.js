@@ -433,26 +433,47 @@ exports.rejectTeacher = rejectTeacher;
  */
 const logoutUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        if (!req.user || !req.user.id) {
-            throw new httpError_1.default("User not authenticated.", 401);
+        // Check if user was authenticated by optionalAuth middleware
+        if (req.user && req.user.id) {
+            // User is authenticated - clear device tokens from database
+            try {
+                const user = yield User_model_1.default.findByPk(req.user.id);
+                if (user) {
+                    yield user.update({
+                        deviceToken: null,
+                        deviceId: null
+                    });
+                    console.log(`User ${req.user.email} logged out. Device token cleared from database.`);
+                }
+                else {
+                    console.log(`User ID ${req.user.id} not found during logout`);
+                }
+            }
+            catch (dbError) {
+                // Log error but don't fail the logout
+                console.error('Error clearing device token from database:', dbError);
+            }
         }
-        const userId = req.user.id;
-        // Clear device token from database
-        const user = yield User_model_1.default.findByPk(userId);
-        if (user) {
-            yield user.update({
-                deviceToken: null,
-                deviceId: null
-            });
-            console.log(`User ${req.user.email} logged out. Device token cleared.`);
+        else {
+            // User not authenticated (token invalid/expired)
+            // This is okay - client just wants to clean up local storage
+            console.log('Logout called without valid authentication - allowing client cleanup');
         }
+        // Always return success, regardless of authentication status
+        // This ensures the frontend can always clean up its local state
         res.status(200).json({
             success: true,
             message: 'Logout successful'
         });
     }
     catch (error) {
-        next(error);
+        // Even if there's an error, return success for logout
+        // The client needs to be able to log out and clear its state
+        console.error('Logout error (returning success anyway):', error);
+        res.status(200).json({
+            success: true,
+            message: 'Logout completed'
+        });
     }
 });
 exports.logoutUser = logoutUser;

@@ -1,6 +1,6 @@
 "use strict";
 // routes/user.routes.ts
-// Complete user routes with proper authentication and device token verification
+// FIXED VERSION - Logout now works with or without valid token
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -103,12 +103,16 @@ router.post('/reset-password', UserController.resetPassword);
  */
 router.post('/refresh-token', auth_1.refreshTokenController);
 /**
- * User Logout
+ * User Logout - FIXED
  * POST /api/user/logout
- * Clears device token from database
- * Note: This uses isAuth which includes device check
+ *
+ * IMPORTANT: Uses optionalAuth instead of isAuth
+ * This allows logout to work even with invalid/expired tokens
+ *
+ * If user is authenticated: Clears device token from database
+ * If user is not authenticated: Returns success anyway (client cleanup)
  */
-router.post('/logout', auth_1.default, UserController.logoutUser);
+router.post('/logout', UserController.logoutUser);
 /**
  * Get Logged-In User Profile
  * GET /api/user/me

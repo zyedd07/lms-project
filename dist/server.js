@@ -107,7 +107,7 @@ app.use('/payments', PaymentProcessing_router_1.default);
 app.use('/webhooks', PaymentWebhook_router_1.default);
 app.use('/user-webinars', UserWebinar_router_1.default);
 app.use('/media-file', Mediafile_router_1.default);
-app.use('/admin', AdminPayment_router_1.default); // Admin Payment Verification routes
+app.use('/admin/payments', AdminPayment_router_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
