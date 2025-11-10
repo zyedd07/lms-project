@@ -17,7 +17,7 @@ const httpError_1 = __importDefault(require("../utils/httpError"));
 const AdminPaymentVerification_service_1 = require("../services/AdminPaymentVerification.service");
 /**
  * @route GET /api/admin/payments/pending
- * @desc Get all pending payments for admin verification
+ * @desc Get all pending orders for admin verification (aliased as payments)
  * @access Private (Admin Only)
  */
 const getPendingPaymentsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -42,7 +42,7 @@ const getPendingPaymentsController = (req, res, next) => __awaiter(void 0, void 
 exports.getPendingPaymentsController = getPendingPaymentsController;
 /**
  * @route GET /api/admin/payments/all
- * @desc Get all payments with optional status filter
+ * @desc Get all orders (aliased as payments) with optional status filter
  * @access Private (Admin Only)
  */
 const getAllPaymentsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -68,7 +68,7 @@ const getAllPaymentsController = (req, res, next) => __awaiter(void 0, void 0, v
 exports.getAllPaymentsController = getAllPaymentsController;
 /**
  * @route GET /api/admin/payments/:paymentId
- * @desc Get payment details by ID
+ * @desc Get order details by ID (using :paymentId route parameter)
  * @access Private (Admin Only)
  */
 const getPaymentDetailsController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -77,8 +77,10 @@ const getPaymentDetailsController = (req, res, next) => __awaiter(void 0, void 0
         if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
             throw new httpError_1.default('Forbidden: Admin access required.', 403);
         }
-        const { paymentId } = req.params;
-        const payment = yield (0, AdminPaymentVerification_service_1.getPaymentDetails)(paymentId);
+        // FIX: Treat the route parameter (which is named 'paymentId' in the route) as the Order ID
+        const { paymentId: orderId } = req.params;
+        // The service function now takes the Order ID
+        const payment = yield (0, AdminPaymentVerification_service_1.getPaymentDetails)(orderId);
         res.status(200).json({
             success: true,
             message: 'Payment details fetched successfully.',
@@ -92,7 +94,7 @@ const getPaymentDetailsController = (req, res, next) => __awaiter(void 0, void 0
 exports.getPaymentDetailsController = getPaymentDetailsController;
 /**
  * @route POST /api/admin/payments/verify
- * @desc Verify and approve/reject a payment
+ * @desc Verify and approve/reject an order
  * @access Private (Admin Only)
  */
 const verifyPaymentController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -104,15 +106,19 @@ const verifyPaymentController = (req, res, next) => __awaiter(void 0, void 0, vo
         if (!((_b = req.user) === null || _b === void 0 ? void 0 : _b.id)) {
             throw new httpError_1.default('Admin ID not found in request.', 401);
         }
-        const { paymentId, status, adminNotes, gatewayTransactionId } = req.body;
+        // FIX: Change destructuring to expect orderId as the primary key from the body.
+        const { orderId, paymentId, status, adminNotes, gatewayTransactionId } = req.body;
         // Validation
-        if (!paymentId || !status) {
-            throw new httpError_1.default('Missing required fields: paymentId, status.', 400);
+        if (!orderId || !status) {
+            // FIX: Updated error message to reflect the missing field is now orderId
+            throw new httpError_1.default('Missing required fields: orderId, status.', 400);
         }
         if (!['successful', 'failed'].includes(status)) {
             throw new httpError_1.default('Invalid status. Must be "successful" or "failed".', 400);
         }
         const result = yield (0, AdminPaymentVerification_service_1.verifyPayment)({
+            // FIX: Pass orderId as the required parameter
+            orderId,
             paymentId,
             adminId: req.user.id,
             status,
@@ -123,7 +129,8 @@ const verifyPaymentController = (req, res, next) => __awaiter(void 0, void 0, vo
             success: true,
             message: result.message,
             data: {
-                paymentId: result.paymentId,
+                // FIX: The service now returns orderId, not paymentId
+                orderId: result.orderId,
                 status: result.status
             }
         });

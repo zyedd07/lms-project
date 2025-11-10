@@ -1,4 +1,4 @@
-import { Model } from 'sequelize'; // Keep this import for the base Model type reference
+import { Model } from 'sequelize';
 import HttpError from '../utils/httpError';
 import Payment from '../models/Payment.model';
 import Order from '../models/Order.model';
@@ -13,9 +13,8 @@ import UserTestSeries from '../models/UserTestSeries.model';
 import UserWebinar from '../models/UserWebinar.model';
 import { sendEmail } from '../utils/email';
 
-// --- Type Definitions for Clarity (FIXED) ---
+// --- Type Definitions (FIXED and Adjusted for Order Association) ---
 
-// 1. Define Attribute Interfaces (Model properties)
 interface PaymentAttributes {
     id: string;
     userId: string;
@@ -26,6 +25,7 @@ interface PaymentAttributes {
     adminNotes: string | null;
     verifiedBy: string | null;
     verifiedAt: Date | null;
+    orderId: string;
 }
 
 interface OrderAttributes {
@@ -47,38 +47,29 @@ interface UserAttributes {
     phone: string | null;
 }
 
-// 2. Define Instance Interfaces (Model methods + Associations)
-// These explicitly list the methods/accessors used, avoiding the generic Model conflicts.
-
 interface PaymentInstance extends PaymentAttributes {
-    // Association Getters
     get(key: 'order'): OrderInstance;
-    get(key: 'user'): UserInstance;
-    // Attribute Getter (Simplified to avoid overload conflict)
-    get(key: keyof PaymentAttributes): any; 
-    
-    // Sequelize Update method signature
-    update(values: Partial<PaymentAttributes> & { adminNotes: string | null; verifiedBy: string; verifiedAt: Date }, options?: any): Promise<PaymentInstance>;
+    get(key: keyof PaymentAttributes): any;
+    update(values: Partial<PaymentAttributes>, options?: any): Promise<PaymentInstance>;
 }
 
 interface OrderInstance extends OrderAttributes {
-    // Attribute Getter (Simplified to avoid overload conflict)
+    get(key: 'user'): UserInstance; 
+    get(key: 'payment'): PaymentInstance | null; 
     get(key: keyof OrderAttributes): any; 
-    
-    // Sequelize Update method signature
     update(values: Partial<OrderAttributes>, options?: any): Promise<OrderInstance>;
 }
 
 interface UserInstance extends UserAttributes {
-    // Attribute Getter (Simplified)
     get(key: keyof UserAttributes): any;
 }
 
 
-// --- Verification Logic ---
+// --- Verification Logic (Order-Centric) ---
 
 interface VerifyPaymentInput {
-    paymentId: string;
+    orderId: string; 
+    paymentId?: string; 
     adminId: string;
     status: 'successful' | 'failed';
     adminNotes?: string;
@@ -86,69 +77,70 @@ interface VerifyPaymentInput {
 }
 
 export const verifyPayment = async (input: VerifyPaymentInput) => {
-    const { paymentId, adminId, status, adminNotes, gatewayTransactionId } = input;
+    const { orderId, paymentId, adminId, status, adminNotes, gatewayTransactionId } = input;
 
-    // 1. Fetch Payment, Order, and User details
-    const payment = (await Payment.findByPk(paymentId, {
+    // 1. Fetch Order, User, and associated Payment details
+    const order = (await Order.findByPk(orderId, {
         include: [
-            { model: Order, as: 'order' },
-            { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
+            { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+            { model: Payment, as: 'payment' } 
         ]
-    })) as unknown as PaymentInstance | null; // Cast safely
+    })) as unknown as OrderInstance | null;
 
-    if (!payment) {
-        throw new HttpError('Payment record not found.', 404);
+    if (!order) {
+        throw new HttpError('Order record not found.', 404);
     }
 
-    if (payment.get('status') !== 'pending') {
+    if (order.get('status') !== 'pending') {
         throw new HttpError(
-            `Payment already ${payment.get('status')}. Cannot verify again.`,
+            `Order already ${order.get('status')}. Cannot verify again.`,
             400
         );
     }
+    
+    // 2. Update Order status
+    await order.update({ status });
+    console.log(`Order ${orderId} verified by admin ${adminId} as ${status}`);
 
-    const order = payment.get('order') as OrderInstance;
-    if (!order) {
-        throw new HttpError('Associated order not found.', 404);
+    // 3. Update associated Payment record (if one exists and is relevant)
+    const payment = order.get('payment') as PaymentInstance | null;
+    if (payment) {
+        if (!paymentId || payment.id === paymentId) {
+            await payment.update({
+                status,
+                gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
+                adminNotes: adminNotes ?? null,
+                verifiedBy: adminId,
+                verifiedAt: new Date(),
+            });
+        }
     }
 
-    // 2. Update payment and order status
-    await payment.update({
-        status,
-        // If gatewayTransactionId is provided in input, use it, otherwise use the existing one (if any)
-        gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
-        adminNotes: adminNotes ?? null, 
-        verifiedBy: adminId,
-        verifiedAt: new Date(),
-    });
 
-    await order.update({ status });
-
-    console.log(`Payment ${paymentId} verified by admin ${adminId} as ${status}`);
-
-    // 3. Post-verification actions (Grant access and send email)
-    const user = payment.get('user') as UserInstance;
+    // 4. Post-verification actions (Grant access and send email)
+    const user = order.get('user') as UserInstance;
 
     if (status === 'successful') {
-        await grantProductAccess(payment, order);
-        await sendPaymentConfirmationEmail(user, order, payment);
+        await grantProductAccess(order); 
+        await sendPaymentConfirmationEmail(user, order, payment); 
     } else {
         await sendPaymentRejectionEmail(user, order, payment, adminNotes);
     }
 
     return {
         success: true,
-        message: `Payment ${status === 'successful' ? 'approved' : 'rejected'} successfully.`,
-        paymentId,
+        message: `Order ${status === 'successful' ? 'approved' : 'rejected'} successfully.`,
+        orderId: order.get('id'),
         status,
     };
 };
 
 // --- Product Access Granting ---
 
-const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance) => {
-    const userId = payment.get('userId') as string;
-    
+const grantProductAccess = async (order: OrderInstance) => {
+    const userId = order.get('userId') as string;
+    const paymentId = (order.get('payment') as PaymentInstance)?.id;
+
     // Check which product ID exists on the Order and grant access via findOrCreate
     if (order.get('courseId')) {
         await UserCourse.findOrCreate({
@@ -157,7 +149,7 @@ const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance
                 userId, 
                 courseId: order.get('courseId') as string,
                 enrolledAt: new Date(),
-                paymentId: payment.get('id')
+                paymentId: paymentId
             }
         });
         console.log(`User ${userId} enrolled in course ${order.get('courseId')}`);
@@ -168,7 +160,7 @@ const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance
                 userId, 
                 qbankId: order.get('qbankId') as string,
                 enrolledAt: new Date(),
-                paymentId: payment.get('id')
+                paymentId: paymentId
             }
         });
         console.log(`User ${userId} enrolled in qbank ${order.get('qbankId')}`);
@@ -179,7 +171,7 @@ const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance
                 userId, 
                 testSeriesId: order.get('testSeriesId') as string,
                 enrolledAt: new Date(),
-                paymentId: payment.get('id')
+                paymentId: paymentId
             }
         });
         console.log(`User ${userId} enrolled in test series ${order.get('testSeriesId')}`);
@@ -190,40 +182,34 @@ const grantProductAccess = async (payment: PaymentInstance, order: OrderInstance
                 userId, 
                 webinarId: order.get('webinarId') as string,
                 enrolledAt: new Date(),
-                paymentId: payment.get('id')
+                paymentId: paymentId
             }
         });
         console.log(`User ${userId} enrolled in webinar ${order.get('webinarId')}`);
     }
 };
 
-// --- Payment Listing & Details ---
+// --- Order Listing & Details (Aliased for Controller Compatibility) ---
 
-export const getAllPayments = async (
+export const getAllOrders = async (
     status?: string,
     limit: number = 50,
     offset: number = 0
 ) => {
     const whereClause: any = {};
-    if (status && ['pending', 'successful', 'failed'].includes(status)) {
+    if (status && ['pending', 'successful', 'failed', 'cancelled'].includes(status)) {
         whereClause.status = status;
     }
-
-    const payments = await Payment.findAndCountAll({
-        where: whereClause,
+    
+    const orders = await Order.findAndCountAll({
+        where: whereClause, 
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-            { 
-                model: Order, 
-                as: 'order',
-                include: [
-                    // Eagerly loads product name using Order's associations
-                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
-                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
-                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
-                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
-                ]
-            }
+            { model: Payment, as: 'payment', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
+            { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+            { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+            { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+            { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
         ],
         order: [['createdAt', 'DESC']],
         limit,
@@ -231,62 +217,74 @@ export const getAllPayments = async (
     });
 
     return {
-        payments: payments.rows,
-        total: payments.count,
-        limit,
-        offset,
+        orders: orders.rows,
+        total: orders.count,
+        // FIX: Using the function arguments for limit and offset to resolve TS2339
+        limit: limit, 
+        offset: offset, 
     };
 };
 
-export const getPendingPayments = async (limit: number = 50, offset: number = 0) => {
-    return getAllPayments('pending', limit, offset);
+// ALIAS: Used by controller 'getAllPaymentsController'
+export const getAllPayments = async (status?: string, limit: number = 50, offset: number = 0) => {
+    const result = await getAllOrders(status, limit, offset);
+    return {
+        payments: result.orders, 
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset,
+    };
 };
 
-export const getPaymentDetails = async (paymentId: string) => {
-    const payment = await Payment.findByPk(paymentId, {
+
+// ALIAS: Used by controller 'getPendingPaymentsController'
+export const getPendingPayments = async (limit: number = 50, offset: number = 0) => {
+    return getAllPayments('pending', limit, offset); 
+};
+
+
+// ALIAS: Used by controller 'getPaymentDetailsController'
+export const getPaymentDetails = async (orderId: string) => {
+    const order = await Order.findByPk(orderId, {
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            { 
-                model: Order, 
-                as: 'order',
-                include: [
-                    // Eagerly loads product name using Order's associations
-                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
-                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
-                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
-                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
-                ]
-            }
+            { model: Payment, as: 'payment', required: false }, 
+            { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+            { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+            { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+            { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
         ]
     });
 
-    if (!payment) {
-        throw new HttpError('Payment not found.', 404);
+    if (!order) {
+        throw new HttpError('Order not found.', 404);
     }
 
-    return payment;
+    return order; 
 };
+
 
 // --- Email Utility Functions ---
 
-const sendPaymentConfirmationEmail = async (user: UserInstance, order: OrderInstance, payment: PaymentInstance) => {
-    // Fallback logic for productName if null
-    const productName = order.get('productName') || 'Product'; 
+const sendPaymentConfirmationEmail = async (user: UserInstance, order: OrderInstance, payment?: PaymentInstance | null) => {
+    const productName = order.get('productName') || 'Product';
+    const transactionId = payment ? payment.get('transactionId') : 'N/A (Manual Verification)';
+    const paymentAmount = payment ? payment.get('amount') : order.get('amount');
     
     try {
         await sendEmail({
             to: user.get('email') as string,
-            subject: 'Payment Confirmed - Access Granted',
+            subject: 'Order Confirmed - Access Granted',
             html: `
-                <h2>Payment Confirmed!</h2>
+                <h2>Order Confirmed!</h2>
                 <p>Dear ${user.get('name')},</p>
-                <p>Your payment has been verified and confirmed.</p>
+                <p>Your order for ${productName} has been verified and confirmed.</p>
                 <h3>Order Details:</h3>
                 <ul>
                     <li>Order ID: ${order.get('id')}</li>
                     <li>Product: ${productName}</li>
-                    <li>Amount: ₹${payment.get('amount')}</li>
-                    <li>Transaction ID: ${payment.get('transactionId')}</li>
+                    <li>Amount: ₹${paymentAmount}</li>
+                    <li>Transaction ID: ${transactionId}</li>
                 </ul>
                 <p>You now have full access to ${productName}.</p>
                 <p>Thank you for your purchase!</p>
@@ -301,24 +299,25 @@ const sendPaymentConfirmationEmail = async (user: UserInstance, order: OrderInst
 const sendPaymentRejectionEmail = async (
     user: UserInstance, 
     order: OrderInstance, 
-    payment: PaymentInstance, 
+    payment?: PaymentInstance | null, 
     reason?: string
 ) => {
     const productName = order.get('productName') || 'Product';
+    const paymentAmount = payment ? payment.get('amount') : order.get('amount');
     
     try {
         await sendEmail({
             to: user.get('email') as string,
-            subject: 'Payment Verification Failed',
+            subject: 'Order Verification Failed',
             html: `
-                <h2>Payment Verification Failed</h2>
+                <h2>Order Verification Failed</h2>
                 <p>Dear ${user.get('name')},</p>
-                <p>We were unable to verify your payment.</p>
+                <p>We were unable to verify your order/payment.</p>
                 <h3>Order Details:</h3>
                 <ul>
                     <li>Order ID: ${order.get('id')}</li>
                     <li>Product: ${productName}</li>
-                    <li>Amount: ₹${payment.get('amount')}</li>
+                    <li>Amount: ₹${paymentAmount}</li>
                 </ul>
                 ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
                 <p>Please contact support if you believe this is an error.</p>
