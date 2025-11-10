@@ -1,4 +1,4 @@
-// services/PaymentProcessing.service.ts (Updated with QR code generation)
+// services/PaymentProcessing.service.ts (Updated with QR code generation and fix)
 import HttpError from '../utils/httpError';
 import Order from '../models/Order.model';
 import Payment from '../models/Payment.model';
@@ -128,14 +128,17 @@ export const createOrder = async (input: CreateOrderInput) => {
 const generateUpiQrCode = async (
     merchantUpiId: string,
     merchantName: string,
-    amount: number,
+    amount: number | string, // Relax the type to string | number for safety
     transactionId: string,
     orderNumber: string,
     currency: string = 'INR'
 ): Promise<string> => {
     try {
+        // 🔑 FIX 1: Convert amount to a number to ensure .toFixed() works.
+        const numericAmount = parseFloat(amount as any); 
+
         // Create UPI deep link string
-        const upiString = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${amount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderNumber} - ${transactionId}`)}`;
+        const upiString = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${numericAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderNumber} - ${transactionId}`)}`;
         
         // Generate QR code as base64 data URL
         const qrCodeDataUrl = await QRCode.toDataURL(upiString, {
@@ -150,7 +153,8 @@ const generateUpiQrCode = async (
 
         return qrCodeDataUrl;
     } catch (error) {
-        console.error('Error generating QR code:', error);
+        // Renamed error variable in console output for clarity
+        console.error('Error generating QR code:', error); 
         throw new HttpError('Failed to generate QR code', 500);
     }
 };
@@ -192,13 +196,21 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
 
     // Generate unique transaction ID
     const transactionId = `TXN_${Date.now()}_${uuidv4().substring(0, 8)}`;
-    const orderAmount = order.get('amount') as number;
+    
+    // Retrieve amount from order
+    const orderAmount = order.get('amount'); 
+    // 🔑 FIX 2: Convert the order amount to a number for safe use with toFixed()
+    const numericOrderAmount = parseFloat(orderAmount as any); 
+    
+    if (isNaN(numericOrderAmount) || numericOrderAmount <= 0) {
+         throw new HttpError('Invalid order amount.', 400);
+    }
 
     // Generate QR code
     const qrCodeDataUrl = await generateUpiQrCode(
         merchantUpiId,
         merchantName,
-        orderAmount,
+        numericOrderAmount, // Pass the converted numeric amount
         transactionId,
         orderId,
         currency
@@ -213,7 +225,7 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
         testSeriesId: order.get('testSeriesId') as string | null,
         qbankId: order.get('qbankId') as string | null,
         webinarId: order.get('webinarId') as string | null,
-        amount: orderAmount,
+        amount: numericOrderAmount, // Store the numeric amount
         gatewayName,
         transactionId,
         status: 'pending',
@@ -225,12 +237,13 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
         message: 'Payment initiated. Please complete payment via UPI.',
         transactionId,
         orderId,
-        amount: orderAmount,
+        amount: numericOrderAmount,
         currency,
         qrCodeDataUrl, // Base64 QR code image
         merchantUpiId,
         merchantName,
-        upiDeepLink: `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${orderAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderId} - ${transactionId}`)}`,
+        // 🔑 FIX 3: Use the converted numeric amount here for the deep link
+        upiDeepLink: `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${numericOrderAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderId} - ${transactionId}`)}`,
     };
 };
 
