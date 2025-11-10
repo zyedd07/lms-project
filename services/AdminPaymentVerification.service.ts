@@ -47,10 +47,10 @@ interface UserAttributes {
     phone: string | null;
 }
 
-// NOTE: Adjusted interface to correctly reference the plural alias 'payments'
+// FIX: Correctly type 'payments' as an array of PaymentInstance
 interface OrderInstance extends OrderAttributes {
     get(key: 'user'): UserInstance; 
-    get(key: 'payments'): PaymentInstance | null; // Must use the correct alias
+    get(key: 'payments'): PaymentInstance[] | null; 
     get(key: keyof OrderAttributes): any; 
     update(values: Partial<OrderAttributes>, options?: any): Promise<OrderInstance>;
 }
@@ -84,7 +84,6 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     const order = (await Order.findByPk(orderId, {
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-            // FIX 1: Using the correct plural alias 'payments'
             { model: Payment, as: 'payments' } 
         ]
     })) as unknown as OrderInstance | null;
@@ -105,12 +104,15 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     console.log(`Order ${orderId} verified by admin ${adminId} as ${status}`);
 
     // 3. Update associated Payment record (if one exists and is relevant)
-    // FIX 2: Using the correct accessor 'payments'
-    const payment = order.get('payments') as PaymentInstance | null; 
+    // 🔑 FIX 1: Get the array of payments and extract the first one
+    const payments = order.get('payments') as PaymentInstance[] | null;
+    const payment = (payments && payments.length > 0) ? payments[0] : null;
+    
     if (payment) {
         if (!paymentId || payment.id === paymentId) {
             await payment.update({
                 status,
+                // Ensure gatewayTransactionId is updated if provided, otherwise keep existing
                 gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
                 adminNotes: adminNotes ?? null,
                 verifiedBy: adminId,
@@ -124,6 +126,7 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     const user = order.get('user') as UserInstance;
 
     if (status === 'successful') {
+        // Pass the single payment instance (or null) to the utilities
         await grantProductAccess(order); 
         await sendPaymentConfirmationEmail(user, order, payment); 
     } else {
@@ -142,8 +145,10 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
 
 const grantProductAccess = async (order: OrderInstance) => {
     const userId = order.get('userId') as string;
-    // FIX 3: Using the correct accessor 'payments'
-    const paymentId = (order.get('payments') as PaymentInstance)?.id; 
+    
+    // 🔑 FIX 2: Correctly access the payments array and get the ID of the first payment
+    const payments = order.get('payments') as PaymentInstance[] | null;
+    const paymentId = (payments && payments.length > 0) ? payments[0].id : undefined;
 
     // Check which product ID exists on the Order and grant access via findOrCreate
     if (order.get('courseId')) {
@@ -194,6 +199,7 @@ const grantProductAccess = async (order: OrderInstance) => {
 };
 
 // --- Order Listing & Details (Aliased for Controller Compatibility) ---
+// (No changes needed in the functions below, as they correctly handle 'payments' as an include)
 
 export const getAllOrders = async (
     status?: string,
@@ -209,7 +215,6 @@ export const getAllOrders = async (
         where: whereClause, 
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-            // FIX 4: Using the correct plural alias 'payments'
             { model: Payment, as: 'payments', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
             { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
             { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
@@ -252,7 +257,6 @@ export const getPaymentDetails = async (orderId: string) => {
     const order = await Order.findByPk(orderId, {
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            // FIX 5: Using the correct plural alias 'payments'
             { model: Payment, as: 'payments', required: false }, 
             { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
             { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
@@ -271,6 +275,7 @@ export const getPaymentDetails = async (orderId: string) => {
 
 // --- Email Utility Functions ---
 
+// NOTE: We rely on the calling function (verifyPayment) to pass the single payment instance.
 const sendPaymentConfirmationEmail = async (user: UserInstance, order: OrderInstance, payment?: PaymentInstance | null) => {
     const productName = order.get('productName') || 'Product';
     const transactionId = payment ? payment.get('transactionId') : 'N/A (Manual Verification)';
@@ -322,6 +327,7 @@ const sendPaymentRejectionEmail = async (
                 <ul>
                     <li>Order ID: ${order.get('id')}</li>
                     <li>Product: ${productName}</li>
+                    <li>Amount: ₹${paymentAmount}</li>
                     <li>Amount: ₹${paymentAmount}</li>
                 </ul>
                 ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
