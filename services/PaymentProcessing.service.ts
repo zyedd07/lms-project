@@ -1,4 +1,4 @@
-// services/PaymentProcessing.service.ts
+// services/PaymentProcessing.service.ts (Updated with QR code generation)
 import HttpError from '../utils/httpError';
 import Order from '../models/Order.model';
 import Payment from '../models/Payment.model';
@@ -9,6 +9,7 @@ import Webinar from '../models/webinar.model';
 import User from '../models/User.model';
 import PaymentGatewaySetting from '../models/PaymentGatewaySetting.model';
 import { v4 as uuidv4 } from 'uuid';
+import QRCode from 'qrcode';
 
 interface CreateOrderInput {
     userId: string;
@@ -108,8 +109,8 @@ export const createOrder = async (input: CreateOrderInput) => {
         [productType + 'Id']: productId,
         amount: actualPrice,
         status: 'pending',
-        productType, // Store product type for reference
-        productName, // Store product name for easy reference
+        productType,
+        productName,
     });
 
     console.log(`Order created successfully: ${newOrder.get('id')} for user ${userId}`);
@@ -122,9 +123,41 @@ export const createOrder = async (input: CreateOrderInput) => {
 };
 
 /**
+ * Generate UPI QR Code
+ */
+const generateUpiQrCode = async (
+    merchantUpiId: string,
+    merchantName: string,
+    amount: number,
+    transactionId: string,
+    orderNumber: string,
+    currency: string = 'INR'
+): Promise<string> => {
+    try {
+        // Create UPI deep link string
+        const upiString = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${amount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderNumber} - ${transactionId}`)}`;
+        
+        // Generate QR code as base64 data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(upiString, {
+            errorCorrectionLevel: 'M',
+            margin: 1,
+            width: 300,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        return qrCodeDataUrl;
+    } catch (error) {
+        console.error('Error generating QR code:', error);
+        throw new HttpError('Failed to generate QR code', 500);
+    }
+};
+
+/**
  * Service to initiate payment for an existing order.
- * Creates payment record and returns transaction details.
- * For UPI flow, this just creates the payment record - actual payment happens via UPI app.
+ * Creates payment record, generates QR code, and returns transaction details.
  */
 export const initiatePayment = async (input: InitiatePaymentInput) => {
     const { orderId, gatewayName } = input;
@@ -148,8 +181,28 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
         throw new HttpError('Payment gateway not found or inactive.', 400);
     }
 
+    // Get merchant details from gateway settings
+    const merchantUpiId = gateway.get('merchantUpiId') as string;
+    const merchantName = gateway.get('merchantName') as string;
+    const currency = gateway.get('currency') as string || 'INR';
+
+    if (!merchantUpiId || !merchantName) {
+        throw new HttpError('Payment gateway configuration incomplete. Missing UPI details.', 500);
+    }
+
     // Generate unique transaction ID
     const transactionId = `TXN_${Date.now()}_${uuidv4().substring(0, 8)}`;
+    const orderAmount = order.get('amount') as number;
+
+    // Generate QR code
+    const qrCodeDataUrl = await generateUpiQrCode(
+        merchantUpiId,
+        merchantName,
+        orderAmount,
+        transactionId,
+        orderId,
+        currency
+    );
 
     // Create payment record
     const payment = await Payment.create({
@@ -160,7 +213,7 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
         testSeriesId: order.get('testSeriesId') as string | null,
         qbankId: order.get('qbankId') as string | null,
         webinarId: order.get('webinarId') as string | null,
-        amount: order.get('amount') as number,
+        amount: orderAmount,
         gatewayName,
         transactionId,
         status: 'pending',
@@ -168,16 +221,16 @@ export const initiatePayment = async (input: InitiatePaymentInput) => {
 
     console.log(`Payment initiated: ${transactionId} for order ${orderId}`);
 
-    // For UPI flow, we don't redirect to payment page
-    // Instead, the mobile app will show UPI options
-    // Admin will verify payment manually later
-
     return {
         message: 'Payment initiated. Please complete payment via UPI.',
         transactionId,
         orderId,
-        amount: order.get('amount') as number,
-        currency: gateway.get('currency') as string || 'INR',
+        amount: orderAmount,
+        currency,
+        qrCodeDataUrl, // Base64 QR code image
+        merchantUpiId,
+        merchantName,
+        upiDeepLink: `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${orderAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderId} - ${transactionId}`)}`,
     };
 };
 
@@ -224,7 +277,6 @@ export const getOrderDetails = async (orderId: string) => {
 
 /**
  * Update customer details for an order
- * (stores customer info like name, phone, email for payment reference)
  */
 export const updateOrderCustomerDetails = async (
     orderId: string,
@@ -236,7 +288,6 @@ export const updateOrderCustomerDetails = async (
         throw new HttpError('Order not found.', 404);
     }
 
-    // Update order with customer details
     await order.update({
         customerName: customerDetails.name,
         customerPhone: customerDetails.phone,

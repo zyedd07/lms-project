@@ -1,4 +1,4 @@
-// controllers/PaymentProcessing.controller.ts (Updated)
+// controllers/PaymentProcessing.controller.ts (Updated with QR code support)
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import HttpError from '../utils/httpError';
@@ -67,8 +67,16 @@ export const createOrderController = async (
 
 /**
  * @route POST /api/payments/process-transaction
- * @desc Initiates a payment transaction for an existing order.
+ * @desc Initiates a payment transaction for an existing order with QR code generation
  * @access Private (Authenticated User)
+ * 
+ * Response includes:
+ * - transactionId: Unique transaction identifier
+ * - qrCodeDataUrl: Base64 encoded QR code image (ready to display in <Image> component)
+ * - merchantUpiId: Dynamic merchant UPI ID from admin settings
+ * - merchantName: Dynamic merchant name from admin settings
+ * - upiDeepLink: Pre-formatted UPI deep link to open UPI apps
+ * - amount & currency: Payment details
  */
 export const processPaymentController = async (
     req: AuthenticatedRequest,
@@ -94,6 +102,7 @@ export const processPaymentController = async (
             gatewayName,
         });
 
+        // Return all payment details including dynamically generated QR code and merchant info
         res.status(200).json({
             success: true,
             message: result.message,
@@ -101,9 +110,14 @@ export const processPaymentController = async (
             orderId: result.orderId,
             amount: result.amount,
             currency: result.currency,
+            qrCodeDataUrl: result.qrCodeDataUrl, // ✅ Base64 QR code image from backend
+            merchantUpiId: result.merchantUpiId, // ✅ Dynamic UPI ID from admin panel settings
+            merchantName: result.merchantName,   // ✅ Dynamic merchant name from admin panel settings
+            upiDeepLink: result.upiDeepLink,     // ✅ Pre-generated UPI deep link for apps
         });
 
     } catch (error: any) {
+        console.error('Error processing payment transaction:', error);
         next(error);
     }
 };

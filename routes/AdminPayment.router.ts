@@ -1,4 +1,4 @@
-// routes/AdminPayment.router.ts
+// routes/AdminPaymentVerification.router.ts
 import express from 'express';
 import {
     getPendingPaymentsController,
@@ -6,8 +6,7 @@ import {
     getPaymentDetailsController,
     verifyPaymentController
 } from '../controllers/AdminPaymentVerification.controller';
-import isAuth from '../middleware/auth';
-import { authorizeAdmin } from '../middleware/auth'; // Assuming you have this middleware
+import isAuth, { authorizeAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -27,7 +26,7 @@ router.get('/all', isAuth, authorizeAdmin, getAllPaymentsController);
 
 /**
  * @route GET /api/admin/payments/:paymentId
- * @desc Get specific payment details
+ * @desc Get detailed payment information by ID
  * @access Private (Admin Only)
  */
 router.get('/:paymentId', isAuth, authorizeAdmin, getPaymentDetailsController);
