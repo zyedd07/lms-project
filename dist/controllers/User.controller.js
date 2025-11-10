@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rejectTeacher = exports.approveTeacher = exports.getPendingTeachers = exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
+exports.logoutUser = exports.rejectTeacher = exports.approveTeacher = exports.getPendingTeachers = exports.profilePictureUpload = exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.getUser = exports.uploadProfilePictureController = exports.updateMyProfile = exports.getLoggedInUser = exports.resetPassword = exports.forgotPassword = exports.facebookSignIn = exports.googleSignIn = exports.loginUser = exports.createUser = void 0;
 // The User model is NOT imported here. Controllers should not directly access models.
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_model_1 = __importDefault(require("../models/User.model"));
@@ -97,7 +97,9 @@ const loginUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function
         if (!email || !password) {
             throw new httpError_1.default("Please provide both email and password", 400);
         }
-        const response = yield (0, User_service_1.loginUserService)({ email, password });
+        // Pass request object to service to get device info
+        const response = yield (0, User_service_1.loginUserService)({ email, password }, req);
+        // Response now includes deviceToken
         res.status(200).json(response);
     }
     catch (error) {
@@ -111,11 +113,12 @@ exports.loginUser = loginUser;
  */
 const googleSignIn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { token } = req.body; // This is the idToken from the client
+        const { token } = req.body;
         if (!token) {
             throw new httpError_1.default("Google token is required.", 400);
         }
-        const response = yield (0, User_service_1.googleSignInService)(token);
+        // Pass request object to service to get device info
+        const response = yield (0, User_service_1.googleSignInService)(token, req);
         res.status(200).json(response);
     }
     catch (error) {
@@ -129,12 +132,13 @@ exports.googleSignIn = googleSignIn;
  */
 const facebookSignIn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { token } = req.body; // This is the accessToken from the client
-        console.log("Received Facebook Access Token:", token); // <-- ADD THIS LINE
+        const { token } = req.body;
+        console.log("Received Facebook Access Token:", token);
         if (!token) {
             throw new httpError_1.default("Facebook token is required.", 400);
         }
-        const response = yield (0, User_service_1.facebookSignInService)(token);
+        // Pass request object to service to get device info
+        const response = yield (0, User_service_1.facebookSignInService)(token, req);
         res.status(200).json(response);
     }
     catch (error) {
@@ -424,3 +428,31 @@ const rejectTeacher = (req, res, next) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.rejectTeacher = rejectTeacher;
+/**
+ * Controller for user logout - clears device token
+ */
+const logoutUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        if (!req.user || !req.user.id) {
+            throw new httpError_1.default("User not authenticated.", 401);
+        }
+        const userId = req.user.id;
+        // Clear device token from database
+        const user = yield User_model_1.default.findByPk(userId);
+        if (user) {
+            yield user.update({
+                deviceToken: null,
+                deviceId: null
+            });
+            console.log(`User ${req.user.email} logged out. Device token cleared.`);
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Logout successful'
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.logoutUser = logoutUser;

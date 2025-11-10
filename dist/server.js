@@ -47,6 +47,7 @@ const PaymentProcessing_router_1 = __importDefault(require("./routes/PaymentProc
 const PaymentWebhook_router_1 = __importDefault(require("./routes/PaymentWebhook.router")); // Import the new webhook router
 const UserWebinar_router_1 = __importDefault(require("./routes/UserWebinar.router")); // The new UserWebinar routes
 const Mediafile_router_1 = __importDefault(require("./routes/Mediafile.router")); // The new UserWebinar routes
+const AdminPayment_router_1 = __importDefault(require("./routes/AdminPayment.router"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -106,6 +107,7 @@ app.use('/payments', PaymentProcessing_router_1.default);
 app.use('/webhooks', PaymentWebhook_router_1.default);
 app.use('/user-webinars', UserWebinar_router_1.default);
 app.use('/media-file', Mediafile_router_1.default);
+app.use('/admin', AdminPayment_router_1.default); // Admin Payment Verification routes
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
