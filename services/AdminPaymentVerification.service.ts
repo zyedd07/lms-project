@@ -13,7 +13,7 @@ import UserTestSeries from '../models/UserTestSeries.model';
 import UserWebinar from '../models/UserWebinar.model';
 import { sendEmail } from '../utils/email';
 
-// --- Type Definitions (FIXED and Adjusted for Order Association) ---
+// --- Type Definitions ---
 
 interface PaymentAttributes {
     id: string;
@@ -47,17 +47,18 @@ interface UserAttributes {
     phone: string | null;
 }
 
+// NOTE: Adjusted interface to correctly reference the plural alias 'payments'
+interface OrderInstance extends OrderAttributes {
+    get(key: 'user'): UserInstance; 
+    get(key: 'payments'): PaymentInstance | null; // Must use the correct alias
+    get(key: keyof OrderAttributes): any; 
+    update(values: Partial<OrderAttributes>, options?: any): Promise<OrderInstance>;
+}
+
 interface PaymentInstance extends PaymentAttributes {
     get(key: 'order'): OrderInstance;
     get(key: keyof PaymentAttributes): any;
     update(values: Partial<PaymentAttributes>, options?: any): Promise<PaymentInstance>;
-}
-
-interface OrderInstance extends OrderAttributes {
-    get(key: 'user'): UserInstance; 
-    get(key: 'payment'): PaymentInstance | null; 
-    get(key: keyof OrderAttributes): any; 
-    update(values: Partial<OrderAttributes>, options?: any): Promise<OrderInstance>;
 }
 
 interface UserInstance extends UserAttributes {
@@ -83,7 +84,8 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     const order = (await Order.findByPk(orderId, {
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-            { model: Payment, as: 'payment' } 
+            // FIX 1: Using the correct plural alias 'payments'
+            { model: Payment, as: 'payments' } 
         ]
     })) as unknown as OrderInstance | null;
 
@@ -103,7 +105,8 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     console.log(`Order ${orderId} verified by admin ${adminId} as ${status}`);
 
     // 3. Update associated Payment record (if one exists and is relevant)
-    const payment = order.get('payment') as PaymentInstance | null;
+    // FIX 2: Using the correct accessor 'payments'
+    const payment = order.get('payments') as PaymentInstance | null; 
     if (payment) {
         if (!paymentId || payment.id === paymentId) {
             await payment.update({
@@ -139,7 +142,8 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
 
 const grantProductAccess = async (order: OrderInstance) => {
     const userId = order.get('userId') as string;
-    const paymentId = (order.get('payment') as PaymentInstance)?.id;
+    // FIX 3: Using the correct accessor 'payments'
+    const paymentId = (order.get('payments') as PaymentInstance)?.id; 
 
     // Check which product ID exists on the Order and grant access via findOrCreate
     if (order.get('courseId')) {
@@ -205,7 +209,8 @@ export const getAllOrders = async (
         where: whereClause, 
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-            { model: Payment, as: 'payment', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
+            // FIX 4: Using the correct plural alias 'payments'
+            { model: Payment, as: 'payments', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
             { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
             { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
             { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
@@ -219,7 +224,6 @@ export const getAllOrders = async (
     return {
         orders: orders.rows,
         total: orders.count,
-        // FIX: Using the function arguments for limit and offset to resolve TS2339
         limit: limit, 
         offset: offset, 
     };
@@ -248,7 +252,8 @@ export const getPaymentDetails = async (orderId: string) => {
     const order = await Order.findByPk(orderId, {
         include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            { model: Payment, as: 'payment', required: false }, 
+            // FIX 5: Using the correct plural alias 'payments'
+            { model: Payment, as: 'payments', required: false }, 
             { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
             { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
             { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
