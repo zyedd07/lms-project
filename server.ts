@@ -36,7 +36,7 @@ import paymentProcessingRoutes from './routes/PaymentProcessing.router';
 import paymentWebhookRoutes from './routes/PaymentWebhook.router'; // Import the new webhook router
 import userWebinarRoutes from './routes/UserWebinar.router'; // The new UserWebinar routes
 import mediaFileRouter from './routes/Mediafile.router'; // The new UserWebinar routes
-import adminverifyRouter from './routes/AdminPayment.router';
+import adminPaymentVerifyRouter from './routes/AdminPayment.router';
 
 
 const app = express();
@@ -102,8 +102,7 @@ app.use('/payments', paymentProcessingRoutes);
 app.use('/webhooks', paymentWebhookRoutes);
 app.use('/user-webinars', userWebinarRoutes);
 app.use('/media-file', mediaFileRouter);
-app.use('/admin', adminverifyRouter); // Admin Payment Verification routes
-
+app.use('/admin/payments', adminPaymentVerifyRouter);
 
 
 process.on('unhandledRejection', (reason, promise) => {

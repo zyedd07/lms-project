@@ -1,4 +1,4 @@
-// services/AdminPaymentVerification.service.ts
+// services/AdminPaymentVerification.service.ts (Fixed)
 import HttpError from '../utils/httpError';
 import Payment from '../models/Payment.model';
 import Order from '../models/Order.model';
@@ -11,23 +11,19 @@ import UserCourse from '../models/UserCourse.model';
 import UserQbank from '../models/UserQbank.model';
 import UserTestSeries from '../models/UserTestSeries.model';
 import UserWebinar from '../models/UserWebinar.model';
-import { sendEmail } from '../utils/email'; // Assuming you have email service
+import { sendEmail } from '../utils/email';
 
 interface VerifyPaymentInput {
     paymentId: string;
     adminId: string;
     status: 'successful' | 'failed';
     adminNotes?: string;
-    gatewayTransactionId?: string; // Admin enters actual UPI transaction ID
+    gatewayTransactionId?: string;
 }
 
-/**
- * Admin service to verify and approve/reject payments
- */
 export const verifyPayment = async (input: VerifyPaymentInput) => {
     const { paymentId, adminId, status, adminNotes, gatewayTransactionId } = input;
 
-    // Find payment record
     const payment = await Payment.findByPk(paymentId, {
         include: [
             { model: Order, as: 'order' },
@@ -39,7 +35,6 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
         throw new HttpError('Payment record not found.', 404);
     }
 
-    // Check if payment is already verified
     if (payment.get('status') !== 'pending') {
         throw new HttpError(
             `Payment already ${payment.get('status')}. Cannot verify again.`,
@@ -52,7 +47,7 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
         throw new HttpError('Associated order not found.', 404);
     }
 
-    // Update payment status
+    // Update payment status with proper field names
     await payment.update({
         status,
         gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
@@ -66,15 +61,11 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
 
     console.log(`Payment ${paymentId} verified by admin ${adminId} as ${status}`);
 
-    // If successful, grant product access to user
     if (status === 'successful') {
         await grantProductAccess(payment, order);
-        
-        // Send confirmation email to user
         const user = payment.get('user') as any;
         await sendPaymentConfirmationEmail(user, order, payment);
     } else {
-        // Send rejection/failure email
         const user = payment.get('user') as any;
         await sendPaymentRejectionEmail(user, order, payment, adminNotes);
     }
@@ -87,13 +78,10 @@ export const verifyPayment = async (input: VerifyPaymentInput) => {
     };
 };
 
-/**
- * Grant product access to user based on order type
- */
 const grantProductAccess = async (payment: any, order: any) => {
     const userId = payment.get('userId') as string;
     
-    // Check product type and enroll user
+    // Use proper field names (lowercase)
     if (order.get('courseId')) {
         await UserCourse.findOrCreate({
             where: { userId, courseId: order.get('courseId') },
@@ -141,68 +129,6 @@ const grantProductAccess = async (payment: any, order: any) => {
     }
 };
 
-/**
- * Get all pending payments for admin verification
- */
-export const getPendingPayments = async (limit: number = 50, offset: number = 0) => {
-    const payments = await Payment.findAndCountAll({
-        where: { status: 'pending' },
-        include: [
-            { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            { 
-                model: Order, 
-                as: 'order',
-                include: [
-                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
-                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
-                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
-                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
-                ]
-            }
-        ],
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-    });
-
-    return {
-        payments: payments.rows,
-        total: payments.count,
-        limit,
-        offset,
-    };
-};
-
-/**
- * Get payment details by ID
- */
-export const getPaymentDetails = async (paymentId: string) => {
-    const payment = await Payment.findByPk(paymentId, {
-        include: [
-            { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            { 
-                model: Order, 
-                as: 'order',
-                include: [
-                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
-                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
-                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
-                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
-                ]
-            }
-        ]
-    });
-
-    if (!payment) {
-        throw new HttpError('Payment not found.', 404);
-    }
-
-    return payment;
-};
-
-/**
- * Get all payments (with filters)
- */
 export const getAllPayments = async (
     status?: string,
     limit: number = 50,
@@ -241,9 +167,34 @@ export const getAllPayments = async (
     };
 };
 
-/**
- * Send payment confirmation email
- */
+export const getPendingPayments = async (limit: number = 50, offset: number = 0) => {
+    return getAllPayments('pending', limit, offset);
+};
+
+export const getPaymentDetails = async (paymentId: string) => {
+    const payment = await Payment.findByPk(paymentId, {
+        include: [
+            { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
+            { 
+                model: Order, 
+                as: 'order',
+                include: [
+                    { model: Course, as: 'course', attributes: ['id', 'name'], required: false },
+                    { model: Qbank, as: 'qbank', attributes: ['id', 'name'], required: false },
+                    { model: TestSeries, as: 'testSeries', attributes: ['id', 'name'], required: false },
+                    { model: Webinar, as: 'webinar', attributes: ['id', 'title'], required: false },
+                ]
+            }
+        ]
+    });
+
+    if (!payment) {
+        throw new HttpError('Payment not found.', 404);
+    }
+
+    return payment;
+};
+
 const sendPaymentConfirmationEmail = async (user: any, order: any, payment: any) => {
     const productName = order.get('productName') || 'Product';
     
@@ -272,9 +223,6 @@ const sendPaymentConfirmationEmail = async (user: any, order: any, payment: any)
     }
 };
 
-/**
- * Send payment rejection email
- */
 const sendPaymentRejectionEmail = async (
     user: any, 
     order: any, 
@@ -298,7 +246,7 @@ const sendPaymentRejectionEmail = async (
                     <li>Amount: ₹${payment.get('amount')}</li>
                 </ul>
                 ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-                <p>Please contact support if you believe this is an error or if you need assistance.</p>
+                <p>Please contact support if you believe this is an error.</p>
             `
         });
         console.log(`Rejection email sent to ${user.get('email')}`);
