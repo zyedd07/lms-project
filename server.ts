@@ -58,6 +58,7 @@ const corsOptions: CorsOptions = {
         }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Platform'],
     credentials: true,
     optionsSuccessStatus: 204
 };

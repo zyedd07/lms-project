@@ -3,7 +3,6 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../utils/types';
 import User from '../models/User.model';
 
-
 export const checkDeviceToken = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -16,6 +15,12 @@ export const checkDeviceToken = async (
         message: 'User not authenticated',
         code: 'NOT_AUTHENTICATED'
       });
+    }
+
+    // ✅ SKIP DEVICE TOKEN CHECK FOR ADMINS
+    if (req.user.role === 'admin') {
+      console.log(`checkDeviceToken: Skipping device token check for admin user ${req.user.email}`);
+      return next();
     }
 
     // Get device token from request header

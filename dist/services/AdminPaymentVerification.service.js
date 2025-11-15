@@ -32,7 +32,7 @@ const verifyPayment = (input) => __awaiter(void 0, void 0, void 0, function* () 
     const order = (yield Order_model_1.default.findByPk(orderId, {
         include: [
             { model: User_model_1.default, as: 'user', attributes: ['id', 'name', 'email'] },
-            { model: Payment_model_1.default, as: 'payment' }
+            { model: Payment_model_1.default, as: 'payments' }
         ]
     }));
     if (!order) {
@@ -45,12 +45,14 @@ const verifyPayment = (input) => __awaiter(void 0, void 0, void 0, function* () 
     yield order.update({ status });
     console.log(`Order ${orderId} verified by admin ${adminId} as ${status}`);
     // 3. Update associated Payment record (if one exists and is relevant)
-    const payment = order.get('payment');
+    // 🔑 FIX 1: Get the array of payments and extract the first one
+    const payments = order.get('payments');
+    const payment = (payments && payments.length > 0) ? payments[0] : null;
     if (payment) {
-        // Only update the associated payment if its ID matches the one provided, or if no ID was provided.
         if (!paymentId || payment.id === paymentId) {
             yield payment.update({
                 status,
+                // Ensure gatewayTransactionId is updated if provided, otherwise keep existing
                 gatewayTransactionId: gatewayTransactionId || payment.get('gatewayTransactionId'),
                 adminNotes: adminNotes !== null && adminNotes !== void 0 ? adminNotes : null,
                 verifiedBy: adminId,
@@ -61,6 +63,7 @@ const verifyPayment = (input) => __awaiter(void 0, void 0, void 0, function* () 
     // 4. Post-verification actions (Grant access and send email)
     const user = order.get('user');
     if (status === 'successful') {
+        // Pass the single payment instance (or null) to the utilities
         yield grantProductAccess(order);
         yield sendPaymentConfirmationEmail(user, order, payment);
     }
@@ -77,9 +80,10 @@ const verifyPayment = (input) => __awaiter(void 0, void 0, void 0, function* () 
 exports.verifyPayment = verifyPayment;
 // --- Product Access Granting ---
 const grantProductAccess = (order) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     const userId = order.get('userId');
-    const paymentId = (_a = order.get('payment')) === null || _a === void 0 ? void 0 : _a.id;
+    // 🔑 FIX 2: Correctly access the payments array and get the ID of the first payment
+    const payments = order.get('payments');
+    const paymentId = (payments && payments.length > 0) ? payments[0].id : undefined;
     // Check which product ID exists on the Order and grant access via findOrCreate
     if (order.get('courseId')) {
         yield UserCourse_model_1.default.findOrCreate({
@@ -88,7 +92,7 @@ const grantProductAccess = (order) => __awaiter(void 0, void 0, void 0, function
                 userId,
                 courseId: order.get('courseId'),
                 enrolledAt: new Date(),
-                paymentId: paymentId // Use retrieved paymentId
+                paymentId: paymentId
             }
         });
         console.log(`User ${userId} enrolled in course ${order.get('courseId')}`);
@@ -131,17 +135,17 @@ const grantProductAccess = (order) => __awaiter(void 0, void 0, void 0, function
     }
 });
 // --- Order Listing & Details (Aliased for Controller Compatibility) ---
+// (No changes needed in the functions below, as they correctly handle 'payments' as an include)
 const getAllOrders = (status_1, ...args_1) => __awaiter(void 0, [status_1, ...args_1], void 0, function* (status, limit = 50, offset = 0) {
     const whereClause = {};
     if (status && ['pending', 'successful', 'failed', 'cancelled'].includes(status)) {
         whereClause.status = status;
     }
-    // NOTE: This now fetches by ORDER STATUS, which should resolve the 'zero payments' issue.
     const orders = yield Order_model_1.default.findAndCountAll({
         where: whereClause,
         include: [
             { model: User_model_1.default, as: 'user', attributes: ['id', 'name', 'email'] },
-            { model: Payment_model_1.default, as: 'payment', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
+            { model: Payment_model_1.default, as: 'payments', attributes: ['id', 'status', 'transactionId', 'amount'], required: false },
             { model: Course_model_1.default, as: 'course', attributes: ['id', 'name'], required: false },
             { model: QuestionBank_model_1.default, as: 'qbank', attributes: ['id', 'name'], required: false },
             { model: TestSeries_model_1.default, as: 'testSeries', attributes: ['id', 'name'], required: false },
@@ -154,8 +158,8 @@ const getAllOrders = (status_1, ...args_1) => __awaiter(void 0, [status_1, ...ar
     return {
         orders: orders.rows,
         total: orders.count,
-        limit: orders.limit,
-        offset: orders.offset,
+        limit: limit,
+        offset: offset,
     };
 });
 exports.getAllOrders = getAllOrders;
@@ -163,7 +167,7 @@ exports.getAllOrders = getAllOrders;
 const getAllPayments = (status_1, ...args_1) => __awaiter(void 0, [status_1, ...args_1], void 0, function* (status, limit = 50, offset = 0) {
     const result = yield (0, exports.getAllOrders)(status, limit, offset);
     return {
-        payments: result.orders, // Return orders as 'payments' to match controller expectations
+        payments: result.orders,
         total: result.total,
         limit: result.limit,
         offset: result.offset,
@@ -172,7 +176,6 @@ const getAllPayments = (status_1, ...args_1) => __awaiter(void 0, [status_1, ...
 exports.getAllPayments = getAllPayments;
 // ALIAS: Used by controller 'getPendingPaymentsController'
 const getPendingPayments = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (limit = 50, offset = 0) {
-    // This now fetches Orders with status 'pending'
     return (0, exports.getAllPayments)('pending', limit, offset);
 });
 exports.getPendingPayments = getPendingPayments;
@@ -181,7 +184,7 @@ const getPaymentDetails = (orderId) => __awaiter(void 0, void 0, void 0, functio
     const order = yield Order_model_1.default.findByPk(orderId, {
         include: [
             { model: User_model_1.default, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-            { model: Payment_model_1.default, as: 'payment', required: false },
+            { model: Payment_model_1.default, as: 'payments', required: false },
             { model: Course_model_1.default, as: 'course', attributes: ['id', 'name'], required: false },
             { model: QuestionBank_model_1.default, as: 'qbank', attributes: ['id', 'name'], required: false },
             { model: TestSeries_model_1.default, as: 'testSeries', attributes: ['id', 'name'], required: false },
@@ -191,11 +194,11 @@ const getPaymentDetails = (orderId) => __awaiter(void 0, void 0, void 0, functio
     if (!order) {
         throw new httpError_1.default('Order not found.', 404);
     }
-    // Return the Order object; the controller treats it as the payment object
     return order;
 });
 exports.getPaymentDetails = getPaymentDetails;
 // --- Email Utility Functions ---
+// NOTE: We rely on the calling function (verifyPayment) to pass the single payment instance.
 const sendPaymentConfirmationEmail = (user, order, payment) => __awaiter(void 0, void 0, void 0, function* () {
     const productName = order.get('productName') || 'Product';
     const transactionId = payment ? payment.get('transactionId') : 'N/A (Manual Verification)';
@@ -240,6 +243,7 @@ const sendPaymentRejectionEmail = (user, order, payment, reason) => __awaiter(vo
                 <ul>
                     <li>Order ID: ${order.get('id')}</li>
                     <li>Product: ${productName}</li>
+                    <li>Amount: ₹${paymentAmount}</li>
                     <li>Amount: ₹${paymentAmount}</li>
                 </ul>
                 ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}

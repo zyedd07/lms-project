@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateOrderCustomerDetails = exports.getOrderDetails = exports.getCustomerDetails = exports.initiatePayment = exports.createOrder = void 0;
-// services/PaymentProcessing.service.ts (Updated with QR code generation)
+// services/PaymentProcessing.service.ts (Updated with QR code generation and fix)
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const Order_model_1 = __importDefault(require("../models/Order.model"));
 const Payment_model_1 = __importDefault(require("../models/Payment.model"));
@@ -121,10 +121,13 @@ exports.createOrder = createOrder;
 /**
  * Generate UPI QR Code
  */
-const generateUpiQrCode = (merchantUpiId_1, merchantName_1, amount_1, transactionId_1, orderNumber_1, ...args_1) => __awaiter(void 0, [merchantUpiId_1, merchantName_1, amount_1, transactionId_1, orderNumber_1, ...args_1], void 0, function* (merchantUpiId, merchantName, amount, transactionId, orderNumber, currency = 'INR') {
+const generateUpiQrCode = (merchantUpiId_1, merchantName_1, amount_1, transactionId_1, orderNumber_1, ...args_1) => __awaiter(void 0, [merchantUpiId_1, merchantName_1, amount_1, transactionId_1, orderNumber_1, ...args_1], void 0, function* (merchantUpiId, merchantName, amount, // Relax the type to string | number for safety
+transactionId, orderNumber, currency = 'INR') {
     try {
+        // 🔑 FIX 1: Convert amount to a number to ensure .toFixed() works.
+        const numericAmount = parseFloat(amount);
         // Create UPI deep link string
-        const upiString = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${amount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderNumber} - ${transactionId}`)}`;
+        const upiString = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${numericAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderNumber} - ${transactionId}`)}`;
         // Generate QR code as base64 data URL
         const qrCodeDataUrl = yield qrcode_1.default.toDataURL(upiString, {
             errorCorrectionLevel: 'M',
@@ -138,6 +141,7 @@ const generateUpiQrCode = (merchantUpiId_1, merchantName_1, amount_1, transactio
         return qrCodeDataUrl;
     }
     catch (error) {
+        // Renamed error variable in console output for clarity
         console.error('Error generating QR code:', error);
         throw new httpError_1.default('Failed to generate QR code', 500);
     }
@@ -172,9 +176,16 @@ const initiatePayment = (input) => __awaiter(void 0, void 0, void 0, function* (
     }
     // Generate unique transaction ID
     const transactionId = `TXN_${Date.now()}_${(0, uuid_1.v4)().substring(0, 8)}`;
+    // Retrieve amount from order
     const orderAmount = order.get('amount');
+    // 🔑 FIX 2: Convert the order amount to a number for safe use with toFixed()
+    const numericOrderAmount = parseFloat(orderAmount);
+    if (isNaN(numericOrderAmount) || numericOrderAmount <= 0) {
+        throw new httpError_1.default('Invalid order amount.', 400);
+    }
     // Generate QR code
-    const qrCodeDataUrl = yield generateUpiQrCode(merchantUpiId, merchantName, orderAmount, transactionId, orderId, currency);
+    const qrCodeDataUrl = yield generateUpiQrCode(merchantUpiId, merchantName, numericOrderAmount, // Pass the converted numeric amount
+    transactionId, orderId, currency);
     // Create payment record
     const payment = yield Payment_model_1.default.create({
         id: (0, uuid_1.v4)(),
@@ -184,7 +195,7 @@ const initiatePayment = (input) => __awaiter(void 0, void 0, void 0, function* (
         testSeriesId: order.get('testSeriesId'),
         qbankId: order.get('qbankId'),
         webinarId: order.get('webinarId'),
-        amount: orderAmount,
+        amount: numericOrderAmount, // Store the numeric amount
         gatewayName,
         transactionId,
         status: 'pending',
@@ -194,12 +205,13 @@ const initiatePayment = (input) => __awaiter(void 0, void 0, void 0, function* (
         message: 'Payment initiated. Please complete payment via UPI.',
         transactionId,
         orderId,
-        amount: orderAmount,
+        amount: numericOrderAmount,
         currency,
         qrCodeDataUrl, // Base64 QR code image
         merchantUpiId,
         merchantName,
-        upiDeepLink: `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${orderAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderId} - ${transactionId}`)}`,
+        // 🔑 FIX 3: Use the converted numeric amount here for the deep link
+        upiDeepLink: `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(merchantName)}&am=${numericOrderAmount.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(`Order ${orderId} - ${transactionId}`)}`,
     };
 });
 exports.initiatePayment = initiatePayment;
