@@ -23,6 +23,11 @@ const checkDeviceToken = (req, res, next) => __awaiter(void 0, void 0, void 0, f
                 code: 'NOT_AUTHENTICATED'
             });
         }
+        // ✅ SKIP DEVICE TOKEN CHECK FOR ADMINS
+        if (req.user.role === 'admin') {
+            console.log(`checkDeviceToken: Skipping device token check for admin user ${req.user.email}`);
+            return next();
+        }
         // Get device token from request header
         const deviceToken = req.headers['x-device-token'];
         if (!deviceToken) {

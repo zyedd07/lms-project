@@ -1,5 +1,6 @@
 // middleware/auth.ts
 // Complete authentication middleware with device token verification
+// Device token is OPTIONAL for admins
 
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
@@ -68,7 +69,7 @@ const shouldRefreshToken = (decoded: JwtPayloadWithClaims): boolean => {
 
 /**
  * Main authentication middleware with DEVICE TOKEN verification
- * This middleware does BOTH JWT and device token checks
+ * Device token is OPTIONAL for admins, REQUIRED for students and teachers
  */
 export const isAuth = async (
     req: AuthenticatedRequest,
@@ -101,21 +102,8 @@ export const isAuth = async (
         console.log("isAuth: Token valid for user:", decoded.email);
 
         // ==========================================
-        // STEP 2: Verify Device Token
+        // STEP 2: Fetch user from database
         // ==========================================
-        const deviceToken = req.headers['x-device-token'] as string;
-        const deviceId = req.headers['x-device-id'] as string;
-
-        if (!deviceToken) {
-            console.log(`isAuth: No device token for user ${decoded.email}`);
-            return res.status(401).json({
-                message: 'Device token missing. Please login again.',
-                code: 'DEVICE_TOKEN_MISSING',
-                requiresLogin: true
-            });
-        }
-
-        // Fetch user from database
         const user = await User.findByPk(decoded.id, {
             attributes: ['id', 'email', 'deviceToken', 'deviceId', 'role', 'status']
         });
@@ -128,46 +116,68 @@ export const isAuth = async (
             });
         }
 
-        // Check if user has a stored device token
-        const storedDeviceToken = user.get('deviceToken') as string | null;
-        
-        if (!storedDeviceToken) {
-            console.log(`isAuth: No active session for user ${decoded.email}`);
-            return res.status(401).json({
-                message: 'No active session. Please login again.',
-                code: 'NO_ACTIVE_SESSION',
-                requiresLogin: true
-            });
-        }
-
-        // Verify device token matches
-        if (storedDeviceToken !== deviceToken) {
-            console.log(`isAuth: ❌ Device token mismatch for user ${decoded.email}`);
-            console.log(`  Expected: ${storedDeviceToken.substring(0, 20)}...`);
-            console.log(`  Received: ${deviceToken.substring(0, 20)}...`);
-            
-            return res.status(401).json({
-                message: 'Session invalid. You have been logged in from another device.',
-                code: 'DEVICE_MISMATCH',
-                requiresLogin: true
-            });
-        }
-
-        // Optional: Verify device ID consistency (stricter security)
-        const storedDeviceId = user.get('deviceId') as string | null;
-        if (storedDeviceId && deviceId && storedDeviceId !== deviceId) {
-            console.log(`isAuth: ⚠️ Device ID mismatch for user ${decoded.email}`);
-            return res.status(401).json({
-                message: 'Device ID mismatch. Please login again.',
-                code: 'DEVICE_MISMATCH',
-                requiresLogin: true
-            });
-        }
-
-        console.log(`isAuth: ✅ Device verified for user ${decoded.email}`);
+        const userRole = user.get('role') as string;
 
         // ==========================================
-        // STEP 3: Check user status
+        // STEP 3: Device Token Verification (SKIP FOR ADMINS)
+        // ==========================================
+        if (userRole === 'admin') {
+            console.log(`isAuth: ✅ Admin user ${decoded.email} - SKIPPING device token check`);
+        } else {
+            // Device token is REQUIRED for non-admin users
+            const deviceToken = req.headers['x-device-token'] as string;
+            const deviceId = req.headers['x-device-id'] as string;
+
+            if (!deviceToken) {
+                console.log(`isAuth: No device token for user ${decoded.email}`);
+                return res.status(401).json({
+                    message: 'Device token missing. Please login again.',
+                    code: 'DEVICE_TOKEN_MISSING',
+                    requiresLogin: true
+                });
+            }
+
+            // Check if user has a stored device token
+            const storedDeviceToken = user.get('deviceToken') as string | null;
+            
+            if (!storedDeviceToken) {
+                console.log(`isAuth: No active session for user ${decoded.email}`);
+                return res.status(401).json({
+                    message: 'No active session. Please login again.',
+                    code: 'NO_ACTIVE_SESSION',
+                    requiresLogin: true
+                });
+            }
+
+            // Verify device token matches
+            if (storedDeviceToken !== deviceToken) {
+                console.log(`isAuth: ❌ Device token mismatch for user ${decoded.email}`);
+                console.log(`  Expected: ${storedDeviceToken.substring(0, 20)}...`);
+                console.log(`  Received: ${deviceToken.substring(0, 20)}...`);
+                
+                return res.status(401).json({
+                    message: 'Session invalid. You have been logged in from another device.',
+                    code: 'DEVICE_MISMATCH',
+                    requiresLogin: true
+                });
+            }
+
+            // Optional: Verify device ID consistency (stricter security)
+            const storedDeviceId = user.get('deviceId') as string | null;
+            if (storedDeviceId && deviceId && storedDeviceId !== deviceId) {
+                console.log(`isAuth: ⚠️ Device ID mismatch for user ${decoded.email}`);
+                return res.status(401).json({
+                    message: 'Device ID mismatch. Please login again.',
+                    code: 'DEVICE_MISMATCH',
+                    requiresLogin: true
+                });
+            }
+
+            console.log(`isAuth: ✅ Device verified for user ${decoded.email}`);
+        }
+
+        // ==========================================
+        // STEP 4: Check user status
         // ==========================================
         const userStatus = user.get('status') as string;
         if (userStatus === 'pending') {
@@ -184,12 +194,12 @@ export const isAuth = async (
         }
 
         // ==========================================
-        // STEP 4: Attach user to request
+        // STEP 5: Attach user to request
         // ==========================================
         req.user = decoded;
 
         // ==========================================
-        // STEP 5: Auto-refresh token if needed (sliding window)
+        // STEP 6: Auto-refresh token if needed (sliding window)
         // ==========================================
         if (shouldRefreshToken(decoded)) {
             console.log("isAuth: Token expiring soon. Issuing new 30-day token for:", decoded.email);
@@ -249,6 +259,7 @@ export const isAuth = async (
 /**
  * Explicit token refresh endpoint
  * POST /api/user/refresh-token
+ * Device token is OPTIONAL for admins
  */
 export const refreshTokenController = async (
     req: AuthenticatedRequest,
@@ -275,22 +286,9 @@ export const refreshTokenController = async (
         
         console.log("Token refresh requested for user:", decoded.email);
 
-        // ==========================================
-        // VERIFY DEVICE TOKEN FOR REFRESH
-        // ==========================================
-        const deviceToken = req.headers['x-device-token'] as string;
-
-        if (!deviceToken) {
-            return res.status(401).json({
-                message: 'Device token required for refresh',
-                code: 'DEVICE_TOKEN_MISSING',
-                requiresLogin: true
-            });
-        }
-
-        // Fetch user to verify device token
+        // Fetch user to check role and device token
         const user = await User.findByPk(decoded.id, {
-            attributes: ['id', 'email', 'deviceToken', 'deviceId']
+            attributes: ['id', 'email', 'deviceToken', 'deviceId', 'role']
         });
 
         if (!user) {
@@ -301,15 +299,34 @@ export const refreshTokenController = async (
             });
         }
 
-        const storedDeviceToken = user.get('deviceToken') as string | null;
+        const userRole = user.get('role') as string;
 
-        if (!storedDeviceToken || storedDeviceToken !== deviceToken) {
-            console.log(`Refresh: Device mismatch for ${decoded.email}`);
-            return res.status(401).json({
-                message: 'Session invalid. Logged in from another device.',
-                code: 'DEVICE_MISMATCH',
-                requiresLogin: true
-            });
+        // ==========================================
+        // VERIFY DEVICE TOKEN FOR REFRESH (SKIP FOR ADMINS)
+        // ==========================================
+        if (userRole === 'admin') {
+            console.log(`Refresh: Admin user ${decoded.email} - SKIPPING device token check`);
+        } else {
+            const deviceToken = req.headers['x-device-token'] as string;
+
+            if (!deviceToken) {
+                return res.status(401).json({
+                    message: 'Device token required for refresh',
+                    code: 'DEVICE_TOKEN_MISSING',
+                    requiresLogin: true
+                });
+            }
+
+            const storedDeviceToken = user.get('deviceToken') as string | null;
+
+            if (!storedDeviceToken || storedDeviceToken !== deviceToken) {
+                console.log(`Refresh: Device mismatch for ${decoded.email}`);
+                return res.status(401).json({
+                    message: 'Session invalid. Logged in from another device.',
+                    code: 'DEVICE_MISMATCH',
+                    requiresLogin: true
+                });
+            }
         }
 
         // Update last login time
