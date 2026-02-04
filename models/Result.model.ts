@@ -2,8 +2,6 @@
 
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
-import User from "./User.model";
-import Test from "./Test.model";
 
 const Result = sequelize.define('Result', {
     id: {
@@ -87,10 +85,7 @@ const Result = sequelize.define('Result', {
     tableName: 'Results'
 });
 
-// Associations
-Result.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-Result.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
-User.hasMany(Result, { foreignKey: 'userId', as: 'results' });
-Test.hasMany(Result, { foreignKey: 'testId', as: 'results' });
+// ✅ REMOVED ALL ASSOCIATIONS FROM HERE
+// Associations are defined in models/associations/index.ts
 
 export default Result;
