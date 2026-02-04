@@ -22,7 +22,6 @@ export const createQuestionController = async (req: AuthenticatedRequest, res: R
             throw new HttpError("Unauthorized", 403);
         }
 
-        // --- UPDATED: Destructure negativePoints ---
         const { testId, questionText, options, correctAnswerIndex, points, negativePoints } = req.body;
 
         if (!testId || !questionText || !options || correctAnswerIndex === undefined || points === undefined || negativePoints === undefined) {
@@ -37,10 +36,10 @@ export const createQuestionController = async (req: AuthenticatedRequest, res: R
         if (points < 1) {
             throw new HttpError("Points must be at least 1.", 400);
         }
-        if (negativePoints < 0) { // Ensure negative points are non-negative for deduction logic
-            throw new HttpError("Negative points cannot be less than 0.", 400);
+        // FIXED: Validate that negative points are actually negative (or zero)
+        if (negativePoints > 0) {
+            throw new HttpError("Negative points must be zero or a negative number (e.g., -1, -0.5).", 400);
         }
-
 
         const newQuestion = await createQuestionService({
             testId,
@@ -48,7 +47,7 @@ export const createQuestionController = async (req: AuthenticatedRequest, res: R
             options,
             correctAnswerIndex,
             points,
-            negativePoints, // <--- PASS TO SERVICE
+            negativePoints,
         });
         res.status(201).json(newQuestion);
     } catch (error) {
@@ -90,7 +89,6 @@ export const updateQuestionController = async (req: AuthenticatedRequest, res: R
         }
 
         const { id } = req.params;
-        // --- UPDATED: Destructure negativePoints ---
         const { questionText, options, correctAnswerIndex, points, negativePoints } = req.body;
 
         if (options && (!Array.isArray(options) || options.length < 2)) {
@@ -102,8 +100,9 @@ export const updateQuestionController = async (req: AuthenticatedRequest, res: R
         if (points !== undefined && points < 1) {
             throw new HttpError("Points must be at least 1.", 400);
         }
-        if (negativePoints !== undefined && negativePoints < 0) { // Validate if provided
-            throw new HttpError("Negative points cannot be less than 0.", 400);
+        // FIXED: Validate that negative points are actually negative (or zero) if provided
+        if (negativePoints !== undefined && negativePoints > 0) {
+            throw new HttpError("Negative points must be zero or a negative number (e.g., -1, -0.5).", 400);
         }
 
         const result = await updateQuestionService(id, {
@@ -111,7 +110,7 @@ export const updateQuestionController = async (req: AuthenticatedRequest, res: R
             options,
             correctAnswerIndex,
             points,
-            negativePoints, // <--- PASS TO SERVICE
+            negativePoints,
         });
         res.status(200).json({ success: true, data: result });
     } catch (error) {

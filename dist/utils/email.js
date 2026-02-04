@@ -29,7 +29,7 @@ const transporter = nodemailer_1.default.createTransport({
 const sendEmail = (options) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const mailOptions = {
-            from: `"ProfVet" <zyedgms@gmail.com>`, // The sender you verified in Step 2
+            from: `"ProfVet" <abhijeetkatkade11@gmail.com>`, // The sender you verified in Step 2
             to: options.to,
             subject: options.subject,
             html: options.html,

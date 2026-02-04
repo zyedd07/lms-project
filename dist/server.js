@@ -53,7 +53,9 @@ app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 const allowedOrigins = [
     'http://localhost:3000',
-    'https://d33203vzrqpmtm.cloudfront.net'
+    'https://d33203vzrqpmtm.cloudfront.net',
+    'https://professorvet.com',
+    'https://d2imc059i72590.cloudfront.net'
 ];
 const corsOptions = {
     origin: function (origin, callback) {

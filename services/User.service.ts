@@ -220,58 +220,148 @@ export const forgotPasswordService = async (email: string) => {
     (user as any).passwordResetExpires = passwordResetExpires;
     await user.save();
     
-    // --- 📧 SEND THE EMAIL ---
-    // This URL should point to the page in your frontend application where users can enter their new password.
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    // ✅ USE WEB URL (not deep link)
+    const resetUrl = `${process.env.BACKEND_URL}/user/reset-password?token=${resetToken}`;
     
     const emailHtml = `
-      <h1>You requested a password reset</h1>
-      <p>Click the link below to set a new password. This link will expire in 1 hour.</p>
-      <a href="${resetUrl}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Your Password</a>
-      <p>If you did not request a password reset, please ignore this email.</p>
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .button { 
+                  display: inline-block;
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  color: white !important;
+                  padding: 14px 28px;
+                  text-decoration: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  margin: 20px 0;
+              }
+              .footer { font-size: 12px; color: #666; margin-top: 30px; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>Password Reset Request</h1>
+              <p>Hi there,</p>
+              <p>You requested to reset your password for your ProfVet account.</p>
+              <p>Click the button below to reset your password. This link will expire in 1 hour.</p>
+              
+              <a href="${resetUrl}" class="button">Reset My Password</a>
+              
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;">
+                  ${resetUrl}
+              </p>
+              
+              <div class="footer">
+                  <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+                  <p>This link will expire in 1 hour for security reasons.</p>
+              </div>
+          </div>
+      </body>
+      </html>
     `;
 
     try {
         await sendEmail({
             to: user.get("email") as string,
-            subject: 'Your Password Reset Request',
+            subject: 'Reset Your ProfVet Password',
             html: emailHtml,
         });
     } catch (error) {
         console.error(`[PASS RESET] Failed to send email to ${email}. Error:`, error);
-        // Do not throw an error to the client to avoid leaking user information.
     }
 
     return { message: "If a user with that email exists, a password reset link has been sent." };
 };
-
-/**
- * Resets a user's password using a valid reset token.
- */
 export const resetPasswordService = async (token: string, newPassword: string) => {
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Hash the token to match database
+    const hashedToken = crypto
+        .createHash('sha256')
+        .update(token)
+        .digest('hex');
 
+    // Find user with matching token
     const user = await User.findOne({
         where: {
             passwordResetToken: hashedToken,
         }
     });
     
+    // Check if token exists and hasn't expired
     const now = new Date();
-    if (!user || (user as any).passwordResetExpires < now) {
-        throw new HttpError("Password reset token is invalid or has expired.", 400);
+    if (!user) {
+        throw new HttpError(
+            "Password reset token is invalid.", 
+            400
+        );
     }
     
+    if ((user as any).passwordResetExpires < now) {
+        // Clear expired token
+        (user as any).passwordResetToken = null;
+        (user as any).passwordResetExpires = null;
+        await user.save();
+        
+        throw new HttpError(
+            "Password reset token has expired. Please request a new one.", 
+            400
+        );
+    }
+    
+    // Validate new password strength
+    if (newPassword.length < 8) {
+        throw new HttpError("Password must be at least 8 characters long.", 400);
+    }
+    
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        throw new HttpError(
+            "Password must contain uppercase, lowercase, and numbers.", 
+            400
+        );
+    }
+    
+    // Hash new password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(newPassword, salt);
     
+    // Update user password and clear reset token
     user.set('password', passwordHash);
     user.set('passwordResetToken', null);
     user.set('passwordResetExpires', null);
     
     await user.save();
 
-    return { message: "Password has been successfully reset." };
+    console.log(`[PASS RESET] Password successfully reset for user: ${user.get('email')}`);
+
+    // Optional: Send confirmation email
+    try {
+        await sendEmail({
+            to: user.get("email") as string,
+            subject: ' Your ProfVet Password Has Been Changed',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Password Changed Successfully</h2>
+                    <p>Your ProfVet account password was just changed.</p>
+                    <p>If you did not make this change, please contact support immediately.</p>
+                    <p style="margin-top: 30px; color: #666; font-size: 12px;">
+                        This is an automated message. Please do not reply.
+                    </p>
+                </div>
+            `,
+        });
+    } catch (emailError) {
+        console.error('[PASS RESET] Failed to send confirmation email:', emailError);
+        // Don't throw error - password was already reset successfully
+    }
+
+    return { 
+        message: "Password has been successfully reset. You can now login with your new password." 
+    };
 };
 
 
