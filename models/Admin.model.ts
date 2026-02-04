@@ -21,10 +21,10 @@ const Admin = sequelize.define('Admin', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-     role: {
-        type: DataTypes.ENUM(Role.ADMIN, Role.TEACHER, Role.STUDENT), 
+      role: {
+        type: DataTypes.ENUM('admin', 'teacher', 'student'),
         allowNull: false,
-        defaultValue: Role.ADMIN, // Set a default role, perhaps 'admin' for new Admin records
+        defaultValue: 'admin',
     },
 }, { timestamps: true });
 
