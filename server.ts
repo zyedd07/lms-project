@@ -52,18 +52,26 @@ const allowedOrigins = [
 ];
 
 const corsOptions: CorsOptions = {
-    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'), false);
-        }
-    },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Platform'],
-    credentials: true,
-    optionsSuccessStatus: 204
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'), false);
+    }
+  },
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Platform',
+    'X-Device-Id',
+    'X-Device-Token',
+    'X-Device-Model'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 204
 };
+
 
 app.use(cors(corsOptions));
 
