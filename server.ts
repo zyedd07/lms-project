@@ -168,15 +168,11 @@ const startServer = async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
         
-        // ✅ FIXED: Use authenticate first, then sync with alter
         await sequelize.authenticate();
         console.log('Database connection established successfully');
         
-        // Only sync in development
-        if (process.env.NODE_ENV !== 'production') {
-            await sequelize.sync({ alter: true });
-            console.log('Database synced with models');
-        }
+        await sequelize.sync(); // No { alter: true }
+        console.log('Database synced (create only, no alter)');
         
         app.listen(PORT, () => {
             console.log(`Server listening on port ${PORT}`);
