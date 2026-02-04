@@ -26,9 +26,13 @@ import HelpCenterSection from "../HelpCenter.model";
 import UserWebinar from "../UserWebinar.model"
 import Webinar from "../webinar.model"
 import Order from "../Order.model";
+import Result from '../Result.model';
 
 const initAssociation = () => {
-
+ Result.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+    Result.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
+    User.hasMany(Result, { foreignKey: 'userId', as: 'results' });
+    Test.hasMany(Result, { foreignKey: 'testId', as: 'results' });
     // ===== ORDER ASSOCIATIONS (MUST BE FIRST) =====
     // Order belongs to User
     Order.belongsTo(User, { foreignKey: 'userid', as: 'user' });

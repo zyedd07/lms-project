@@ -8,6 +8,25 @@ export type GetFilters = {
     offset?: number;
 };
 
+export interface CreateResultParams {
+    userId: string;
+    testId: string;
+    score: number;
+    totalPossiblePoints: number;
+    correctCount: number;
+    incorrectCount: number;
+    skippedCount: number;
+    totalQuestions: number;
+    hasPassed: boolean;
+    timeTaken?: number;
+    userAnswers: {
+        questionId: string;
+        selectedAnswer: number | null;
+        isCorrect: boolean;
+    }[];
+}
+
+
 export enum WebinarEnrollmentStatus {
     ACTIVE = 'active',
     COMPLETED = 'completed',

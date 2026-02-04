@@ -37,6 +37,7 @@ import paymentWebhookRoutes from './routes/PaymentWebhook.router'; // Import the
 import userWebinarRoutes from './routes/UserWebinar.router'; // The new UserWebinar routes
 import mediaFileRouter from './routes/Mediafile.router'; // The new UserWebinar routes
 import adminPaymentVerifyRouter from './routes/AdminPayment.router';
+import resultRoutes from './routes/Result.routes';
 
 
 const app = express();
@@ -114,6 +115,7 @@ app.use('/webhooks', paymentWebhookRoutes);
 app.use('/user-webinars', userWebinarRoutes);
 app.use('/media-file', mediaFileRouter);
 app.use('/admin/payments', adminPaymentVerifyRouter);
+app.use('/result', resultRoutes);
 
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -164,7 +166,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        await sequelize.sync({ alter: false });
+        await sequelize.sync({ alter: true });
         return console.log(`Database Connected`);
     } catch (err) {
         console.log(err);
