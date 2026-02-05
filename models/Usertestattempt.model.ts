@@ -1,9 +1,47 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from ".";
 import User from "./User.model";
 import Test from "./Test.model";
 
-const UserTestAttempt = sequelize.define('UserTestAttempt', {
+// Define the attributes interface
+interface UserTestAttemptAttributes {
+    id: string;
+    userId: string;
+    testId: string;
+    allowedAttempts: number;
+    attemptsUsed: number;
+    hasStarted: boolean;
+    hasCompleted: boolean;
+    lastAttemptAt: Date | null;
+    grantedBy: string | null;
+    grantReason: string | null;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+// Define creation attributes (optional fields)
+interface UserTestAttemptCreationAttributes 
+    extends Optional<UserTestAttemptAttributes, 'id' | 'allowedAttempts' | 'attemptsUsed' | 'hasStarted' | 'hasCompleted' | 'lastAttemptAt' | 'grantedBy' | 'grantReason'> {}
+
+// Define the model class
+class UserTestAttemptModel extends Model<UserTestAttemptAttributes, UserTestAttemptCreationAttributes> 
+    implements UserTestAttemptAttributes {
+    public id!: string;
+    public userId!: string;
+    public testId!: string;
+    public allowedAttempts!: number;
+    public attemptsUsed!: number;
+    public hasStarted!: boolean;
+    public hasCompleted!: boolean;
+    public lastAttemptAt!: Date | null;
+    public grantedBy!: string | null;
+    public grantReason!: string | null;
+    
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+}
+
+UserTestAttemptModel.init({
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -29,16 +67,14 @@ const UserTestAttempt = sequelize.define('UserTestAttempt', {
         onDelete: 'CASCADE',
         onUpdate: 'CASCADE'
     },
-    // Total attempts allowed for this user for this specific test
     allowedAttempts: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 1, // By default, users get 1 attempt
+        defaultValue: 1,
         validate: {
             min: 0,
         }
     },
-    // Number of attempts already used
     attemptsUsed: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -47,24 +83,20 @@ const UserTestAttempt = sequelize.define('UserTestAttempt', {
             min: 0,
         }
     },
-    // Whether the user has started the test at least once
     hasStarted: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
     },
-    // Whether the user has completed the test
     hasCompleted: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
     },
-    // Last attempt date
     lastAttemptAt: {
         type: DataTypes.DATE,
         allowNull: true,
     },
-    // Admin who granted extra attempts (if applicable)
     grantedBy: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -73,28 +105,26 @@ const UserTestAttempt = sequelize.define('UserTestAttempt', {
             key: 'id',
         },
     },
-    // Reason for granting extra attempts
     grantReason: {
         type: DataTypes.TEXT,
         allowNull: true,
     },
 }, {
+    sequelize,
     timestamps: true,
     indexes: [
         {
             unique: true,
-            fields: ["userId", "testId"], // Each user can have only one record per test
+            fields: ["userId", "testId"],
         },
     ],
-    tableName: 'UserTestAttempts'
+    tableName: 'UserTestAttempts',
+    modelName: 'UserTestAttempt'
 });
 
 // Define associations
-UserTestAttempt.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-UserTestAttempt.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
-UserTestAttempt.belongsTo(User, { foreignKey: 'grantedBy', as: 'admin' });
+UserTestAttemptModel.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserTestAttemptModel.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
+UserTestAttemptModel.belongsTo(User, { foreignKey: 'grantedBy', as: 'admin' });
 
-User.hasMany(UserTestAttempt, { foreignKey: 'userId' });
-Test.hasMany(UserTestAttempt, { foreignKey: 'testId' });
-
-export default UserTestAttempt;
+export default UserTestAttemptModel;
