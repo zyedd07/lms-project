@@ -1,4 +1,4 @@
-import UserTestAttempt from "../models/UserTestAttempt.model";
+import UserTestAttempt from "../models/Usertestattempt.model";
 import Test from "../models/Test.model";
 import User from "../models/User.model";
 import HttpError from "../utils/httpError";
