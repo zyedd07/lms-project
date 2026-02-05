@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import HttpError from "../utils/httpError";
 import { createTestService, getTestByIdService, updateTestService, deleteTestService, getTestsByTestSeriesService } from "../services/Test.service";
+import { checkUserTestEligibilityService, markTestStartedService } from "../services/Usertestattempt.service";
 import { Role } from "../utils/constants";
 
 export const createTestController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -42,11 +43,79 @@ export const createTestController = async (req: AuthenticatedRequest, res: Respo
     }
 };
 
-export const getTestController = async (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Get test details and check if user can attempt it
+ * This combines getting test info + checking eligibility
+ */
+export const getTestController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const test = await getTestByIdService(id);
-        res.status(200).json({ success: true, data: test });
+        
+        // If user is authenticated (not admin/teacher viewing), check eligibility
+        if (req.user && req.user.id && req.user.role === Role.STUDENT) {
+            try {
+                const eligibility = await checkUserTestEligibilityService(req.user.id, id);
+                res.status(200).json({ 
+                    success: true, 
+                    data: { 
+                        test,
+                        attemptInfo: eligibility
+                    } 
+                });
+                return;
+            } catch (err) {
+                // If eligibility check fails, still return test data
+                console.error("Error checking eligibility:", err);
+            }
+        }
+        
+        res.status(200).json({ success: true, data: { test } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * NEW: Start a test attempt
+ * This should be called when user clicks "Start Test"
+ * It checks eligibility and marks the attempt as started
+ */
+export const startTestController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user || !req.user.id) {
+            throw new HttpError("Authentication required", 401);
+        }
+
+        const { testId } = req.params;
+        if (!testId) {
+            throw new HttpError("Test ID is required", 400);
+        }
+
+        // First, check eligibility
+        const eligibility = await checkUserTestEligibilityService(req.user.id, testId);
+        
+        if (!eligibility.canAttempt) {
+            throw new HttpError(
+                `You have no remaining attempts for this test. Used: ${eligibility.attemptsUsed}/${eligibility.allowedAttempts}`,
+                403
+            );
+        }
+
+        // Mark test as started (increments attempt counter)
+        const result = await markTestStartedService(req.user.id, testId);
+        
+        // Get full test details to return
+        const test = await getTestByIdService(testId);
+
+        res.status(200).json({ 
+            success: true, 
+            data: {
+                message: "Test started successfully",
+                test,
+                attemptInfo: result
+            }
+        });
     } catch (error) {
         next(error);
     }

@@ -38,6 +38,7 @@ import userWebinarRoutes from './routes/UserWebinar.router'; // The new UserWebi
 import mediaFileRouter from './routes/Mediafile.router'; // The new UserWebinar routes
 import adminPaymentVerifyRouter from './routes/AdminPayment.router';
 import resultRoutes from './routes/Result.routes';
+import testAttemptRoutes from './routes/Usertestattempt.routes';
 
 
 const app = express();
@@ -116,6 +117,7 @@ app.use('/user-webinars', userWebinarRoutes);
 app.use('/media-file', mediaFileRouter);
 app.use('/admin/payments', adminPaymentVerifyRouter);
 app.use('/result', resultRoutes);
+app.use('/test-attempts', testAttemptRoutes);
 
 
 process.on('unhandledRejection', (reason, promise) => {
