@@ -27,7 +27,7 @@ import UserWebinar from "../UserWebinar.model"
 import Webinar from "../webinar.model"
 import Order from "../Order.model";
 import Result from '../Result.model';
-import UserTestAttempt from '../UserTestAttempt.model';
+import UserTestAttempt from "../UserTestAttempt.model"; 
 
 const initAssociation = () => {
  Result.belongsTo(User, { foreignKey: 'userId', as: 'user' });

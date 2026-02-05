@@ -1,5 +1,3 @@
-// models/UserTestAttempt.model.ts
-
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
 
