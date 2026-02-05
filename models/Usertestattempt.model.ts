@@ -1,47 +1,9 @@
-import { DataTypes, Model, Optional } from "sequelize";
+// models/UserTestAttempt.model.ts
+
+import { DataTypes } from "sequelize";
 import { sequelize } from ".";
-import User from "./User.model";
-import Test from "./Test.model";
 
-// Define the attributes interface
-interface UserTestAttemptAttributes {
-    id: string;
-    userId: string;
-    testId: string;
-    allowedAttempts: number;
-    attemptsUsed: number;
-    hasStarted: boolean;
-    hasCompleted: boolean;
-    lastAttemptAt: Date | null;
-    grantedBy: string | null;
-    grantReason: string | null;
-    createdAt?: Date;
-    updatedAt?: Date;
-}
-
-// Define creation attributes (optional fields)
-interface UserTestAttemptCreationAttributes 
-    extends Optional<UserTestAttemptAttributes, 'id' | 'allowedAttempts' | 'attemptsUsed' | 'hasStarted' | 'hasCompleted' | 'lastAttemptAt' | 'grantedBy' | 'grantReason'> {}
-
-// Define the model class
-class UserTestAttemptModel extends Model<UserTestAttemptAttributes, UserTestAttemptCreationAttributes> 
-    implements UserTestAttemptAttributes {
-    public id!: string;
-    public userId!: string;
-    public testId!: string;
-    public allowedAttempts!: number;
-    public attemptsUsed!: number;
-    public hasStarted!: boolean;
-    public hasCompleted!: boolean;
-    public lastAttemptAt!: Date | null;
-    public grantedBy!: string | null;
-    public grantReason!: string | null;
-    
-    public readonly createdAt!: Date;
-    public readonly updatedAt!: Date;
-}
-
-UserTestAttemptModel.init({
+const UserTestAttempt = sequelize.define('UserTestAttempt', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -110,7 +72,6 @@ UserTestAttemptModel.init({
         allowNull: true,
     },
 }, {
-    sequelize,
     timestamps: true,
     indexes: [
         {
@@ -118,13 +79,7 @@ UserTestAttemptModel.init({
             fields: ["userId", "testId"],
         },
     ],
-    tableName: 'UserTestAttempts',
-    modelName: 'UserTestAttempt'
+    tableName: 'UserTestAttempts'
 });
 
-// Define associations
-UserTestAttemptModel.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-UserTestAttemptModel.belongsTo(Test, { foreignKey: 'testId', as: 'test' });
-UserTestAttemptModel.belongsTo(User, { foreignKey: 'grantedBy', as: 'admin' });
-
-export default UserTestAttemptModel;
+export default UserTestAttempt;
