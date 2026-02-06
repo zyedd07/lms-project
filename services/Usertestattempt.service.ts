@@ -8,30 +8,30 @@ import HttpError from "../utils/httpError";
  */
 export const checkUserTestEligibilityService = async (userId: string, testId: string) => {
     try {
-        // Verify test exists
         const test = await Test.findByPk(testId);
         if (!test) {
             throw new HttpError("Test not found", 404);
         }
 
-        // Find or create the attempt record
+        // Check if user is admin/teacher
+        const user = await User.findByPk(userId);
+        const isAdmin = user && (user.getDataValue('role') === 'admin' || user.getDataValue('role') === 'teacher');
+
         let attemptRecord = await UserTestAttempt.findOne({
             where: { userId, testId }
         });
 
         if (!attemptRecord) {
-            // First time accessing this test - create record with default 1 attempt
             attemptRecord = await UserTestAttempt.create({
                 userId,
                 testId,
-                allowedAttempts: 1,
+                allowedAttempts: isAdmin ? 999 : 1, // ✅ Give admins 999 attempts
                 attemptsUsed: 0,
                 hasStarted: false,
                 hasCompleted: false,
             });
         }
 
-        // Check eligibility
         const remainingAttempts = attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed');
         const canAttempt = remainingAttempts > 0;
 
@@ -54,32 +54,46 @@ export const checkUserTestEligibilityService = async (userId: string, testId: st
  */
 export const markTestStartedService = async (userId: string, testId: string) => {
     try {
+        console.log(`[markTestStartedService] Starting for userId: ${userId}, testId: ${testId}`);
+        
         const attemptRecord = await UserTestAttempt.findOne({
             where: { userId, testId }
         });
+
+        console.log(`[markTestStartedService] Found record:`, attemptRecord?.toJSON());
 
         if (!attemptRecord) {
             throw new HttpError("Test attempt record not found. Please check eligibility first.", 404);
         }
 
-        const remainingAttempts = attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed');
+        const currentAttemptsUsed = attemptRecord.getDataValue('attemptsUsed');
+        const allowedAttempts = attemptRecord.getDataValue('allowedAttempts');
+        const remainingAttempts = allowedAttempts - currentAttemptsUsed;
+        
+        console.log(`[markTestStartedService] Current attempts: ${currentAttemptsUsed}, Allowed: ${allowedAttempts}, Remaining: ${remainingAttempts}`);
+
         if (remainingAttempts <= 0) {
             throw new HttpError("No attempts remaining for this test", 403);
         }
 
         // Update the record
-        await attemptRecord.update({
+        const updatedRecord = await attemptRecord.update({
             hasStarted: true,
-            attemptsUsed: attemptRecord.getDataValue('attemptsUsed') + 1,
+            attemptsUsed: currentAttemptsUsed + 1,
             lastAttemptAt: new Date(),
         });
 
+        console.log(`[markTestStartedService] Updated record:`, updatedRecord.toJSON());
+
+        const newRemainingAttempts = allowedAttempts - (currentAttemptsUsed + 1);
+
         return {
             message: "Test started successfully",
-            attemptsUsed: attemptRecord.getDataValue('attemptsUsed'),
-            remainingAttempts: attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed'),
+            attemptsUsed: currentAttemptsUsed + 1,
+            remainingAttempts: newRemainingAttempts,
         };
     } catch (error) {
+        console.error(`[markTestStartedService] Error:`, error);
         throw error;
     }
 };
