@@ -10,9 +10,6 @@ router.post('/create', isAuth, TestController.createTestController);
 // Get all Tests for a specific TestSeries (e.g., /api/tests?testSeriesId=uuid)
 router.get('/', isAuth, TestController.getTestsByTestSeriesController);
 
-// NEW: Start a test (Student - checks eligibility and marks as started)
-router.post('/:testId/start', isAuth, TestController.startTestController);
-
 // Get a single Test by ID (with eligibility info if student)
 router.get('/:id', isAuth, TestController.getTestController);
 

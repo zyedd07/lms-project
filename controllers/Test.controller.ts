@@ -76,51 +76,6 @@ export const getTestController = async (req: AuthenticatedRequest, res: Response
     }
 };
 
-/**
- * NEW: Start a test attempt
- * This should be called when user clicks "Start Test"
- * It checks eligibility and marks the attempt as started
- */
-export const startTestController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        if (!req.user || !req.user.id) {
-            throw new HttpError("Authentication required", 401);
-        }
-
-        const { testId } = req.params;
-        if (!testId) {
-            throw new HttpError("Test ID is required", 400);
-        }
-
-        // First, check eligibility
-        const eligibility = await checkUserTestEligibilityService(req.user.id, testId);
-        
-        if (!eligibility.canAttempt) {
-            throw new HttpError(
-                `You have no remaining attempts for this test. Used: ${eligibility.attemptsUsed}/${eligibility.allowedAttempts}`,
-                403
-            );
-        }
-
-        // Mark test as started (increments attempt counter)
-        const result = await markTestStartedService(req.user.id, testId);
-        
-        // Get full test details to return
-        const test = await getTestByIdService(testId);
-
-        res.status(200).json({ 
-            success: true, 
-            data: {
-                message: "Test started successfully",
-                test,
-                attemptInfo: result
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const updateTestController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
