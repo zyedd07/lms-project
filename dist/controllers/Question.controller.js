@@ -26,7 +26,6 @@ const createQuestionController = (req, res, next) => __awaiter(void 0, void 0, v
         if (role !== constants_1.Role.ADMIN && role !== constants_1.Role.TEACHER) {
             throw new httpError_1.default("Unauthorized", 403);
         }
-        // --- UPDATED: Destructure negativePoints ---
         const { testId, questionText, options, correctAnswerIndex, points, negativePoints } = req.body;
         if (!testId || !questionText || !options || correctAnswerIndex === undefined || points === undefined || negativePoints === undefined) {
             throw new httpError_1.default("Test ID, question text, options, correct answer index, points, and negative points are all required.", 400);
@@ -40,8 +39,9 @@ const createQuestionController = (req, res, next) => __awaiter(void 0, void 0, v
         if (points < 1) {
             throw new httpError_1.default("Points must be at least 1.", 400);
         }
-        if (negativePoints < 0) { // Ensure negative points are non-negative for deduction logic
-            throw new httpError_1.default("Negative points cannot be less than 0.", 400);
+        // FIXED: Validate that negative points are actually negative (or zero)
+        if (negativePoints > 0) {
+            throw new httpError_1.default("Negative points must be zero or a negative number (e.g., -1, -0.5).", 400);
         }
         const newQuestion = yield (0, Question_service_1.createQuestionService)({
             testId,
@@ -49,7 +49,7 @@ const createQuestionController = (req, res, next) => __awaiter(void 0, void 0, v
             options,
             correctAnswerIndex,
             points,
-            negativePoints, // <--- PASS TO SERVICE
+            negativePoints,
         });
         res.status(201).json(newQuestion);
     }
@@ -93,7 +93,6 @@ const updateQuestionController = (req, res, next) => __awaiter(void 0, void 0, v
             throw new httpError_1.default("Unauthorized", 403);
         }
         const { id } = req.params;
-        // --- UPDATED: Destructure negativePoints ---
         const { questionText, options, correctAnswerIndex, points, negativePoints } = req.body;
         if (options && (!Array.isArray(options) || options.length < 2)) {
             throw new httpError_1.default("Options must be an array with at least two elements.", 400);
@@ -104,15 +103,16 @@ const updateQuestionController = (req, res, next) => __awaiter(void 0, void 0, v
         if (points !== undefined && points < 1) {
             throw new httpError_1.default("Points must be at least 1.", 400);
         }
-        if (negativePoints !== undefined && negativePoints < 0) { // Validate if provided
-            throw new httpError_1.default("Negative points cannot be less than 0.", 400);
+        // FIXED: Validate that negative points are actually negative (or zero) if provided
+        if (negativePoints !== undefined && negativePoints > 0) {
+            throw new httpError_1.default("Negative points must be zero or a negative number (e.g., -1, -0.5).", 400);
         }
         const result = yield (0, Question_service_1.updateQuestionService)(id, {
             questionText,
             options,
             correctAnswerIndex,
             points,
-            negativePoints, // <--- PASS TO SERVICE
+            negativePoints,
         });
         res.status(200).json({ success: true, data: result });
     }

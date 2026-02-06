@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// models/Payment.model.ts (Fixed with proper field mappings)
+// Payment.model.ts
 const sequelize_1 = require("sequelize");
 const _1 = require(".");
 const Payment = _1.sequelize.define('Payment', {
@@ -12,7 +12,7 @@ const Payment = _1.sequelize.define('Payment', {
     userId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: false,
-        field: 'userid', // ✅ Map to lowercase column
+        field: 'userid',
         references: {
             model: 'users',
             key: 'id'
@@ -21,32 +21,31 @@ const Payment = _1.sequelize.define('Payment', {
     orderId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: false,
-        field: 'orderid', // ✅ Map to lowercase column
+        field: 'orderid',
         references: {
             model: 'orders',
             key: 'id'
         }
     },
-    // Product IDs (duplicated from order for quick reference)
     courseId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: true,
-        field: 'courseid', // ✅ Map to lowercase column
+        field: 'courseid',
     },
     qbankId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: true,
-        field: 'qbankid', // ✅ Map to lowercase column
+        field: 'qbankid',
     },
     testSeriesId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: true,
-        field: 'testseriesid', // ✅ Map to lowercase column
+        field: 'testseriesid',
     },
     webinarId: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: true,
-        field: 'webinarid', // ✅ Map to lowercase column
+        field: 'webinarid',
     },
     amount: {
         type: sequelize_1.DataTypes.DECIMAL(10, 2),
@@ -55,75 +54,85 @@ const Payment = _1.sequelize.define('Payment', {
     gatewayName: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
-        field: 'gatewayname', // ✅ Map to lowercase column
+        field: 'gatewayname',
     },
     transactionId: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
         unique: true,
-        field: 'transactionid', // ✅ Map to lowercase column
+        field: 'transactionid',
     },
     gatewayTransactionId: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
-        field: 'gatewaytransactionid', // ✅ Map to lowercase column
-        comment: 'Actual UPI transaction ID verified by admin'
+        field: 'gatewaytransactionid',
     },
     status: {
         type: sequelize_1.DataTypes.ENUM('pending', 'successful', 'failed', 'refunded'),
         allowNull: false,
         defaultValue: 'pending',
+        // ✅ NO indexes defined here - they're in the model options below
     },
-    // Admin verification fields
     verifiedBy: {
         type: sequelize_1.DataTypes.UUID,
         allowNull: true,
-        field: 'verifiedby', // ✅ Map to lowercase column
+        field: 'verifiedby',
         references: {
             model: 'users',
             key: 'id'
-        },
-        comment: 'Admin user ID who verified the payment'
+        }
     },
     verifiedAt: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: true,
-        field: 'verifiedat', // ✅ Map to lowercase column
-        comment: 'Timestamp when payment was verified'
+        field: 'verifiedat',
     },
     adminNotes: {
         type: sequelize_1.DataTypes.TEXT,
         allowNull: true,
-        field: 'adminnotes', // ✅ Map to lowercase column
-        comment: 'Notes added by admin during verification'
+        field: 'adminnotes',
     },
-    // Optional: Store raw payment proof (screenshot URL, etc.)
     paymentProofUrl: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
-        field: 'paymentproofurl', // ✅ Map to lowercase column
-        comment: 'URL to payment screenshot/proof uploaded by user'
+        field: 'paymentproofurl',
     },
     createdAt: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: false,
-        field: 'createdat', // ✅ Map to lowercase column
+        field: 'createdat',
     },
     updatedAt: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: false,
-        field: 'updatedat', // ✅ Map to lowercase column
+        field: 'updatedat',
     },
 }, {
-    tableName: 'payments', // ✅ Force lowercase table name
-    freezeTableName: true, // ✅ Prevent pluralization
+    tableName: 'payments',
+    freezeTableName: true,
     timestamps: true,
+    // ✅ Define indexes here at the model level
     indexes: [
-        { fields: ['userid'] },
-        { fields: ['orderid'] },
-        { fields: ['status'] },
-        { fields: ['transactionid'] },
-        { fields: ['verifiedby'] },
+        {
+            name: 'payments_userid_idx', // Give them unique names
+            fields: ['userid']
+        },
+        {
+            name: 'payments_orderid_idx',
+            fields: ['orderid']
+        },
+        {
+            name: 'payments_status_idx',
+            fields: ['status']
+        },
+        {
+            name: 'payments_transactionid_idx',
+            fields: ['transactionid']
+        },
+        {
+            name: 'payments_verifiedby_idx',
+            fields: ['verifiedby']
+        },
     ]
 });
 exports.default = Payment;

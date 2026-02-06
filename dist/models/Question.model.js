@@ -1,5 +1,5 @@
 "use strict";
-// models/Question.model.ts (Example - ensure it matches your current file)
+// models/Question.model.ts
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -59,16 +59,19 @@ const Question = _1.sequelize.define('Question', {
             min: 1,
         }
     },
-    // --- ADD THIS NEW FIELD ---
     negativePoints: {
-        type: sequelize_1.DataTypes.INTEGER,
-        allowNull: false, // Or true if it can be null, but generally 0 is a good default
+        type: sequelize_1.DataTypes.FLOAT, // Changed to FLOAT to support decimals like -0.5
+        allowNull: false,
         defaultValue: 0,
         validate: {
-            min: 0 // Negative points should be 0 or a positive value to deduct
+            max: 0, // Changed from min to max - ensures value is 0 or negative
+            isNegativeOrZero(value) {
+                if (value > 0) {
+                    throw new Error('Negative points must be 0 or a negative number.');
+                }
+            }
         }
     }
-    // --- END NEW FIELD ---
 }, {
     timestamps: true,
     tableName: 'Questions'

@@ -37,19 +37,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const TestController = __importStar(require("../controllers/Test.controller"));
+const UserTestAttemptController = __importStar(require("../controllers/Usertestattempt.controller"));
 const auth_1 = __importDefault(require("../middleware/auth"));
 const router = express_1.default.Router();
-// Create a new Test for a given TestSeries (Admin/Teacher only)
-router.post('/create', auth_1.default, TestController.createTestController);
-// Get all Tests for a specific TestSeries (e.g., /api/tests?testSeriesId=uuid)
-router.get('/', auth_1.default, TestController.getTestsByTestSeriesController);
-// NEW: Start a test (Student - checks eligibility and marks as started)
-router.post('/:testId/start', auth_1.default, TestController.startTestController);
-// Get a single Test by ID (with eligibility info if student)
-router.get('/:id', auth_1.default, TestController.getTestController);
-// Update a Test by ID (Admin/Teacher only)
-router.put('/:id', auth_1.default, TestController.updateTestController);
-// Delete a Test by ID (Admin/Teacher only)
-router.delete('/:id', auth_1.default, TestController.deleteTestController);
+// ===== USER ROUTES =====
+// Check if the current user can take a specific test
+router.get('/eligibility/:testId', auth_1.default, UserTestAttemptController.checkTestEligibilityController);
+// Mark that the user has started a test (call this when user clicks "Start Test")
+router.post('/start/:testId', auth_1.default, UserTestAttemptController.startTestAttemptController);
+// Mark that the user has completed a test (call this when user submits the test)
+router.post('/complete/:testId', auth_1.default, UserTestAttemptController.completeTestAttemptController);
+// Get current user's test attempt history
+// Optional query param: ?testId=uuid (to get attempts for a specific test)
+router.get('/my-attempts', auth_1.default, UserTestAttemptController.getMyTestAttemptsController);
+// ===== ADMIN/TEACHER ROUTES =====
+// Admin grants additional attempts to a user
+// Body: { userId, testId, additionalAttempts, reason? }
+router.post('/grant', auth_1.default, UserTestAttemptController.grantTestAttemptsController);
+// Admin resets test attempts for a user (sets attempts back to default or custom value)
+// Body: { userId, testId, newAllowedAttempts?, reason? }
+router.post('/reset', auth_1.default, UserTestAttemptController.resetTestAttemptsController);
+// Admin/Teacher gets all users' attempt status for a specific test
+router.get('/test/:testId/status', auth_1.default, UserTestAttemptController.getTestAttemptsStatusController);
+// Admin/Teacher gets a specific user's test attempt history
+// Optional query param: ?testId=uuid
+router.get('/user/:userId', auth_1.default, UserTestAttemptController.getUserTestAttemptsController);
 exports.default = router;

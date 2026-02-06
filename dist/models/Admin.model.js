@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const sequelize_1 = require("sequelize");
 const _1 = require(".");
-const constants_1 = require("../utils/constants");
 const Admin = _1.sequelize.define('Admin', {
     id: {
         type: sequelize_1.DataTypes.UUID,
@@ -23,9 +22,9 @@ const Admin = _1.sequelize.define('Admin', {
         allowNull: false,
     },
     role: {
-        type: sequelize_1.DataTypes.ENUM(constants_1.Role.ADMIN, constants_1.Role.TEACHER, constants_1.Role.STUDENT),
+        type: sequelize_1.DataTypes.ENUM('admin', 'teacher', 'student'),
         allowNull: false,
-        defaultValue: constants_1.Role.ADMIN, // Set a default role, perhaps 'admin' for new Admin records
+        defaultValue: 'admin',
     },
 }, { timestamps: true });
 exports.default = Admin;

@@ -29,7 +29,18 @@ const QuestionBank_model_1 = __importDefault(require("../QuestionBank.model"));
 const UserWebinar_model_1 = __importDefault(require("../UserWebinar.model"));
 const webinar_model_1 = __importDefault(require("../webinar.model"));
 const Order_model_1 = __importDefault(require("../Order.model"));
+const Result_model_1 = __importDefault(require("../Result.model"));
+const Usertestattempt_model_1 = __importDefault(require("../Usertestattempt.model"));
 const initAssociation = () => {
+    Result_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
+    Result_model_1.default.belongsTo(Test_model_1.default, { foreignKey: 'testId', as: 'test' });
+    User_model_1.default.hasMany(Result_model_1.default, { foreignKey: 'userId', as: 'results' });
+    Test_model_1.default.hasMany(Result_model_1.default, { foreignKey: 'testId', as: 'results' });
+    Usertestattempt_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userId', as: 'user' });
+    Usertestattempt_model_1.default.belongsTo(Test_model_1.default, { foreignKey: 'testId', as: 'test' });
+    Usertestattempt_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'grantedBy', as: 'admin' });
+    User_model_1.default.hasMany(Usertestattempt_model_1.default, { foreignKey: 'userId' });
+    Test_model_1.default.hasMany(Usertestattempt_model_1.default, { foreignKey: 'testId' });
     // ===== ORDER ASSOCIATIONS (MUST BE FIRST) =====
     // Order belongs to User
     Order_model_1.default.belongsTo(User_model_1.default, { foreignKey: 'userid', as: 'user' });

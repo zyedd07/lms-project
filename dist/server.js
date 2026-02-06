@@ -48,6 +48,8 @@ const PaymentWebhook_router_1 = __importDefault(require("./routes/PaymentWebhook
 const UserWebinar_router_1 = __importDefault(require("./routes/UserWebinar.router")); // The new UserWebinar routes
 const Mediafile_router_1 = __importDefault(require("./routes/Mediafile.router")); // The new UserWebinar routes
 const AdminPayment_router_1 = __importDefault(require("./routes/AdminPayment.router"));
+const Result_routes_1 = __importDefault(require("./routes/Result.routes"));
+const Usertestattempt_routes_1 = __importDefault(require("./routes/Usertestattempt.routes"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -66,8 +68,15 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'), false);
         }
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Platform'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Platform',
+        'X-Device-Id',
+        'X-Device-Token',
+        'X-Device-Model'
+    ],
     credentials: true,
     optionsSuccessStatus: 204
 };
@@ -111,6 +120,8 @@ app.use('/webhooks', PaymentWebhook_router_1.default);
 app.use('/user-webinars', UserWebinar_router_1.default);
 app.use('/media-file', Mediafile_router_1.default);
 app.use('/admin/payments', AdminPayment_router_1.default);
+app.use('/result', Result_routes_1.default);
+app.use('/test-attempts', Usertestattempt_routes_1.default);
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- UNHANDLED REJECTION ---');
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -149,14 +160,20 @@ require("./models/associations/index");
 const index_1 = __importDefault(require("./models/associations/index"));
 (0, index_1.default)();
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => __awaiter(void 0, void 0, void 0, function* () {
+const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         console.log(`Server is running on port: ${PORT}`);
-        yield models_1.sequelize.sync({ alter: false });
-        return console.log(`Database Connected`);
+        yield models_1.sequelize.authenticate();
+        console.log('Database connection established successfully');
+        yield models_1.sequelize.sync(); // No { alter: true }
+        console.log('Database synced (create only, no alter)');
+        app.listen(PORT, () => {
+            console.log(`Server listening on port ${PORT}`);
+        });
     }
     catch (err) {
-        console.log(err);
-        throw err;
+        console.error('Failed to start server:', err);
+        process.exit(1);
     }
-}));
+});
+startServer();
