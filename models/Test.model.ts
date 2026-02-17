@@ -1,6 +1,5 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
-import TestSeries from "./TestSeries.model";
 
 const Test = sequelize.define('Test', {
     id: {
@@ -42,24 +41,18 @@ const Test = sequelize.define('Test', {
         type: DataTypes.UUID,
         allowNull: false,
     },
-
-    // --- NEW SCHEDULING FIELDS ---
-
-    // The exact datetime the test window opens (e.g., 2025-06-01T12:00:00Z)
     scheduledStartTime: {
         type: DataTypes.DATE,
-        allowNull: true, // null = no scheduling, always accessible
+        allowNull: true,
     },
-    // The exact datetime the test window closes (e.g., 2025-06-01T13:00:00Z)
     scheduledEndTime: {
         type: DataTypes.DATE,
-        allowNull: true, // null = no end boundary
+        allowNull: true,
     },
-    // Whether the countdown timer is shown to the student during the test
     timerEnabled: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: true, // timer ON by default
+        defaultValue: true,
     },
 }, {
     timestamps: true,
@@ -71,7 +64,6 @@ const Test = sequelize.define('Test', {
     ],
     tableName: 'Tests',
     validate: {
-        // Ensure endTime is after startTime if both are set
         scheduleConsistency() {
             if (
                 (this as any).scheduledStartTime &&
@@ -84,7 +76,6 @@ const Test = sequelize.define('Test', {
     }
 });
 
-Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId' });
-TestSeries.hasMany(Test, { foreignKey: 'testSeriesId', as: 'tests', onDelete: 'CASCADE' });
+// NO associations here — all associations are handled centrally in initAssociation()
 
 export default Test;
