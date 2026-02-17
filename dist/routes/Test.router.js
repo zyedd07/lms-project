@@ -44,8 +44,6 @@ const router = express_1.default.Router();
 router.post('/create', auth_1.default, TestController.createTestController);
 // Get all Tests for a specific TestSeries (e.g., /api/tests?testSeriesId=uuid)
 router.get('/', auth_1.default, TestController.getTestsByTestSeriesController);
-// NEW: Start a test (Student - checks eligibility and marks as started)
-router.post('/:testId/start', auth_1.default, TestController.startTestController);
 // Get a single Test by ID (with eligibility info if student)
 router.get('/:id', auth_1.default, TestController.getTestController);
 // Update a Test by ID (Admin/Teacher only)

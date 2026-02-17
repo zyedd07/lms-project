@@ -311,7 +311,7 @@ export type UpdateTestSeriesServiceParams = {
 };
 
 // --- Test Types ---
-export type CreateTestServiceParams = {
+export interface CreateTestServiceParams {
     testSeriesId: string;
     name: string;
     description?: string;
@@ -319,16 +319,13 @@ export type CreateTestServiceParams = {
     numberOfQuestions: number;
     passMarkPercentage: number;
     createdBy: string;
-};
+    scheduledStartTime?: Date | string | null;
+    scheduledEndTime?: Date | string | null;
+    timerEnabled?: boolean;
+}
 
-export type UpdateTestServiceParams = {
-    name?: string;
-    description?: string;
-    durationMinutes?: number;
-    numberOfQuestions?: number;
-    passMarkPercentage?: number;
-    testSeriesId?: string;
-};
+export type UpdateTestServiceParams = Partial<Omit<CreateTestServiceParams, 'createdBy'>>;
+
 
 // --- Question Types ---
 export type CreateQuestionServiceParams = {

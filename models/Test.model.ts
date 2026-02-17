@@ -1,6 +1,6 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from ".";
-import TestSeries from "./TestSeries.model"; // Import TestSeries model for association
+import TestSeries from "./TestSeries.model";
 
 const Test = sequelize.define('Test', {
     id: {
@@ -8,64 +8,83 @@ const Test = sequelize.define('Test', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    // Foreign key to TestSeries
     testSeriesId: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'TestSeries', // References the 'TestSeries' table
-            key: 'id',
-        },
-        onDelete: 'CASCADE', // If a TestSeries is deleted, all its associated Tests are also deleted
+        references: { model: 'TestSeries', key: 'id' },
+        onDelete: 'CASCADE',
         onUpdate: 'CASCADE'
     },
-    name: { // e.g., "Chapter 1 Quiz", "Midterm Exam"
+    name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    description: { // Optional description for this specific test
+    description: {
         type: DataTypes.TEXT,
         allowNull: true,
     },
-    durationMinutes: { // Duration for this specific test
+    durationMinutes: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        validate: {
-            min: 1,
-        }
+        validate: { min: 1 }
     },
-    numberOfQuestions: { // The expected number of questions for this test (can be used for display, actual questions are in Question model)
+    numberOfQuestions: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        validate: {
-            min: 1,
-        }
+        validate: { min: 1 }
     },
-    passMarkPercentage: { // Pass mark for this specific test
+    passMarkPercentage: {
         type: DataTypes.FLOAT,
         allowNull: false,
-        validate: {
-            min: 0,
-            max: 100,
-        }
+        validate: { min: 0, max: 100 }
     },
-    createdBy: { // Who created this specific Test (could be same as TestSeries creator or different)
+    createdBy: {
         type: DataTypes.UUID,
         allowNull: false,
+    },
+
+    // --- NEW SCHEDULING FIELDS ---
+
+    // The exact datetime the test window opens (e.g., 2025-06-01T12:00:00Z)
+    scheduledStartTime: {
+        type: DataTypes.DATE,
+        allowNull: true, // null = no scheduling, always accessible
+    },
+    // The exact datetime the test window closes (e.g., 2025-06-01T13:00:00Z)
+    scheduledEndTime: {
+        type: DataTypes.DATE,
+        allowNull: true, // null = no end boundary
+    },
+    // Whether the countdown timer is shown to the student during the test
+    timerEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true, // timer ON by default
     },
 }, {
     timestamps: true,
     indexes: [
         {
             unique: true,
-            fields: ["name", "testSeriesId"], // A TestSeries cannot have two tests with the same name
+            fields: ["name", "testSeriesId"],
         },
     ],
-    tableName: 'Tests' // Explicit table name
+    tableName: 'Tests',
+    validate: {
+        // Ensure endTime is after startTime if both are set
+        scheduleConsistency() {
+            if (
+                (this as any).scheduledStartTime &&
+                (this as any).scheduledEndTime &&
+                new Date((this as any).scheduledEndTime) <= new Date((this as any).scheduledStartTime)
+            ) {
+                throw new Error("scheduledEndTime must be after scheduledStartTime");
+            }
+        }
+    }
 });
 
-// Define associations
 Test.belongsTo(TestSeries, { foreignKey: 'testSeriesId' });
-TestSeries.hasMany(Test, { foreignKey: 'testSeriesId', onDelete: 'CASCADE' });
+TestSeries.hasMany(Test, { foreignKey: 'testSeriesId', as: 'tests', onDelete: 'CASCADE' });
 
 export default Test;

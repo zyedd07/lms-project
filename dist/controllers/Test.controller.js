@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestsByTestSeriesController = exports.deleteTestController = exports.updateTestController = exports.startTestController = exports.getTestController = exports.createTestController = void 0;
+exports.getTestsByTestSeriesController = exports.deleteTestController = exports.updateTestController = exports.getTestController = exports.createTestController = void 0;
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const Test_service_1 = require("../services/Test.service");
 const Usertestattempt_service_1 = require("../services/Usertestattempt.service");
@@ -84,43 +84,6 @@ const getTestController = (req, res, next) => __awaiter(void 0, void 0, void 0, 
     }
 });
 exports.getTestController = getTestController;
-/**
- * NEW: Start a test attempt
- * This should be called when user clicks "Start Test"
- * It checks eligibility and marks the attempt as started
- */
-const startTestController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        if (!req.user || !req.user.id) {
-            throw new httpError_1.default("Authentication required", 401);
-        }
-        const { testId } = req.params;
-        if (!testId) {
-            throw new httpError_1.default("Test ID is required", 400);
-        }
-        // First, check eligibility
-        const eligibility = yield (0, Usertestattempt_service_1.checkUserTestEligibilityService)(req.user.id, testId);
-        if (!eligibility.canAttempt) {
-            throw new httpError_1.default(`You have no remaining attempts for this test. Used: ${eligibility.attemptsUsed}/${eligibility.allowedAttempts}`, 403);
-        }
-        // Mark test as started (increments attempt counter)
-        const result = yield (0, Usertestattempt_service_1.markTestStartedService)(req.user.id, testId);
-        // Get full test details to return
-        const test = yield (0, Test_service_1.getTestByIdService)(testId);
-        res.status(200).json({
-            success: true,
-            data: {
-                message: "Test started successfully",
-                test,
-                attemptInfo: result
-            }
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.startTestController = startTestController;
 const updateTestController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;

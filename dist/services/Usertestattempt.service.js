@@ -22,27 +22,26 @@ const httpError_1 = __importDefault(require("../utils/httpError"));
  */
 const checkUserTestEligibilityService = (userId, testId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Verify test exists
         const test = yield Test_model_1.default.findByPk(testId);
         if (!test) {
             throw new httpError_1.default("Test not found", 404);
         }
-        // Find or create the attempt record
+        // Check if user is admin/teacher
+        const user = yield User_model_1.default.findByPk(userId);
+        const isAdmin = user && (user.getDataValue('role') === 'admin' || user.getDataValue('role') === 'teacher');
         let attemptRecord = yield Usertestattempt_model_1.default.findOne({
             where: { userId, testId }
         });
         if (!attemptRecord) {
-            // First time accessing this test - create record with default 1 attempt
             attemptRecord = yield Usertestattempt_model_1.default.create({
                 userId,
                 testId,
-                allowedAttempts: 1,
+                allowedAttempts: isAdmin ? 999 : 1, // ✅ Give admins 999 attempts
                 attemptsUsed: 0,
                 hasStarted: false,
                 hasCompleted: false,
             });
         }
-        // Check eligibility
         const remainingAttempts = attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed');
         const canAttempt = remainingAttempts > 0;
         return {
@@ -65,29 +64,37 @@ exports.checkUserTestEligibilityService = checkUserTestEligibilityService;
  */
 const markTestStartedService = (userId, testId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        console.log(`[markTestStartedService] Starting for userId: ${userId}, testId: ${testId}`);
         const attemptRecord = yield Usertestattempt_model_1.default.findOne({
             where: { userId, testId }
         });
+        console.log(`[markTestStartedService] Found record:`, attemptRecord === null || attemptRecord === void 0 ? void 0 : attemptRecord.toJSON());
         if (!attemptRecord) {
             throw new httpError_1.default("Test attempt record not found. Please check eligibility first.", 404);
         }
-        const remainingAttempts = attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed');
+        const currentAttemptsUsed = attemptRecord.getDataValue('attemptsUsed');
+        const allowedAttempts = attemptRecord.getDataValue('allowedAttempts');
+        const remainingAttempts = allowedAttempts - currentAttemptsUsed;
+        console.log(`[markTestStartedService] Current attempts: ${currentAttemptsUsed}, Allowed: ${allowedAttempts}, Remaining: ${remainingAttempts}`);
         if (remainingAttempts <= 0) {
             throw new httpError_1.default("No attempts remaining for this test", 403);
         }
         // Update the record
-        yield attemptRecord.update({
+        const updatedRecord = yield attemptRecord.update({
             hasStarted: true,
-            attemptsUsed: attemptRecord.getDataValue('attemptsUsed') + 1,
+            attemptsUsed: currentAttemptsUsed + 1,
             lastAttemptAt: new Date(),
         });
+        console.log(`[markTestStartedService] Updated record:`, updatedRecord.toJSON());
+        const newRemainingAttempts = allowedAttempts - (currentAttemptsUsed + 1);
         return {
             message: "Test started successfully",
-            attemptsUsed: attemptRecord.getDataValue('attemptsUsed'),
-            remainingAttempts: attemptRecord.getDataValue('allowedAttempts') - attemptRecord.getDataValue('attemptsUsed'),
+            attemptsUsed: currentAttemptsUsed + 1,
+            remainingAttempts: newRemainingAttempts,
         };
     }
     catch (error) {
+        console.error(`[markTestStartedService] Error:`, error);
         throw error;
     }
 });

@@ -1,22 +1,7 @@
 import Test from "../models/Test.model";
 import HttpError from "../utils/httpError";
-import { Op } from 'sequelize'; // Ensure Op is imported from sequelize
+import { Op } from 'sequelize';
 import { CreateTestServiceParams, UpdateTestServiceParams } from "../utils/types";
-
-// Assume these types are correctly defined in ../utils/types.ts
-// For example:
-// export interface CreateTestServiceParams {
-//   testSeriesId: string;
-//   name: string;
-//   description?: string;
-//   durationMinutes: number;
-//   numberOfQuestions: number;
-//   passMarkPercentage: number;
-//   createdBy: string;
-// }
-//
-// export type UpdateTestServiceParams = Partial<Omit<CreateTestServiceParams, 'createdBy'>>;
-// (You might also want to exclude 'testSeriesId' if it's never meant to be updated, but currently it is in params)
 
 export const createTestService = async (params: CreateTestServiceParams) => {
     try {
@@ -35,6 +20,9 @@ export const createTestService = async (params: CreateTestServiceParams) => {
             numberOfQuestions: params.numberOfQuestions,
             passMarkPercentage: params.passMarkPercentage,
             createdBy: params.createdBy,
+            scheduledStartTime: params.scheduledStartTime ?? null,  // NEW
+            scheduledEndTime: params.scheduledEndTime ?? null,      // NEW
+            timerEnabled: params.timerEnabled ?? true,              // NEW
         });
         return newTest;
     } catch (error) {
@@ -61,13 +49,9 @@ export const updateTestService = async (id: string, params: UpdateTestServicePar
             throw new HttpError("Test not found", 404);
         }
 
-        // To address TS2339: Property 'name' does not exist on type 'Model<any, any>'.
-        // Ensure test.name and test.testSeriesId are treated as strings.
-        // We can assert 'test' as a specific type if needed, or simply check existence of params properties.
-        const currentName = test.getDataValue('name'); // Safely get current name
-        const currentTestSeriesId = test.getDataValue('testSeriesId'); // Safely get current testSeriesId
+        const currentName = test.getDataValue('name');
+        const currentTestSeriesId = test.getDataValue('testSeriesId');
 
-        // Check if 'name' or 'testSeriesId' are provided in params AND if they are different from current values
         if (
             (params.name !== undefined && params.name !== currentName) ||
             (params.testSeriesId !== undefined && params.testSeriesId !== currentTestSeriesId)
@@ -79,7 +63,7 @@ export const updateTestService = async (id: string, params: UpdateTestServicePar
                 where: {
                     name: targetName,
                     testSeriesId: targetTestSeriesId,
-                    id: { [Op.ne]: id } // Exclude current test from check
+                    id: { [Op.ne]: id }
                 },
             });
             if (existingTestWithNewName) {
@@ -114,4 +98,39 @@ export const getTestsByTestSeriesService = async (testSeriesId: string) => {
     } catch (error) {
         throw error;
     }
+};
+
+export const checkTestScheduleService = (test: any): {
+    accessible: boolean;
+    reason?: string;
+    timerEnabled: boolean;
+} => {
+    const now = new Date();
+    const scheduledStartTime = test.getDataValue
+        ? test.getDataValue('scheduledStartTime')
+        : test.scheduledStartTime;
+    const scheduledEndTime = test.getDataValue
+        ? test.getDataValue('scheduledEndTime')
+        : test.scheduledEndTime;
+    const timerEnabled = test.getDataValue
+        ? test.getDataValue('timerEnabled')
+        : test.timerEnabled;
+
+    if (scheduledStartTime && now < new Date(scheduledStartTime)) {
+        return {
+            accessible: false,
+            timerEnabled: timerEnabled ?? true,
+            reason: `This test will open at ${new Date(scheduledStartTime).toLocaleString()}`,
+        };
+    }
+
+    if (scheduledEndTime && now > new Date(scheduledEndTime)) {
+        return {
+            accessible: false,
+            timerEnabled: timerEnabled ?? true,
+            reason: `This test window closed at ${new Date(scheduledEndTime).toLocaleString()}`,
+        };
+    }
+
+    return { accessible: true, timerEnabled: timerEnabled ?? true };
 };
