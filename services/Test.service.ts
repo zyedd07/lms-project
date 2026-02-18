@@ -128,7 +128,9 @@ export const checkTestScheduleService = (test: any): {
         return {
             accessible: false,
             timerEnabled: timerEnabled ?? true,
-            reason: `This test window closed at ${new Date(scheduledEndTime).toLocaleString()}`,
+            reason: `This test will open at ${new Date(scheduledStartTime).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata'
+            })}`,
         };
     }
 

@@ -12,25 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestsByTestSeriesService = exports.deleteTestService = exports.updateTestService = exports.getTestByIdService = exports.createTestService = void 0;
+exports.checkTestScheduleService = exports.getTestsByTestSeriesService = exports.deleteTestService = exports.updateTestService = exports.getTestByIdService = exports.createTestService = void 0;
 const Test_model_1 = __importDefault(require("../models/Test.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
-const sequelize_1 = require("sequelize"); // Ensure Op is imported from sequelize
-// Assume these types are correctly defined in ../utils/types.ts
-// For example:
-// export interface CreateTestServiceParams {
-//   testSeriesId: string;
-//   name: string;
-//   description?: string;
-//   durationMinutes: number;
-//   numberOfQuestions: number;
-//   passMarkPercentage: number;
-//   createdBy: string;
-// }
-//
-// export type UpdateTestServiceParams = Partial<Omit<CreateTestServiceParams, 'createdBy'>>;
-// (You might also want to exclude 'testSeriesId' if it's never meant to be updated, but currently it is in params)
+const sequelize_1 = require("sequelize");
 const createTestService = (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
     try {
         const existingTest = yield Test_model_1.default.findOne({
             where: { name: params.name, testSeriesId: params.testSeriesId },
@@ -46,6 +33,9 @@ const createTestService = (params) => __awaiter(void 0, void 0, void 0, function
             numberOfQuestions: params.numberOfQuestions,
             passMarkPercentage: params.passMarkPercentage,
             createdBy: params.createdBy,
+            scheduledStartTime: (_a = params.scheduledStartTime) !== null && _a !== void 0 ? _a : null, // NEW
+            scheduledEndTime: (_b = params.scheduledEndTime) !== null && _b !== void 0 ? _b : null, // NEW
+            timerEnabled: (_c = params.timerEnabled) !== null && _c !== void 0 ? _c : true, // NEW
         });
         return newTest;
     }
@@ -73,12 +63,8 @@ const updateTestService = (id, params) => __awaiter(void 0, void 0, void 0, func
         if (!test) {
             throw new httpError_1.default("Test not found", 404);
         }
-        // To address TS2339: Property 'name' does not exist on type 'Model<any, any>'.
-        // Ensure test.name and test.testSeriesId are treated as strings.
-        // We can assert 'test' as a specific type if needed, or simply check existence of params properties.
-        const currentName = test.getDataValue('name'); // Safely get current name
-        const currentTestSeriesId = test.getDataValue('testSeriesId'); // Safely get current testSeriesId
-        // Check if 'name' or 'testSeriesId' are provided in params AND if they are different from current values
+        const currentName = test.getDataValue('name');
+        const currentTestSeriesId = test.getDataValue('testSeriesId');
         if ((params.name !== undefined && params.name !== currentName) ||
             (params.testSeriesId !== undefined && params.testSeriesId !== currentTestSeriesId)) {
             const targetName = params.name !== undefined ? params.name : currentName;
@@ -87,7 +73,7 @@ const updateTestService = (id, params) => __awaiter(void 0, void 0, void 0, func
                 where: {
                     name: targetName,
                     testSeriesId: targetTestSeriesId,
-                    id: { [sequelize_1.Op.ne]: id } // Exclude current test from check
+                    id: { [sequelize_1.Op.ne]: id }
                 },
             });
             if (existingTestWithNewName) {
@@ -126,3 +112,33 @@ const getTestsByTestSeriesService = (testSeriesId) => __awaiter(void 0, void 0, 
     }
 });
 exports.getTestsByTestSeriesService = getTestsByTestSeriesService;
+const checkTestScheduleService = (test) => {
+    const now = new Date();
+    const scheduledStartTime = test.getDataValue
+        ? test.getDataValue('scheduledStartTime')
+        : test.scheduledStartTime;
+    const scheduledEndTime = test.getDataValue
+        ? test.getDataValue('scheduledEndTime')
+        : test.scheduledEndTime;
+    const timerEnabled = test.getDataValue
+        ? test.getDataValue('timerEnabled')
+        : test.timerEnabled;
+    if (scheduledStartTime && now < new Date(scheduledStartTime)) {
+        return {
+            accessible: false,
+            timerEnabled: timerEnabled !== null && timerEnabled !== void 0 ? timerEnabled : true,
+            reason: `This test will open at ${new Date(scheduledStartTime).toLocaleString()}`,
+        };
+    }
+    if (scheduledEndTime && now > new Date(scheduledEndTime)) {
+        return {
+            accessible: false,
+            timerEnabled: timerEnabled !== null && timerEnabled !== void 0 ? timerEnabled : true,
+            reason: `This test will open at ${new Date(scheduledStartTime).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata'
+            })}`,
+        };
+    }
+    return { accessible: true, timerEnabled: timerEnabled !== null && timerEnabled !== void 0 ? timerEnabled : true };
+};
+exports.checkTestScheduleService = checkTestScheduleService;

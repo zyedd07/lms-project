@@ -165,7 +165,7 @@ const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
         console.log(`Server is running on port: ${PORT}`);
         yield models_1.sequelize.authenticate();
         console.log('Database connection established successfully');
-        yield models_1.sequelize.sync(); // No { alter: true }
+        yield models_1.sequelize.sync({ alter: false });
         console.log('Database synced (create only, no alter)');
         app.listen(PORT, () => {
             console.log(`Server listening on port ${PORT}`);

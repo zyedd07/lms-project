@@ -218,6 +218,12 @@ export type GetTeacherFilterType = {
     id?: string;
 };
 
+export type QuestionType = 'mcq' | 'match_the_pair' | 'image_based';
+
+export interface MatchPair {
+    left: string;
+    right: string;
+}
 // --- Categories (Course Categories) Types ---
 export type CreateCategoriesServiceParams = {
     name: string;
@@ -328,22 +334,20 @@ export type UpdateTestServiceParams = Partial<Omit<CreateTestServiceParams, 'cre
 
 
 // --- Question Types ---
-export type CreateQuestionServiceParams = {
+export interface CreateQuestionServiceParams {
     testId: string;
+    questionType: QuestionType;
     questionText: string;
-    options: string[];
-    correctAnswerIndex: number;
+    questionImageUrl?: string | null;  // for image_based
+    options?: string[];                // for mcq and image_based
+    correctAnswerIndex?: number;       // for mcq and image_based
+    pairs?: MatchPair[];               // for match_the_pair
     points: number;
     negativePoints: number;
-};
+}
 
-export type UpdateQuestionServiceParams = {
-    questionText?: string;
-    options?: string[];
-    correctAnswerIndex?: number;
-    points?: number;
-    negativePoints?: number;
-};
+export type UpdateQuestionServiceParams = Partial<Omit<CreateQuestionServiceParams, 'testId'>>;
+
 
 // --- Question Bank Types ---
 export type CreateQuestionBankServiceParams = {

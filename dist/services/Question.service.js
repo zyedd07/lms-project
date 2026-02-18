@@ -1,5 +1,4 @@
 "use strict";
-// services/Question.service.ts
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -17,14 +16,18 @@ exports.getQuestionsByTestService = exports.deleteQuestionService = exports.upda
 const Question_model_1 = __importDefault(require("../models/Question.model"));
 const httpError_1 = __importDefault(require("../utils/httpError"));
 const createQuestionService = (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
     try {
         const newQuestion = yield Question_model_1.default.create({
             testId: params.testId,
+            questionType: (_a = params.questionType) !== null && _a !== void 0 ? _a : 'mcq',
             questionText: params.questionText,
-            options: params.options,
-            correctAnswerIndex: params.correctAnswerIndex,
+            questionImageUrl: (_b = params.questionImageUrl) !== null && _b !== void 0 ? _b : null,
+            options: (_c = params.options) !== null && _c !== void 0 ? _c : null,
+            correctAnswerIndex: (_d = params.correctAnswerIndex) !== null && _d !== void 0 ? _d : null,
+            pairs: (_e = params.pairs) !== null && _e !== void 0 ? _e : null,
             points: params.points,
-            negativePoints: params.negativePoints, // <--- ADD THIS LINE
+            negativePoints: params.negativePoints,
         });
         return newQuestion;
     }
@@ -36,9 +39,8 @@ exports.createQuestionService = createQuestionService;
 const getQuestionByIdService = (id) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const question = yield Question_model_1.default.findByPk(id);
-        if (!question) {
+        if (!question)
             throw new httpError_1.default("Question not found", 404);
-        }
         return question;
     }
     catch (error) {
@@ -49,9 +51,8 @@ exports.getQuestionByIdService = getQuestionByIdService;
 const updateQuestionService = (id, params) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const question = yield Question_model_1.default.findByPk(id);
-        if (!question) {
+        if (!question)
             throw new httpError_1.default("Question not found", 404);
-        }
         yield question.update(params);
         return { message: "Question updated successfully" };
     }
@@ -63,9 +64,8 @@ exports.updateQuestionService = updateQuestionService;
 const deleteQuestionService = (id) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const question = yield Question_model_1.default.findByPk(id);
-        if (!question) {
+        if (!question)
             throw new httpError_1.default("Question not found", 404);
-        }
         yield question.destroy();
         return { message: "Question deleted successfully" };
     }
