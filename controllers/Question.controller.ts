@@ -17,7 +17,8 @@ export const createQuestionController = async (req: AuthenticatedRequest, res: R
         const {
             testId, questionType = 'mcq', questionText,
             questionImageUrl, options, correctAnswerIndex,
-            pairs, points, negativePoints
+            pairs, points, negativePoints, answerDescription,
+
         } = req.body;
 
         if (!testId || !questionText || points === undefined || negativePoints === undefined) {
@@ -56,7 +57,8 @@ export const createQuestionController = async (req: AuthenticatedRequest, res: R
 
         const newQuestion = await createQuestionService({
             testId, questionType, questionText, questionImageUrl,
-            options, correctAnswerIndex, pairs, points, negativePoints,
+            options, correctAnswerIndex, pairs, points, negativePoints,answerDescription,
+
         });
 
         res.status(201).json(newQuestion);
@@ -93,7 +95,7 @@ export const updateQuestionController = async (req: AuthenticatedRequest, res: R
         const { id } = req.params;
         const {
             questionType, questionText, questionImageUrl,
-            options, correctAnswerIndex, pairs, points, negativePoints
+            options, correctAnswerIndex, pairs, points, negativePoints, answerDescription,
         } = req.body;
 
         if (questionType && !VALID_TYPES.includes(questionType)) {
@@ -110,7 +112,7 @@ export const updateQuestionController = async (req: AuthenticatedRequest, res: R
 
         const result = await updateQuestionService(id, {
             questionType, questionText, questionImageUrl,
-            options, correctAnswerIndex, pairs, points, negativePoints,
+            options, correctAnswerIndex, pairs, points, negativePoints, answerDescription,
         });
         res.status(200).json({ success: true, data: result });
     } catch (error) {

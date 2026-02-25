@@ -14,6 +14,8 @@ export const createQuestionService = async (params: CreateQuestionServiceParams)
             pairs: params.pairs ?? null,
             points: params.points,
             negativePoints: params.negativePoints,
+            answerDescription: params.answerDescription ?? null,
+
         });
         return newQuestion;
     } catch (error) {

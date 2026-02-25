@@ -63,6 +63,10 @@ const Question = sequelize.define('Question', {
         defaultValue: 0,
         validate: { max: 0 },
     },
+    answerDescription: {
+    type: DataTypes.TEXT,
+    allowNull: true, // optional — not all questions need an explanation
+},
 }, {
     timestamps: true,
     tableName: 'Questions',

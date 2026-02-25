@@ -3,6 +3,7 @@
 import express from 'express';
 import * as ResultController from '../controllers/Result.controller';
 import isAuth, { authorizeAdmin } from '../middleware/auth';
+import { getTestRankingsController } from '../controllers/Result.controller';
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.get('/user/:userId', isAuth, ResultController.getResultsByUserController)
 
 // Get all results (Admin only) - This should be BEFORE /:id route
 router.get('/all', isAuth, authorizeAdmin, ResultController.getAllResultsController);
+router.get('/rankings/:testId', isAuth, getTestRankingsController);
 
 // Get result by ID - This should be LAST among GET routes
 router.get('/:id', isAuth, ResultController.getResultByIdController);
@@ -28,7 +30,7 @@ router.get('/:id', isAuth, ResultController.getResultByIdController);
 // Create a new result (authenticated users)
 router.post('/', isAuth, ResultController.createResultController);
 
+
 // Delete a result (Admin only)
 router.delete('/:id', isAuth, authorizeAdmin, ResultController.deleteResultController);
-
 export default router;

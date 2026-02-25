@@ -181,3 +181,52 @@ export const getUserTestStatisticsService = async (userId: string) => {
         throw error;
     }
 };
+
+export const getTestRankingsService = async (testId: string) => {
+    try {
+        // Get best attempt per user (highest score, then fastest time as tiebreaker)
+        const results = await Result.findAll({
+            where: { testId },
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['id', 'name', 'email'],
+                }
+            ],
+            order: [
+                ['score', 'DESC'],
+                ['timeTaken', 'ASC'],   // faster time = better rank on tie
+                ['completedAt', 'ASC'], // earlier submission wins if both same
+            ],
+        });
+
+        // Deduplicate: keep only best attempt per user
+        const seen = new Set<string>();
+        const unique = results.filter((r: any) => {
+            const uid = r.getDataValue('userId');
+            if (seen.has(uid)) return false;
+            seen.add(uid);
+            return true;
+        });
+
+        // Attach rank
+        const rankings = unique.map((result: any, index: number) => ({
+            rank: index + 1,
+            userId: result.getDataValue('userId'),
+            user: (result as any).user,
+            score: result.getDataValue('score'),
+            totalPossiblePoints: result.getDataValue('totalPossiblePoints'),
+            percentageScore: result.getDataValue('percentageScore'),
+            correctCount: result.getDataValue('correctCount'),
+            incorrectCount: result.getDataValue('incorrectCount'),
+            timeTaken: result.getDataValue('timeTaken'),
+            hasPassed: result.getDataValue('hasPassed'),
+            completedAt: result.getDataValue('completedAt'),
+        }));
+
+        return rankings;
+    } catch (error) {
+        throw error;
+    }
+};

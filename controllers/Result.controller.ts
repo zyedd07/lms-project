@@ -10,7 +10,8 @@ import {
     getResultsByTestService,
     getAllResultsService,
     deleteResultService,
-    getUserTestStatisticsService
+    getUserTestStatisticsService,
+    getTestRankingsService
 } from "../services/Result.service";
 import { Role } from "../utils/constants";
 
@@ -148,6 +149,20 @@ export const getUserStatisticsController = async (req: AuthenticatedRequest, res
 
         const statistics = await getUserTestStatisticsService(userId);
         res.status(200).json({ success: true, data: statistics });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTestRankingsController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { testId } = req.params;
+
+        // Students can see rankings, but only after the test window closes (optional guard)
+        // Admins/Teachers always see it
+        const rankings = await getTestRankingsService(testId);
+
+        res.status(200).json({ success: true, data: rankings });
     } catch (error) {
         next(error);
     }

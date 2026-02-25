@@ -344,6 +344,8 @@ export interface CreateQuestionServiceParams {
     pairs?: MatchPair[];               // for match_the_pair
     points: number;
     negativePoints: number;
+    answerDescription?: string;
+
 }
 
 export type UpdateQuestionServiceParams = Partial<Omit<CreateQuestionServiceParams, 'testId'>>;
