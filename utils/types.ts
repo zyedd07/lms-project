@@ -307,6 +307,7 @@ export type CreateTestSeriesServiceParams = {
     name: string;
     description?: string;
     price: number;
+    thumbnailUrl?: string | null;
     createdBy: string;
 };
 
@@ -314,6 +315,7 @@ export type UpdateTestSeriesServiceParams = {
     name?: string;
     description?: string;
     price?: number;
+    thumbnailUrl?: string | null
 };
 
 // --- Test Types ---

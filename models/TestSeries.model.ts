@@ -16,21 +16,24 @@ const TestSeries = sequelize.define('TestSeries', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
-    // New price field
     price: {
         type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,      // As requested: "no nullable"
-        defaultValue: 0.0,     // Ensures a default value if not provided
+        allowNull: false,
+        defaultValue: 0.0,
     },
-    createdBy: { // This field will now be a foreign key
+    // Thumbnail image URL for the test series
+    thumbnailUrl: {
+        type: DataTypes.STRING(2048),  // Long enough for any URL
+        allowNull: true,
+        defaultValue: null,
+    },
+    createdBy: {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-            model: 'Users', // This should match your actual Users table name
+            model: 'Users',
             key: 'id',
         },
-        // onDelete: 'SET NULL',
-        // onUpdate: 'CASCADE'
     },
 }, {
     timestamps: true,

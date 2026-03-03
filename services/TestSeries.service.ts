@@ -1,17 +1,13 @@
 import TestSeries from "../models/TestSeries.model";
 import HttpError from "../utils/httpError";
-import User from "../models/User.model"; // Import the User model
-import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams, TestSeriesData } from "../utils/types"; // Assuming TestSeriesData is defined and will include 'creator'
+import User from "../models/User.model";
+import { CreateTestSeriesServiceParams, UpdateTestSeriesServiceParams, TestSeriesData } from "../utils/types";
 
 /**
  * Creates a new Test Series record in the database.
- * @param params - Contains all necessary data for creating a test series, including the price and createdBy (uploaderId).
- * @returns A Promise that resolves to the created TestSeriesData.
- * @throws HttpError if required parameters are missing or if a unique constraint is violated.
  */
 export const createTestSeriesService = async (params: CreateTestSeriesServiceParams) => {
     try {
-        // FIX: Ensure createdBy is present for creation
         if (!params.createdBy) {
             throw new HttpError("Creator ID is required to create a test series.", 400);
         }
@@ -27,11 +23,10 @@ export const createTestSeriesService = async (params: CreateTestSeriesServicePar
             name: params.name,
             description: params.description,
             price: params.price,
-            createdBy: params.createdBy, // Assign the createdBy (uploader) ID
+            thumbnailUrl: params.thumbnailUrl ?? null,   // ← new field
+            createdBy: params.createdBy,
         });
 
-        // FIX: Return the created test series as plain data, potentially including creator if needed by controller
-        // For consistency, services often return plain data
         return newTestSeries.toJSON() as TestSeriesData;
     } catch (error) {
         throw error;
@@ -40,30 +35,23 @@ export const createTestSeriesService = async (params: CreateTestSeriesServicePar
 
 /**
  * Updates an existing Test Series record in the database.
- * @param id - The ID of the test series to update.
- * @param params - An object containing the fields to update.
- * @returns A Promise that resolves with a success message.
- * @throws HttpError if the test series is not found.
  */
 export const updateTestSeriesService = async (id: string, params: UpdateTestSeriesServiceParams) => {
     try {
-        const testSeries = await TestSeries.findOne({
-            where: { id },
-        });
+        const testSeries = await TestSeries.findOne({ where: { id } });
         if (!testSeries) {
             throw new HttpError("Test Series not found", 404);
         }
 
-        // Update all provided parameters, including price if it exists in params
-        await testSeries.update(params); // Use instance update for better type inference and hooks
+        // params may include thumbnailUrl — update() will handle it automatically
+        await testSeries.update(params);
 
-        // FIX: Fetch the updated test series with creator information to return
         const updatedTestSeries = await TestSeries.findByPk(id, {
             include: [{
                 model: User,
-                as: 'creator', // This alias must match the 'as' in your TestSeries model association
-                attributes: ['id', 'name', 'email'] // Select specific user attributes
-            }]
+                as: 'creator',
+                attributes: ['id', 'name', 'email'],
+            }],
         });
 
         if (!updatedTestSeries) {
@@ -77,21 +65,18 @@ export const updateTestSeriesService = async (id: string, params: UpdateTestSeri
 };
 
 /**
- * Retrieves all Test Series records from the database, including creator information.
- * @param filter - Optional filter object for the query.
- * @returns A Promise that resolves to an array of TestSeriesData.
+ * Retrieves all Test Series records, including creator information.
  */
 export const getAllTestSeriesService = async (filter: any = {}): Promise<TestSeriesData[]> => {
     try {
-        // FIX: Include the User model for creator information
         const testSeriesList = await TestSeries.findAll({
             where: filter,
             include: [{
                 model: User,
-                as: 'creator', // This alias must match the 'as' in your TestSeries model association
-                required: false, // Set to true if a TestSeries MUST have a creator
-                attributes: ['id', 'name', 'email'] // Select specific user attributes
-            }]
+                as: 'creator',
+                required: false,
+                attributes: ['id', 'name', 'email'],
+            }],
         });
         return testSeriesList.map(ts => ts.toJSON() as TestSeriesData);
     } catch (error) {
@@ -100,21 +85,17 @@ export const getAllTestSeriesService = async (filter: any = {}): Promise<TestSer
 };
 
 /**
- * Retrieves a single Test Series record by its ID, including creator information.
- * @param id - The ID of the test series to retrieve.
- * @returns A Promise that resolves to the TestSeriesData.
- * @throws HttpError if the test series is not found.
+ * Retrieves a single Test Series by ID, including creator information.
  */
 export const getTestSeriesByIdService = async (id: string): Promise<TestSeriesData> => {
     try {
-        // FIX: Include the User model for creator information
         const testSeries = await TestSeries.findByPk(id, {
             include: [{
                 model: User,
-                as: 'creator', // This alias must match the 'as' in your TestSeries model association
+                as: 'creator',
                 required: false,
-                attributes: ['id', 'name', 'email']
-            }]
+                attributes: ['id', 'name', 'email'],
+            }],
         });
 
         if (!testSeries) {
@@ -127,12 +108,8 @@ export const getTestSeriesByIdService = async (id: string): Promise<TestSeriesDa
     }
 };
 
-
 /**
  * Deletes a Test Series record from the database.
- * @param id - The ID of the test series to delete.
- * @returns A Promise that resolves with a success message.
- * @throws HttpError if the test series is not found.
  */
 export const deleteTestSeriesService = async (id: string) => {
     try {

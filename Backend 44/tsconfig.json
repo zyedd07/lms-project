@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "es2016",
+    "module": "commonjs",
+    "lib": ["es2016", "dom"], // Include "dom" as it's often needed for web-related types
+
+    /* Emit */
+    "outDir": "./dist",
+    // "rootDir": "./", // Can be omitted or set to "./" if all source is at root
+
+    /* --- IMPORTANT ADDITION/CHANGE FOR MODULE RESOLUTION --- */
+    "moduleResolution": "node", // Explicitly use Node.js module resolution strategy
+    "baseUrl": "./",           // Base directory to resolve non-relative module names from
+    /* --- END IMPORTANT ADDITION/CHANGE --- */
+
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Type Checking */
+    "strict": true,
+
+    /* Completeness */
+    "skipLibCheck": true,
+
+    /* Type Roots (explicitly telling TypeScript where to find @types declaration files) */
+  },
+  "include": [
+    "./**/*.ts",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

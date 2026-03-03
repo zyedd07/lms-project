@@ -40,6 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const ResultController = __importStar(require("../controllers/Result.controller"));
 const auth_1 = __importStar(require("../middleware/auth"));
+const Result_controller_1 = require("../controllers/Result.controller");
 const router = express_1.default.Router();
 // Get my results (authenticated user's own results)
 router.get('/my-results', auth_1.default, ResultController.getMyResultsController);
@@ -51,6 +52,7 @@ router.get('/test/:testId', auth_1.default, auth_1.authorizeAdmin, ResultControl
 router.get('/user/:userId', auth_1.default, ResultController.getResultsByUserController);
 // Get all results (Admin only) - This should be BEFORE /:id route
 router.get('/all', auth_1.default, auth_1.authorizeAdmin, ResultController.getAllResultsController);
+router.get('/rankings/:testId', auth_1.default, Result_controller_1.getTestRankingsController);
 // Get result by ID - This should be LAST among GET routes
 router.get('/:id', auth_1.default, ResultController.getResultByIdController);
 // Create a new result (authenticated users)
